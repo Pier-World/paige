@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Bethany Elingston';
+  src: url('/fonts/BethanyElingston-Regular.woff2') format('woff2'),
+       url('/fonts/BethanyElingston-Regular.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  body {
+    @apply bg-white font-sans text-primary-900 antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-medium leading-tight;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl;
+  }
+
+  h4 {
+    @apply text-xl md:text-2xl;
+  }
+
+  p {
+    @apply leading-relaxed;
+  }
+}
+
+@layer components {
+  .container-custom {
+    @apply px-4 md:px-6 lg:px-8 mx-auto max-w-7xl;
+  }
+  
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md px-6 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-950 disabled:pointer-events-none disabled:opacity-50;
+  }
+  
+  .btn-primary {
+    @apply bg-primary-950 text-white hover:bg-primary-800;
+  }
+  
+  .btn-outline {
+    @apply border border-primary-950 bg-transparent hover:bg-primary-100 text-primary-950;
+  }
+  
+  .btn-ghost {
+    @apply bg-transparent hover:bg-primary-100 text-primary-950;
+  }
+  
+  .card {
+    @apply rounded-lg bg-white shadow-card overflow-hidden;
+  }
+
+  .input {
+    @apply h-12 rounded-md border border-primary-200 px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-950;
+  }
+}
+
+@layer utilities {
+  .transition-custom {
+    @apply transition-all duration-300 ease-in-out;
+  }
+}
