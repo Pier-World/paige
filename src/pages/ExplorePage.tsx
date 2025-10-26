@@ -4,6 +4,7 @@ import { FilterBar } from '../components/features/FilterBar';
 import { EventCard } from '../components/features/EventCard';
 import { Carousel } from '../components/ui/Carousel';
 import { mockEvents } from '../mocks/eventsData';
+import { supabase } from '../lib/supabase';
 import type { Event } from '../types';
 
 const ExplorePage: React.FC = () => {
@@ -28,56 +29,112 @@ const ExplorePage: React.FC = () => {
   ];
 
   useEffect(() => {
-    // Simulate API loading
-    const loadEvents = () => {
+    const loadEvents = async () => {
       setIsLoading(true);
-      setTimeout(() => {
+
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .order('date', { ascending: true });
+
+        if (error) {
+          console.error('Error fetching events:', error);
+          setFilteredEvents(mockEvents);
+          setFeaturedEvents(mockEvents.filter(event => event.featured));
+        } else if (data && data.length > 0) {
+          setFilteredEvents(data);
+          setFeaturedEvents(data.filter(event => event.featured));
+        } else {
+          setFilteredEvents(mockEvents);
+          setFeaturedEvents(mockEvents.filter(event => event.featured));
+        }
+      } catch (error) {
+        console.error('Failed to fetch events:', error);
         setFilteredEvents(mockEvents);
         setFeaturedEvents(mockEvents.filter(event => event.featured));
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
 
     loadEvents();
   }, []);
 
-  const handleFilterChange = (filters: {
+  const handleFilterChange = async (filters: {
     category: string | null;
     city: string | null;
     subfilter: string | null;
     search: string;
   }) => {
     setIsLoading(true);
-    
-    // Simulate API request delay
-    setTimeout(() => {
+
+    try {
+      let query = supabase
+        .from('events')
+        .select('*')
+        .order('date', { ascending: true });
+
+      // Filter by event type (check tags array)
+      if (filters.category && filters.category !== 'all') {
+        query = query.contains('tags', [filters.category]);
+      }
+
+      // Filter by city
+      if (filters.city) {
+        query = query.eq('city', filters.city);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error filtering events:', error);
+        throw error;
+      }
+
+      let filtered = data || [];
+
+      // Apply search filter on client side (more flexible)
+      if (filters.search && filtered.length > 0) {
+        const searchLower = filters.search.toLowerCase();
+        filtered = filtered.filter(
+          event =>
+            event.title.toLowerCase().includes(searchLower) ||
+            event.description.toLowerCase().includes(searchLower) ||
+            event.location.toLowerCase().includes(searchLower) ||
+            event.tags.some((tag: string) => tag.toLowerCase().includes(searchLower))
+        );
+      }
+
+      setFilteredEvents(filtered);
+    } catch (error) {
+      console.error('Failed to filter events:', error);
+      // Fallback to mock data on error
       let filtered = [...mockEvents];
-      
-      // Filter by event type
+
       if (filters.category && filters.category !== 'all') {
         filtered = filtered.filter(event => event.tags.includes(filters.category));
       }
-      
-      // Filter by city
+
       if (filters.city) {
         filtered = filtered.filter(event => event.city === filters.city);
       }
-      
-      // Filter by search term
+
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         filtered = filtered.filter(
-          event => 
+          event =>
             event.title.toLowerCase().includes(searchLower) ||
             event.description.toLowerCase().includes(searchLower) ||
             event.location.toLowerCase().includes(searchLower) ||
             event.tags.some(tag => tag.toLowerCase().includes(searchLower))
         );
       }
-      
+
       setFilteredEvents(filtered);
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   // Group events by city

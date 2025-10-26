@@ -5,6 +5,7 @@ import { ArrowLeft, MapPin, Calendar, Clock, ExternalLink, Calendar as CalendarI
 import { PageLayout } from '../components/layout/PageLayout';
 import { Button } from '../components/ui/Button';
 import { mockEvents } from '../mocks/eventsData';
+import { supabase } from '../lib/supabase';
 import type { Event } from '../types';
 
 const EventDetailPage: React.FC = () => {
@@ -14,14 +15,33 @@ const EventDetailPage: React.FC = () => {
   const [rsvpStatus, setRsvpStatus] = useState<'none' | 'pending' | 'confirmed'>('none');
   
   useEffect(() => {
-    // Simulate API loading
-    const loadEvent = () => {
+    const loadEvent = async () => {
       setIsLoading(true);
-      setTimeout(() => {
+
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error fetching event:', error);
+          const foundEvent = mockEvents.find(e => e.id === id);
+          setEvent(foundEvent || null);
+        } else if (data) {
+          setEvent(data);
+        } else {
+          const foundEvent = mockEvents.find(e => e.id === id);
+          setEvent(foundEvent || null);
+        }
+      } catch (error) {
+        console.error('Failed to fetch event:', error);
         const foundEvent = mockEvents.find(e => e.id === id);
         setEvent(foundEvent || null);
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
 
     loadEvent();
