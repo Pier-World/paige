@@ -151,10 +151,10 @@ const TravelPage: React.FC = () => {
 
   return (
     <PageLayout>
-      <div className="fixed inset-0 top-[80px] flex flex-col">
+      <div className="fixed inset-0 top-[80px] flex flex-col bg-white">
         {/* Header */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white py-8 px-6 border-b border-slate-700 flex-shrink-0">
-          <div className="container-custom">
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white py-6 px-6 border-b border-slate-700 flex-shrink-0">
+          <div className="max-w-3xl mx-auto">
             <div className="flex items-center gap-3 mb-2">
               <Sparkles className="text-amber-400" size={24} />
               <h1 className="text-3xl font-display font-medium">Travel Concierge</h1>
@@ -166,8 +166,8 @@ const TravelPage: React.FC = () => {
         </div>
 
         {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto bg-slate-50 px-6 py-8">
-          <div className="container-custom max-w-4xl mx-auto space-y-6">
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
             <AnimatePresence>
               {messages.map((message) => (
                 <MessageBubble key={message.id} message={message} />
@@ -183,7 +183,7 @@ const TravelPage: React.FC = () => {
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
                   <Sparkles size={18} className="text-white" />
                 </div>
-                <div className="bg-white rounded-2xl rounded-tl-sm px-6 py-4 shadow-sm">
+                <div className="bg-slate-100 rounded-2xl rounded-tl-sm px-6 py-4">
                   <div className="flex gap-1">
                     <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                     <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
@@ -197,27 +197,27 @@ const TravelPage: React.FC = () => {
         </div>
 
         {/* Input Area */}
-        <div className="bg-white border-t border-slate-200 px-6 py-6 flex-shrink-0">
-          <div className="container-custom max-w-4xl mx-auto">
+        <div className="border-t border-slate-200 px-6 py-4 flex-shrink-0 bg-white">
+          <div className="max-w-3xl mx-auto">
             <div className="relative">
               {/* Example Prompt Overlay */}
               {!inputValue && (
                 <AnimatePresence mode="wait">
                   <motion.button
                     key={currentExampleIndex}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.3 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
                     onClick={handleExampleClick}
-                    className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 text-left pointer-events-auto hover:text-slate-500 transition-colors z-10"
+                    className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-left pointer-events-auto hover:text-slate-500 transition-colors z-10 text-[15px]"
                   >
                     {EXAMPLE_PROMPTS[currentExampleIndex]}
                   </motion.button>
                 </AnimatePresence>
               )}
 
-              <div className="flex items-center gap-3 bg-slate-100 rounded-2xl p-2">
+              <div className="flex items-center gap-2 bg-slate-100 rounded-3xl px-4 py-3">
                 <input
                   ref={inputRef}
                   type="text"
@@ -225,15 +225,15 @@ const TravelPage: React.FC = () => {
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder=" "
-                  className="flex-1 bg-transparent px-4 py-3 outline-none text-slate-900 placeholder-transparent text-base"
+                  className="flex-1 bg-transparent outline-none text-slate-900 placeholder-transparent text-[15px]"
                 />
 
                 <button
                   onClick={toggleRecording}
-                  className={`p-3 rounded-xl transition-all flex-shrink-0 ${
+                  className={`p-2 rounded-full transition-all flex-shrink-0 ${
                     isRecording
                       ? 'bg-red-500 text-white animate-pulse'
-                      : 'bg-white text-slate-600 hover:bg-slate-200'
+                      : 'text-slate-600 hover:bg-slate-200'
                   }`}
                   title={isRecording ? 'Stop recording' : 'Start voice input'}
                 >
@@ -243,13 +243,13 @@ const TravelPage: React.FC = () => {
                 <button
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim()}
-                  className={`p-3 rounded-xl transition-all flex-shrink-0 ${
+                  className={`p-2 rounded-full transition-all flex-shrink-0 ${
                     inputValue.trim()
                       ? 'bg-slate-900 text-white hover:bg-slate-800'
-                      : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                   }`}
                 >
-                  <Send size={20} />
+                  <Send size={18} />
                 </button>
               </div>
             </div>
@@ -270,52 +270,51 @@ const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.2 }}
       className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}
     >
       {/* Avatar */}
       {!isUser && (
         <div
-          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
             isAgent
               ? 'bg-gradient-to-br from-emerald-500 to-emerald-600'
               : 'bg-gradient-to-br from-blue-500 to-blue-600'
           }`}
         >
-          {isAgent ? <Check size={18} className="text-white" /> : <Sparkles size={18} className="text-white" />}
+          {isAgent ? <Check size={16} className="text-white" /> : <Sparkles size={16} className="text-white" />}
         </div>
       )}
 
       {isUser && (
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center flex-shrink-0">
-          <User size={18} className="text-white" />
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center flex-shrink-0">
+          <User size={16} className="text-white" />
         </div>
       )}
 
       {/* Message Content */}
-      <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-[70%]`}>
+      <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} flex-1 min-w-0`}>
         {!isUser && (
-          <span className={`text-xs font-medium mb-1 px-1 ${isAgent ? 'text-emerald-600' : 'text-blue-600'}`}>
+          <span className={`text-xs font-medium mb-1.5 ${isAgent ? 'text-emerald-600' : 'text-blue-600'}`}>
             {isAgent ? 'Concierge Team' : 'AI Assistant'}
           </span>
         )}
 
         <div
-          className={`rounded-2xl px-6 py-4 shadow-sm ${
+          className={`rounded-2xl px-5 py-3 max-w-[85%] ${
             isUser
-              ? 'bg-slate-900 text-white rounded-tr-sm'
+              ? 'bg-slate-900 text-white'
               : isAgent
-              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-tl-sm'
-              : 'bg-white text-slate-900 rounded-tl-sm'
+              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+              : 'bg-slate-100 text-slate-900'
           }`}
         >
           <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
         </div>
 
-        <span className="text-xs text-slate-400 mt-1 px-1">
+        <span className="text-[11px] text-slate-400 mt-1">
           {message.timestamp.toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
