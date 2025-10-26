@@ -161,18 +161,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       });
 
-      if (signInError) throw signInError;
-      if (!data.user) throw new Error('No user returned from authentication');
+      if (signInError) {
+        setIsLoading(false);
+        return {
+          data: null,
+          error: signInError
+        };
+      }
+
+      if (!data.user) {
+        setIsLoading(false);
+        return {
+          data: null,
+          error: new Error('No user returned from authentication')
+        };
+      }
 
       const profile = await fetchUserProfile(data.user.id);
-      if (!profile) throw new Error('Failed to fetch user profile');
+      if (!profile) {
+        setIsLoading(false);
+        return {
+          data: null,
+          error: new Error('Failed to fetch user profile')
+        };
+      }
 
+      setIsLoading(false);
       return { data: profile, error: null };
     } catch (error) {
       setIsLoading(false);
-      return { 
-        data: null, 
-        error: error instanceof Error ? error : new Error('An unexpected error occurred') 
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error('An unexpected error occurred')
       };
     }
   };
