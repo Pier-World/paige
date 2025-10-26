@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { PageLayout } from '../components/layout/PageLayout';
 import { MemberCard } from '../components/features/MemberCard';
 import { Button } from '../components/ui/Button';
+import { TagSelector } from '../components/ui/TagSelector';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { Shield } from 'lucide-react';
@@ -50,10 +51,12 @@ const ProfilePage: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleMultiSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const { name } = e.target;
-    const values = Array.from(e.target.selectedOptions, option => option.value);
-    setFormData(prev => ({ ...prev, [name]: values }));
+  const handleCitiesChange = (cities: string[]) => {
+    setFormData(prev => ({ ...prev, preferredCities: cities }));
+  };
+
+  const handleInterestsChange = (interests: string[]) => {
+    setFormData(prev => ({ ...prev, interests: interests }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -222,43 +225,21 @@ const ProfilePage: React.FC = () => {
                   </div>
                 </div>
                 
-                <div>
-                  <label htmlFor="preferredCities" className="block text-sm font-medium text-primary-700 mb-1">
-                    Preferred Cities
-                  </label>
-                  <select
-                    id="preferredCities"
-                    name="preferredCities"
-                    multiple
-                    value={formData.preferredCities}
-                    onChange={handleMultiSelectChange}
-                    className="input w-full h-32"
-                  >
-                    {cityOptions.map(city => (
-                      <option key={city} value={city}>{city}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-primary-500 mt-1">Hold Ctrl (Windows) or Command (Mac) to select multiple options</p>
-                </div>
-                
-                <div>
-                  <label htmlFor="interests" className="block text-sm font-medium text-primary-700 mb-1">
-                    Interests
-                  </label>
-                  <select
-                    id="interests"
-                    name="interests"
-                    multiple
-                    value={formData.interests}
-                    onChange={handleMultiSelectChange}
-                    className="input w-full h-32"
-                  >
-                    {interestOptions.map(interest => (
-                      <option key={interest} value={interest}>{interest}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-primary-500 mt-1">Hold Ctrl (Windows) or Command (Mac) to select multiple options</p>
-                </div>
+                <TagSelector
+                  label="Preferred Cities"
+                  options={cityOptions}
+                  selected={formData.preferredCities}
+                  onChange={handleCitiesChange}
+                  placeholder="Add your preferred cities"
+                />
+
+                <TagSelector
+                  label="Interests"
+                  options={interestOptions}
+                  selected={formData.interests}
+                  onChange={handleInterestsChange}
+                  placeholder="Select your interests"
+                />
                 
                 <div className="flex justify-end space-x-4 pt-4">
                   <Button 
@@ -317,32 +298,32 @@ const ProfilePage: React.FC = () => {
                 </div>
                 
                 <div>
-                  <h3 className="text-sm font-medium text-primary-500 mb-1">Preferred Cities</h3>
+                  <h3 className="text-sm font-medium text-neutral-500 mb-2">Preferred Cities</h3>
                   {user.preferences?.preferred_cities && user.preferences.preferred_cities.length > 0 ? (
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="flex flex-wrap gap-2">
                       {user.preferences.preferred_cities.map(city => (
-                        <span key={city} className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm">
+                        <span key={city} className="inline-flex items-center px-4 py-2 bg-neutral-100 text-neutral-800 rounded-full text-sm font-medium">
                           {city}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-primary-500 italic">No preferred cities selected</p>
+                    <p className="text-neutral-400 italic text-sm">No preferred cities selected</p>
                   )}
                 </div>
-                
+
                 <div>
-                  <h3 className="text-sm font-medium text-primary-500 mb-1">Interests</h3>
+                  <h3 className="text-sm font-medium text-neutral-500 mb-2">Interests</h3>
                   {user.preferences?.interests && user.preferences.interests.length > 0 ? (
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="flex flex-wrap gap-2">
                       {user.preferences.interests.map(interest => (
-                        <span key={interest} className="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm">
+                        <span key={interest} className="inline-flex items-center px-4 py-2 bg-neutral-100 text-neutral-800 rounded-full text-sm font-medium">
                           {interest}
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-primary-500 italic">No interests selected</p>
+                    <p className="text-neutral-400 italic text-sm">No interests selected</p>
                   )}
                 </div>
                 
