@@ -46,7 +46,7 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [greeting, setGreeting] = useState('Good evening');
-  const [featuredPerks, setFeaturedPerks] = useState<any[]>([]);
+  const [featuredPerks, setFeaturedPerks] = useState<any[]>(mockFeaturedPerks);
   const [greetingComplete, setGreetingComplete] = useState(false);
   const [questionComplete, setQuestionComplete] = useState(false);
   const sectionsControls = useAnimation();
@@ -67,15 +67,26 @@ const HomePage: React.FC = () => {
   }, [questionComplete, sectionsControls]);
 
   const fetchFeaturedPerks = async () => {
-    const { data, error } = await supabase
-      .from('perks')
-      .select('*')
-      .eq('featured', true)
-      .limit(8);
+    try {
+      const { data, error } = await supabase
+        .from('perks')
+        .select('*')
+        .eq('featured', true)
+        .limit(8);
 
-    if (data) {
-      setFeaturedPerks(data);
-    } else {
+      if (error) {
+        console.error('Error fetching perks:', error);
+        setFeaturedPerks(mockFeaturedPerks);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        setFeaturedPerks(data);
+      } else {
+        setFeaturedPerks(mockFeaturedPerks);
+      }
+    } catch (error) {
+      console.error('Failed to fetch perks:', error);
       setFeaturedPerks(mockFeaturedPerks);
     }
   };
