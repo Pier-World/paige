@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, User, CreditCard } from 'lucide-react';
+import { Menu, X, User, CreditCard, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui/Button';
 import { MemberCard } from '../features/MemberCard';
@@ -10,8 +10,11 @@ export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMemberCardOpen, setIsMemberCardOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const { user, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -30,10 +33,29 @@ export const Navbar: React.FC = () => {
     // Close mobile menu when route changes
     setIsMenuOpen(false);
     setIsMemberCardOpen(false);
+    setIsProfileDropdownOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    // Close dropdown when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsProfileDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   const toggleMemberCard = () => setIsMemberCardOpen(!isMemberCardOpen);
+  const toggleProfileDropdown = () => setIsProfileDropdownOpen(!isProfileDropdownOpen);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/login');
+  };
 
   const navLinks = [
     { name: 'Home', path: '/' },
@@ -75,15 +97,71 @@ export const Navbar: React.FC = () => {
         {/* User Actions */}
         <div className="hidden md:flex items-center space-x-4">
           {user ? (
-            <>
-              <button className="flex items-center space-x-2 text-sm text-neutral-900 hover:text-neutral-600 transition-colors">
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={toggleProfileDropdown}
+                className="flex items-center space-x-2 text-sm text-neutral-900 hover:text-neutral-600 transition-colors"
+              >
                 <User size={18} />
                 <span>{user.first_name}</span>
-                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg" className="ml-1">
+                <svg
+                  width="12"
+                  height="8"
+                  viewBox="0 0 12 8"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`ml-1 transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`}
+                >
                   <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
-            </>
+
+              <AnimatePresence>
+                {isProfileDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-neutral-200 py-2"
+                  >
+                    <div className="px-4 py-3 border-b border-neutral-200">
+                      <p className="text-sm font-medium text-neutral-900">{user.first_name} {user.last_name}</p>
+                      <p className="text-xs text-neutral-500 mt-0.5">{user.email}</p>
+                      <p className="text-xs text-neutral-400 mt-1">{user.membership_level}</p>
+                    </div>
+
+                    <Link
+                      to="/profile"
+                      className="flex items-center space-x-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                      onClick={() => setIsProfileDropdownOpen(false)}
+                    >
+                      <User size={16} />
+                      <span>Profile Settings</span>
+                    </Link>
+
+                    <Link
+                      to="/membership"
+                      className="flex items-center space-x-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                      onClick={() => setIsProfileDropdownOpen(false)}
+                    >
+                      <Settings size={16} />
+                      <span>Membership</span>
+                    </Link>
+
+                    <div className="border-t border-neutral-200 my-1"></div>
+
+                    <button
+                      onClick={handleSignOut}
+                      className="flex items-center space-x-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut size={16} />
+                      <span>Sign Out</span>
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           ) : (
             <Link to="/login">
               <Button variant="primary" size="sm">
