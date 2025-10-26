@@ -51,9 +51,11 @@ const TravelPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom only within the messages container
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
   }, [messages]);
 
   // Initialize speech recognition
@@ -149,9 +151,9 @@ const TravelPage: React.FC = () => {
 
   return (
     <PageLayout>
-      <div className="flex flex-col h-[calc(100vh-80px)]">
+      <div className="fixed inset-0 top-[80px] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white py-8 px-6 border-b border-slate-700">
+        <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white py-8 px-6 border-b border-slate-700 flex-shrink-0">
           <div className="container-custom">
             <div className="flex items-center gap-3 mb-2">
               <Sparkles className="text-amber-400" size={24} />
@@ -195,7 +197,7 @@ const TravelPage: React.FC = () => {
         </div>
 
         {/* Input Area */}
-        <div className="bg-white border-t border-slate-200 px-6 py-6">
+        <div className="bg-white border-t border-slate-200 px-6 py-6 flex-shrink-0">
           <div className="container-custom max-w-4xl mx-auto">
             <div className="relative">
               {/* Example Prompt Overlay */}
@@ -208,14 +210,14 @@ const TravelPage: React.FC = () => {
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.3 }}
                     onClick={handleExampleClick}
-                    className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 text-left pointer-events-auto hover:text-slate-500 transition-colors"
+                    className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 text-left pointer-events-auto hover:text-slate-500 transition-colors z-10"
                   >
                     {EXAMPLE_PROMPTS[currentExampleIndex]}
                   </motion.button>
                 </AnimatePresence>
               )}
 
-              <div className="flex items-end gap-3 bg-slate-100 rounded-2xl p-2">
+              <div className="flex items-center gap-3 bg-slate-100 rounded-2xl p-2">
                 <input
                   ref={inputRef}
                   type="text"
@@ -223,12 +225,12 @@ const TravelPage: React.FC = () => {
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder=" "
-                  className="flex-1 bg-transparent px-4 py-3 outline-none text-slate-900 placeholder-transparent"
+                  className="flex-1 bg-transparent px-4 py-3 outline-none text-slate-900 placeholder-transparent text-base"
                 />
 
                 <button
                   onClick={toggleRecording}
-                  className={`p-3 rounded-xl transition-all ${
+                  className={`p-3 rounded-xl transition-all flex-shrink-0 ${
                     isRecording
                       ? 'bg-red-500 text-white animate-pulse'
                       : 'bg-white text-slate-600 hover:bg-slate-200'
@@ -241,7 +243,7 @@ const TravelPage: React.FC = () => {
                 <button
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim()}
-                  className={`p-3 rounded-xl transition-all ${
+                  className={`p-3 rounded-xl transition-all flex-shrink-0 ${
                     inputValue.trim()
                       ? 'bg-slate-900 text-white hover:bg-slate-800'
                       : 'bg-slate-300 text-slate-500 cursor-not-allowed'
