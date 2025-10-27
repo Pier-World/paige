@@ -273,7 +273,10 @@ export function generateSummaryMessage(intent: TravelIntent, userName: string): 
     }
 
     if (dates.length > 0) {
-      const formattedDates = dates.map(d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+      const formattedDates = dates.map(d => {
+        const date = new Date(d + 'T12:00:00Z');
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      });
       parts.push(`on ${formattedDates.join(' to ')}`);
     } else {
       missingInfo.push('travel dates');
@@ -296,8 +299,8 @@ export function generateSummaryMessage(intent: TravelIntent, userName: string): 
       parts.push(`hotel in ${city}`);
     }
     if (check_in && check_out) {
-      const formattedCheckin = new Date(check_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const formattedCheckout = new Date(check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const formattedCheckin = new Date(check_in + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      const formattedCheckout = new Date(check_out + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
       parts.push(`${formattedCheckin} to ${formattedCheckout}`);
     }
     if (brand_prefs && brand_prefs.length > 0) {

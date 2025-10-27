@@ -195,27 +195,79 @@ const TravelPage: React.FC = () => {
       await createMessage(conversationIdRef.current, 'in', 'user', userInput);
 
       const intent = parseTravelRequest(userInput);
+      const isFollowUp = activeTravelRequest && (intent.flight?.cabin || intent.hotel || intent.types.includes('other'));
 
-      const request = await createTravelRequest(user.id, userInput, intent);
-      setActiveTravelRequest(request);
+      let request = activeTravelRequest;
 
-      const summaryMessage = generateSummaryMessage(intent, user.first_name || 'there');
-
-      setTimeout(async () => {
-        const aiResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          content: summaryMessage,
-          sender: 'ai',
-          timestamp: new Date(),
+      if (isFollowUp && activeTravelRequest) {
+        const updatedIntent = {
+          ...activeTravelRequest.entities,
+          flight: {
+            ...activeTravelRequest.entities.flight,
+            ...intent.flight,
+          },
+          hotel: {
+            ...activeTravelRequest.entities.hotel,
+            ...intent.hotel,
+          },
         };
-        setMessages(prev => [...prev, aiResponse]);
-        setIsTyping(false);
 
-        await createMessage(conversationIdRef.current!, 'out', 'paige', summaryMessage, request.id);
+        await updateTravelRequest(activeTravelRequest.id, {
+          entities: updatedIntent,
+          raw_text: `${activeTravelRequest.raw_text}\n${userInput}`,
+        });
 
-        setSearching(true);
-        await generateMockResults(request.id, intent);
-      }, 1000);
+        request = {
+          ...activeTravelRequest,
+          entities: updatedIntent,
+          raw_text: `${activeTravelRequest.raw_text}\n${userInput}`,
+        };
+        setActiveTravelRequest(request);
+        updateIntent(updatedIntent);
+
+        const summaryMessage = generateSummaryMessage(updatedIntent, user.first_name || 'there');
+
+        setTimeout(async () => {
+          const aiResponse: Message = {
+            id: (Date.now() + 1).toString(),
+            content: summaryMessage,
+            sender: 'ai',
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, aiResponse]);
+          setIsTyping(false);
+
+          await createMessage(conversationIdRef.current!, 'out', 'paige', summaryMessage, request.id);
+
+          if (!summaryMessage.includes('could you also let me know')) {
+            setSearching(true);
+            await generateMockResults(request.id, updatedIntent);
+          }
+        }, 1000);
+      } else {
+        request = await createTravelRequest(user.id, userInput, intent);
+        setActiveTravelRequest(request);
+
+        const summaryMessage = generateSummaryMessage(intent, user.first_name || 'there');
+
+        setTimeout(async () => {
+          const aiResponse: Message = {
+            id: (Date.now() + 1).toString(),
+            content: summaryMessage,
+            sender: 'ai',
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, aiResponse]);
+          setIsTyping(false);
+
+          await createMessage(conversationIdRef.current!, 'out', 'paige', summaryMessage, request.id);
+
+          if (!summaryMessage.includes('could you also let me know')) {
+            setSearching(true);
+            await generateMockResults(request.id, intent);
+          }
+        }, 1000);
+      }
     } catch (error) {
       console.error('Error handling message:', error);
       setIsTyping(false);
