@@ -10,16 +10,26 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
     .maybeSingle();
 
   if (!profile.data) {
-    const newProfile = await supabase
-      .from('profiles')
-      .insert({ id: userId })
-      .select()
-      .maybeSingle();
-    profile = newProfile;
+    try {
+      const newProfile = await supabase
+        .from('profiles')
+        .insert({ id: userId })
+        .select()
+        .maybeSingle();
+      profile = newProfile;
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        profile = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+      }
+    }
   }
 
   if (!profile.data) {
-    throw new Error('Failed to create profile');
+    throw new Error('Failed to get profile');
   }
 
   let channel = await supabase
@@ -83,16 +93,26 @@ export async function createTravelRequest(
     .maybeSingle();
 
   if (!profile.data) {
-    const newProfile = await supabase
-      .from('profiles')
-      .insert({ id: userId })
-      .select()
-      .maybeSingle();
-    profile = newProfile;
+    try {
+      const newProfile = await supabase
+        .from('profiles')
+        .insert({ id: userId })
+        .select()
+        .maybeSingle();
+      profile = newProfile;
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        profile = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+      }
+    }
   }
 
   if (!profile.data) {
-    throw new Error('Failed to get or create profile');
+    throw new Error('Failed to get profile');
   }
 
   const intentType = intent.types[0] || 'other';

@@ -141,10 +141,10 @@ function extractDate(text: string, refDate: Date = new Date()): string | undefin
     return match[0];
   }
 
-  const monthDayRegex = /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})/i;
+  const monthDayRegex = /(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?/i;
   const monthMatch = text.match(monthDayRegex);
   if (monthMatch) {
-    const year = refDate.getFullYear();
+    let year = refDate.getFullYear();
     const monthMap: Record<string, number> = {
       jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
       jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
@@ -152,6 +152,10 @@ function extractDate(text: string, refDate: Date = new Date()): string | undefin
     const month = monthMap[monthMatch[1].toLowerCase().slice(0, 3)];
     const day = parseInt(monthMatch[2]);
     const date = new Date(year, month, day);
+    if (date < refDate) {
+      year += 1;
+      date.setFullYear(year);
+    }
     return date.toISOString().split('T')[0];
   }
 
@@ -254,6 +258,7 @@ export function parseTravelRequest(text: string): TravelIntent {
 
 export function generateSummaryMessage(intent: TravelIntent, userName: string): string {
   const parts: string[] = [];
+  const missingInfo: string[] = [];
 
   if (intent.flight) {
     const { from, to, depart, return: ret, cabin, passengers } = intent.flight;
@@ -262,13 +267,24 @@ export function generateSummaryMessage(intent: TravelIntent, userName: string): 
 
     if (route) {
       parts.push(`${route}`);
+    } else {
+      if (!from) missingInfo.push('departure city');
+      if (!to) missingInfo.push('destination');
     }
+
     if (dates.length > 0) {
-      parts.push(`on ${dates.join(' to ')}`);
+      const formattedDates = dates.map(d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+      parts.push(`on ${formattedDates.join(' to ')}`);
+    } else {
+      missingInfo.push('travel dates');
     }
+
     if (cabin) {
       parts.push(`in ${cabin} class`);
+    } else {
+      missingInfo.push('cabin preference (Economy, Business, or First class)');
     }
+
     if (passengers && passengers > 1) {
       parts.push(`for ${passengers} passengers`);
     }
@@ -280,7 +296,9 @@ export function generateSummaryMessage(intent: TravelIntent, userName: string): 
       parts.push(`hotel in ${city}`);
     }
     if (check_in && check_out) {
-      parts.push(`${check_in} to ${check_out}`);
+      const formattedCheckin = new Date(check_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const formattedCheckout = new Date(check_out).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      parts.push(`${formattedCheckin} to ${formattedCheckout}`);
     }
     if (brand_prefs && brand_prefs.length > 0) {
       parts.push(`preferably ${brand_prefs.join(' or ')}`);
@@ -291,5 +309,13 @@ export function generateSummaryMessage(intent: TravelIntent, userName: string): 
     return `Got it, ${userName}. I'm working on your request. Can you provide more details about what you're looking for?`;
   }
 
-  return `Perfect, ${userName}. I'm searching for ${parts.join(', ')}. I'll have options for you in just a moment.`;
+  let message = `Perfect, ${userName}. I'm searching for ${parts.join(', ')}.`;
+
+  if (missingInfo.length > 0) {
+    message += ` To provide the best options, could you also let me know your ${missingInfo.join(', ')}?`;
+  } else {
+    message += " I'll have options for you in just a moment.";
+  }
+
+  return message;
 }
