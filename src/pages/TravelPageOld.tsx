@@ -3,62 +3,47 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Mic, MicOff, User, Sparkles, Check } from 'lucide-react';
 import { PageLayout } from '../components/layout/PageLayout';
 import { useAuth } from '../context/AuthContext';
-import { SmartChipsBar } from '../components/features/SmartChipsBar';
-import { ResultCards } from '../components/features/ResultCards';
-import { BookingModal } from '../components/features/BookingModal';
-import useTravelStore from '../stores/travelStore';
-import { parseTravelRequest, generateSummaryMessage } from '../lib/travelParser';
-import {
-  getOrCreateConversation,
-  createTravelRequest,
-  createMessage,
-  updateTravelRequest,
-  subscribeToRequestUpdates,
-  subscribeToNewMessages,
-  generateMockResults,
-  getMessagesForConversation,
-} from '../lib/api/travelRequests';
 
 interface Message {
   id: string;
   content: string;
   sender: 'user' | 'ai' | 'agent';
   timestamp: Date;
+  isTyping?: boolean;
 }
 
 const EXAMPLE_PROMPTS = [
-  "Round trip NYC → Austin Friday to Sunday",
+  "2 tickets NYC to LA business class",
+  "Driver to take me from airport home this Friday",
   "Suite at The Ritz Paris next weekend",
   "Private jet to Miami for 4 passengers tomorrow",
-  "Business class flight to London, nonstop",
-  "Hotel in Paris, near the Louvre, 5 nights",
   "Restaurant reservation at Carbone on Saturday",
+  "Helicopter tour of Manhattan this afternoon",
+  "First class round trip to Tokyo in April",
+  "Yacht charter in the Hamptons for the weekend",
+  "Villa rental in Tuscany for two weeks",
+  "VIP tickets to the US Open finals"
 ];
 
 const TravelPage: React.FC = () => {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      content: `Good ${getTimeOfDay()}, ${user?.first_name || 'there'}! I'm your travel concierge assistant. I can help you book flights, hotels, ground transportation, dining reservations, and more. What would you like to arrange today?`,
+      sender: 'ai',
+      timestamp: new Date()
+    }
+  ]);
   const [inputValue, setInputValue] = useState('');
   const [isRecording, setIsRecording] = useState(false);
-  const [liveTranscript, setLiveTranscript] = useState('');
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
-  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
-  const conversationIdRef = useRef<string | null>(null);
 
-  const {
-    activeTravelRequest,
-    setActiveTravelRequest,
-    chips,
-    updateIntent,
-    setSearching,
-    setConversationId,
-    updateRequestStatus,
-  } = useTravelStore();
-
+  // Rotate example prompts
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentExampleIndex((prev) => (prev + 1) % EXAMPLE_PROMPTS.length);
@@ -66,160 +51,75 @@ const TravelPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Auto-scroll to bottom only within the messages container
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
-  }, [messages, chips]);
+  }, [messages]);
 
-  useEffect(() => {
-    const initConversation = async () => {
-      if (user?.id) {
-        try {
-          const convId = await getOrCreateConversation(user.id);
-          conversationIdRef.current = convId;
-          setConversationId(convId);
-
-          const existingMessages = await getMessagesForConversation(convId);
-          if (existingMessages.length > 0) {
-            setMessages(existingMessages.map(msg => ({
-              id: msg.id,
-              content: msg.body,
-              sender: msg.sent_by === 'user' ? 'user' : msg.sent_by === 'agent' ? 'agent' : 'ai',
-              timestamp: msg.created_at,
-            })));
-          } else {
-            const welcomeMsg: Message = {
-              id: '1',
-              content: `Good ${getTimeOfDay()}, ${user?.first_name || 'there'}! I'm Paige, your travel concierge assistant. I can help you book flights, hotels, ground transportation, and more. What would you like to arrange today?`,
-              sender: 'ai',
-              timestamp: new Date(),
-            };
-            setMessages([welcomeMsg]);
-          }
-
-          const unsubscribeMessages = subscribeToNewMessages(convId, (newMsg) => {
-            if (newMsg.sent_by !== 'user') {
-              setMessages(prev => [...prev, {
-                id: newMsg.id,
-                content: newMsg.body,
-                sender: newMsg.sent_by === 'agent' ? 'agent' : 'ai',
-                timestamp: newMsg.created_at,
-              }]);
-            }
-          });
-
-          return () => {
-            unsubscribeMessages();
-          };
-        } catch (error) {
-          console.error('Error initializing conversation:', error);
-        }
-      }
-    };
-
-    initConversation();
-  }, [user, setConversationId]);
-
-  useEffect(() => {
-    if (activeTravelRequest) {
-      const unsubscribe = subscribeToRequestUpdates(activeTravelRequest.id, (updatedRequest) => {
-        setActiveTravelRequest(updatedRequest);
-        if (updatedRequest.status === 'offered' && updatedRequest.results.length > 0) {
-          setSearching(false);
-        }
-      });
-
-      return () => {
-        unsubscribe();
-      };
-    }
-  }, [activeTravelRequest, setActiveTravelRequest, setSearching]);
-
+  // Initialize speech recognition
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
 
       recognitionRef.current.onresult = (event: any) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        if (finalTranscript) {
-          setInputValue(prev => prev + finalTranscript);
-          setLiveTranscript('');
-        } else {
-          setLiveTranscript(interimTranscript);
-        }
+        const transcript = event.results[0][0].transcript;
+        setInputValue(transcript);
+        setIsRecording(false);
       };
 
       recognitionRef.current.onerror = () => {
         setIsRecording(false);
-        setLiveTranscript('');
       };
 
       recognitionRef.current.onend = () => {
         setIsRecording(false);
-        setLiveTranscript('');
       };
     }
   }, []);
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || !user?.id || !conversationIdRef.current) return;
+    if (!inputValue.trim()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       content: inputValue,
       sender: 'user',
-      timestamp: new Date(),
+      timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const userInput = inputValue;
     setInputValue('');
     setIsTyping(true);
 
-    try {
-      await createMessage(conversationIdRef.current, 'in', 'user', userInput);
-
-      const intent = parseTravelRequest(userInput);
-
-      const request = await createTravelRequest(user.id, userInput, intent);
-      setActiveTravelRequest(request);
-
-      const summaryMessage = generateSummaryMessage(intent, user.first_name || 'there');
-
-      setTimeout(async () => {
-        const aiResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          content: summaryMessage,
-          sender: 'ai',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, aiResponse]);
-        setIsTyping(false);
-
-        await createMessage(conversationIdRef.current!, 'out', 'paige', summaryMessage, request.id);
-
-        setSearching(true);
-        await generateMockResults(request.id, intent);
-      }, 1000);
-    } catch (error) {
-      console.error('Error handling message:', error);
+    // Simulate AI response
+    setTimeout(() => {
+      const aiResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        content: generateAIResponse(userMessage.content),
+        sender: 'ai',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, aiResponse]);
       setIsTyping(false);
-    }
+
+      // Sometimes add agent follow-up
+      if (Math.random() > 0.7) {
+        setTimeout(() => {
+          const agentMessage: Message = {
+            id: (Date.now() + 2).toString(),
+            content: "A member of our concierge team will personally review your request and reach out within the hour to finalize details.",
+            sender: 'agent',
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, agentMessage]);
+        }, 2000);
+      }
+    }, 1500);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -238,7 +138,6 @@ const TravelPage: React.FC = () => {
     if (isRecording) {
       recognitionRef.current.stop();
       setIsRecording(false);
-      setLiveTranscript('');
     } else {
       recognitionRef.current.start();
       setIsRecording(true);
@@ -250,39 +149,10 @@ const TravelPage: React.FC = () => {
     inputRef.current?.focus();
   };
 
-  const handleConfirmBooking = async () => {
-    if (activeTravelRequest) {
-      await updateTravelRequest(activeTravelRequest.id, {
-        status: 'booked',
-      });
-      updateRequestStatus('booked');
-
-      const confirmMessage: Message = {
-        id: (Date.now() + 3).toString(),
-        content: "Your booking has been confirmed! You'll receive a confirmation email shortly with all the details. Is there anything else I can help you with?",
-        sender: 'agent',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, confirmMessage]);
-
-      if (conversationIdRef.current) {
-        await createMessage(
-          conversationIdRef.current,
-          'out',
-          'agent',
-          confirmMessage.content,
-          activeTravelRequest.id
-        );
-      }
-    }
-    setIsBookingModalOpen(false);
-  };
-
-  const selectedOffer = activeTravelRequest?.results.find(offer => offer.selected) || null;
-
   return (
     <PageLayout>
       <div className="fixed inset-0 top-[80px] flex flex-col bg-white">
+        {/* Header */}
         <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white py-6 px-6 border-b border-slate-700 flex-shrink-0">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-center gap-3 mb-2">
@@ -290,11 +160,12 @@ const TravelPage: React.FC = () => {
               <h1 className="text-3xl font-display font-medium">Travel Concierge</h1>
             </div>
             <p className="text-slate-300">
-              Chat with Paige, our AI assistant, or connect with a human concierge
+              Chat with our AI assistant or connect with a human concierge
             </p>
           </div>
         </div>
 
+        {/* Messages Container */}
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
             <AnimatePresence>
@@ -303,46 +174,16 @@ const TravelPage: React.FC = () => {
               ))}
             </AnimatePresence>
 
-            {chips.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="ml-11"
-              >
-                <SmartChipsBar />
-              </motion.div>
-            )}
-
-            {activeTravelRequest && activeTravelRequest.results.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-8"
-              >
-                <ResultCards />
-                {selectedOffer && (
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      onClick={() => setIsBookingModalOpen(true)}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-                    >
-                      Proceed to Booking
-                    </button>
-                  </div>
-                )}
-              </motion.div>
-            )}
-
             {isTyping && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-start gap-3"
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
-                  <Sparkles size={16} className="text-white" />
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+                  <Sparkles size={18} className="text-white" />
                 </div>
-                <div className="bg-slate-100 rounded-2xl rounded-tl-sm px-5 py-3">
+                <div className="bg-slate-100 rounded-2xl rounded-tl-sm px-6 py-4">
                   <div className="flex gap-1">
                     <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                     <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
@@ -355,15 +196,12 @@ const TravelPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Input Area */}
         <div className="border-t border-slate-200 px-6 py-4 flex-shrink-0 bg-white">
           <div className="max-w-3xl mx-auto">
-            {liveTranscript && (
-              <div className="mb-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-                <span className="font-medium">Listening: </span>{liveTranscript}
-              </div>
-            )}
             <div className="relative">
-              {!inputValue && !liveTranscript && (
+              {/* Example Prompt Overlay */}
+              {!inputValue && (
                 <AnimatePresence mode="wait">
                   <motion.button
                     key={currentExampleIndex}
@@ -422,13 +260,6 @@ const TravelPage: React.FC = () => {
           </div>
         </div>
       </div>
-
-      <BookingModal
-        isOpen={isBookingModalOpen}
-        onClose={() => setIsBookingModalOpen(false)}
-        selectedOffer={selectedOffer}
-        onConfirm={handleConfirmBooking}
-      />
     </PageLayout>
   );
 };
@@ -444,6 +275,7 @@ const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
       transition={{ duration: 0.2 }}
       className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}
     >
+      {/* Avatar */}
       {!isUser && (
         <div
           className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -462,10 +294,11 @@ const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
         </div>
       )}
 
+      {/* Message Content */}
       <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} flex-1 min-w-0`}>
         {!isUser && (
           <span className={`text-xs font-medium mb-1.5 ${isAgent ? 'text-emerald-600' : 'text-blue-600'}`}>
-            {isAgent ? 'Concierge Team' : 'Paige'}
+            {isAgent ? 'Concierge Team' : 'AI Assistant'}
           </span>
         )}
 
@@ -485,7 +318,7 @@ const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
           {message.timestamp.toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
-            hour12: true,
+            hour12: true
           })}
         </span>
       </div>
@@ -498,6 +331,32 @@ function getTimeOfDay(): string {
   if (hour < 12) return 'morning';
   if (hour < 18) return 'afternoon';
   return 'evening';
+}
+
+function generateAIResponse(userMessage: string): string {
+  const lowerMessage = userMessage.toLowerCase();
+
+  if (lowerMessage.includes('flight') || lowerMessage.includes('ticket')) {
+    return "I'd be happy to help you book your flight! Let me check availability for you. Could you confirm the dates you're looking to travel? I'll also check for any upgrades or lounge access available with your membership.";
+  }
+
+  if (lowerMessage.includes('hotel') || lowerMessage.includes('suite') || lowerMessage.includes('room')) {
+    return "Perfect! I'm searching for the best accommodations for you. With your membership level, I can secure complimentary upgrades, early check-in, and late checkout at our partner hotels. Let me prepare some options for you.";
+  }
+
+  if (lowerMessage.includes('driver') || lowerMessage.includes('car') || lowerMessage.includes('transport')) {
+    return "I'll arrange ground transportation for you right away. I can provide luxury vehicle options with professional drivers. Would you like a sedan, SUV, or something more specific?";
+  }
+
+  if (lowerMessage.includes('restaurant') || lowerMessage.includes('dinner') || lowerMessage.includes('reservation')) {
+    return "Excellent choice! I can secure reservations at exclusive restaurants, including those typically fully booked. Let me check availability and get back to you with confirmed options within the next few minutes.";
+  }
+
+  if (lowerMessage.includes('private jet') || lowerMessage.includes('charter')) {
+    return "I'll coordinate your private aviation needs. I'm reaching out to our aviation partners now to provide you with aircraft options, pricing, and availability. You should expect a detailed proposal shortly.";
+  }
+
+  return "I understand what you're looking for. Let me gather the best options for you and I'll follow up shortly with personalized recommendations. Our concierge team will also review this to ensure we exceed your expectations.";
 }
 
 export default TravelPage;
