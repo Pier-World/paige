@@ -3,20 +3,29 @@ import type { TravelIntent } from '../travelParser';
 import type { TravelRequest, TravelMessage, TravelOffer } from '../../stores/travelStore';
 
 export async function getOrCreateConversation(userId: string): Promise<string> {
-  const { data: profile } = await supabase
+  let profile = await supabase
     .from('profiles')
-    .select('id, member_id')
-    .eq('member_id', userId)
+    .select('id')
+    .eq('id', userId)
     .maybeSingle();
 
-  if (!profile) {
-    throw new Error('Profile not found');
+  if (!profile.data) {
+    const newProfile = await supabase
+      .from('profiles')
+      .insert({ id: userId })
+      .select()
+      .maybeSingle();
+    profile = newProfile;
+  }
+
+  if (!profile.data) {
+    throw new Error('Failed to create profile');
   }
 
   let channel = await supabase
     .from('channels')
     .select('id')
-    .eq('profile_id', profile.id)
+    .eq('profile_id', profile.data.id)
     .eq('type', 'front')
     .maybeSingle();
 
@@ -24,7 +33,7 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
     const newChannel = await supabase
       .from('channels')
       .insert({
-        profile_id: profile.id,
+        profile_id: profile.data.id,
         type: 'front',
       })
       .select()
@@ -67,14 +76,23 @@ export async function createTravelRequest(
   rawText: string,
   intent: TravelIntent
 ): Promise<TravelRequest> {
-  const { data: profile } = await supabase
+  let profile = await supabase
     .from('profiles')
-    .select('id, member_id')
-    .eq('member_id', userId)
+    .select('id')
+    .eq('id', userId)
     .maybeSingle();
 
-  if (!profile) {
-    throw new Error('Profile not found');
+  if (!profile.data) {
+    const newProfile = await supabase
+      .from('profiles')
+      .insert({ id: userId })
+      .select()
+      .maybeSingle();
+    profile = newProfile;
+  }
+
+  if (!profile.data) {
+    throw new Error('Failed to get or create profile');
   }
 
   const intentType = intent.types[0] || 'other';
@@ -82,7 +100,7 @@ export async function createTravelRequest(
   const { data, error } = await supabase
     .from('requests')
     .insert({
-      profile_id: profile.id,
+      profile_id: profile.data.id,
       intent: intentType,
       raw_text: rawText,
       entities: intent,
@@ -190,8 +208,8 @@ export async function getMessagesForConversation(
 export async function getLatestRequestForUser(userId: string): Promise<TravelRequest | null> {
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, member_id')
-    .eq('member_id', userId)
+    .select('id')
+    .eq('id', userId)
     .maybeSingle();
 
   if (!profile) {
