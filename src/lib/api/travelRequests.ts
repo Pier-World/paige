@@ -56,29 +56,19 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
     throw new Error('Failed to create channel');
   }
 
-  let conversation = await supabase
+  const newConversation = await supabase
     .from('conversations')
-    .select('id')
-    .eq('channel_id', channel.data.id)
-    .maybeSingle();
+    .insert({
+      channel_id: channel.data.id,
+    })
+    .select()
+    .single();
 
-  if (!conversation.data) {
-    const newConversation = await supabase
-      .from('conversations')
-      .insert({
-        channel_id: channel.data.id,
-      })
-      .select()
-      .single();
-
-    conversation = newConversation;
-  }
-
-  if (!conversation.data) {
+  if (!newConversation.data) {
     throw new Error('Failed to create conversation');
   }
 
-  return conversation.data.id;
+  return newConversation.data.id;
 }
 
 export async function createTravelRequest(

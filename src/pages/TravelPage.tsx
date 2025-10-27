@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Mic, MicOff, User, Sparkles, Check } from 'lucide-react';
+import { Send, Mic, MicOff, User, Sparkles, Check, Plus } from 'lucide-react';
 import { PageLayout } from '../components/layout/PageLayout';
 import { useAuth } from '../context/AuthContext';
 import { SmartChipsBar } from '../components/features/SmartChipsBar';
@@ -250,6 +250,33 @@ const TravelPage: React.FC = () => {
     inputRef.current?.focus();
   };
 
+  const handleNewConversation = async () => {
+    if (!user?.id) return;
+
+    try {
+      conversationIdRef.current = null;
+      setMessages([]);
+      setActiveTravelRequest(null);
+      setSearching(false);
+
+      const convId = await getOrCreateConversation(user.id);
+      conversationIdRef.current = convId;
+      setConversationId(convId);
+
+      const welcomeMsg: Message = {
+        id: Date.now().toString(),
+        content: `Good ${getTimeOfDay()}, ${user?.first_name || 'there'}! I'm Paige, your travel concierge assistant. I can help you book flights, hotels, ground transportation, and more. What would you like to arrange today?`,
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      setMessages([welcomeMsg]);
+
+      await createMessage(convId, 'out', 'ai', welcomeMsg.content);
+    } catch (error) {
+      console.error('Error creating new conversation:', error);
+    }
+  };
+
   const handleConfirmBooking = async () => {
     if (activeTravelRequest) {
       await updateTravelRequest(activeTravelRequest.id, {
@@ -285,9 +312,18 @@ const TravelPage: React.FC = () => {
       <div className="fixed inset-0 top-[80px] flex flex-col bg-white">
         <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white py-6 px-6 border-b border-slate-700 flex-shrink-0">
           <div className="max-w-3xl mx-auto">
-            <div className="flex items-center gap-3 mb-2">
-              <Sparkles className="text-amber-400" size={24} />
-              <h1 className="text-3xl font-display font-medium">Travel Concierge</h1>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <Sparkles className="text-amber-400" size={24} />
+                <h1 className="text-3xl font-display font-medium">Travel Concierge</h1>
+              </div>
+              <button
+                onClick={handleNewConversation}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-sm font-medium"
+              >
+                <Plus size={18} />
+                New Conversation
+              </button>
             </div>
             <p className="text-slate-300">
               Chat with Paige, our AI assistant, or connect with a human concierge
