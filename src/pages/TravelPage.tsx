@@ -15,8 +15,10 @@ import {
   updateTravelRequest,
   subscribeToRequestUpdates,
   subscribeToNewMessages,
-  generateMockResults,
+  searchWithOrchestrator,
   getMessagesForConversation,
+  syncConversationToFront,
+  requestHumanAgent,
 } from '../lib/api/travelRequests';
 
 interface Message {
@@ -97,6 +99,8 @@ const TravelPage: React.FC = () => {
             };
             setMessages([welcomeMsg]);
           }
+
+          await syncConversationToFront(convId, user.id, `Portal conversation started with ${user.first_name || 'user'}`);
 
           const unsubscribeMessages = subscribeToNewMessages(convId, (newMsg) => {
             if (newMsg.sent_by !== 'user') {
@@ -241,7 +245,7 @@ const TravelPage: React.FC = () => {
 
           if (!summaryMessage.includes('could you also let me know')) {
             setSearching(true);
-            await generateMockResults(request.id, updatedIntent);
+            await searchWithOrchestrator(request.id);
           }
         }, 1000);
       } else {
@@ -264,7 +268,7 @@ const TravelPage: React.FC = () => {
 
           if (!summaryMessage.includes('could you also let me know')) {
             setSearching(true);
-            await generateMockResults(request.id, intent);
+            await searchWithOrchestrator(request.id);
           }
         }, 1000);
       }
@@ -355,6 +359,41 @@ const TravelPage: React.FC = () => {
       }
     }
     setIsBookingModalOpen(false);
+  };
+
+  const handleRequestHumanAgent = async () => {
+    if (!activeTravelRequest) return;
+
+    try {
+      const systemMessage: Message = {
+        id: (Date.now() + 4).toString(),
+        content: "Connecting you to a human concierge agent. They'll be with you shortly and will have full context of our conversation.",
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, systemMessage]);
+
+      if (conversationIdRef.current) {
+        await createMessage(
+          conversationIdRef.current,
+          'out',
+          'paige',
+          systemMessage.content,
+          activeTravelRequest.id
+        );
+      }
+
+      await requestHumanAgent(activeTravelRequest.id);
+    } catch (error) {
+      console.error('Error requesting human agent:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 5).toString(),
+        content: "I'm having trouble connecting you to an agent. Please try again or contact support.",
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
   };
 
   const selectedOffer = activeTravelRequest?.results.find(offer => offer.selected) || null;
@@ -504,9 +543,19 @@ const TravelPage: React.FC = () => {
               </div>
             </div>
 
-            <p className="text-xs text-slate-500 mt-3 text-center">
-              Press Enter to send • Click the microphone to speak • Our team typically responds within 5 minutes
-            </p>
+            <div className="flex items-center justify-between mt-3">
+              <p className="text-xs text-slate-500 text-center flex-1">
+                Press Enter to send • Click the microphone to speak • Our team typically responds within 5 minutes
+              </p>
+              {activeTravelRequest && activeTravelRequest.status !== 'awaiting_approval' && activeTravelRequest.status !== 'booked' && (
+                <button
+                  onClick={handleRequestHumanAgent}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium px-3 py-1 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  Talk to Human Agent
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

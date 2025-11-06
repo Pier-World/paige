@@ -320,101 +320,102 @@ export function subscribeToNewMessages(
   };
 }
 
-export async function generateMockResults(requestId: string, intent: TravelIntent): Promise<void> {
-  await new Promise(resolve => setTimeout(resolve, 3000));
-
-  const mockResults: TravelOffer[] = [];
-
-  if (intent.flight) {
-    mockResults.push({
-      id: `flight-1-${Date.now()}`,
-      supplier_type: 'air',
-      summary: `${intent.flight.from || 'NYC'} → ${intent.flight.to || 'LAX'} - ${intent.flight.cabin || 'Business'} Class`,
-      terms: {
-        description: 'Nonstop flight with premium amenities',
-        dates: intent.flight.depart || 'TBD',
-        highlights: [
-          'Lie-flat seats',
-          'Priority boarding',
-          'Lounge access',
-        ],
-        per: 'per person',
-      },
-      price_cents: 289900,
-      currency: 'USD',
-      rank: 1,
-      selected: false,
-      image_url: 'https://images.pexels.com/photos/358319/pexels-photo-358319.jpeg?auto=compress&cs=tinysrgb&w=800',
+export async function searchWithOrchestrator(requestId: string): Promise<void> {
+  try {
+    const { data, error } = await supabase.functions.invoke('orchestrate-request', {
+      body: {
+        request_id: requestId,
+        source: 'portal'
+      }
     });
 
-    mockResults.push({
-      id: `flight-2-${Date.now()}`,
-      supplier_type: 'air',
-      summary: `${intent.flight.from || 'NYC'} → ${intent.flight.to || 'LAX'} - Premium Economy`,
-      terms: {
-        description: 'Comfortable seating with extra legroom',
-        dates: intent.flight.depart || 'TBD',
-        highlights: [
-          'Extra legroom',
-          'Priority check-in',
-          'Complimentary meal',
-        ],
-        per: 'per person',
-      },
-      price_cents: 129900,
-      currency: 'USD',
-      rank: 2,
-      selected: false,
-      image_url: 'https://images.pexels.com/photos/2026324/pexels-photo-2026324.jpeg?auto=compress&cs=tinysrgb&w=800',
+    if (error) {
+      console.error('Orchestrator error:', error);
+      await updateTravelRequest(requestId, {
+        status: 'failed',
+      });
+      throw error;
+    }
+
+  } catch (error) {
+    console.error('Error calling orchestrator:', error);
+    await updateTravelRequest(requestId, {
+      status: 'failed',
     });
+    throw error;
   }
+}
 
-  if (intent.hotel) {
-    mockResults.push({
-      id: `hotel-1-${Date.now()}`,
-      supplier_type: 'hotel',
-      summary: `${intent.hotel.brand_prefs?.[0] || 'Luxury Hotel'} - ${intent.hotel.city || 'Downtown'}`,
-      terms: {
-        description: '5-star luxury accommodation with spa',
-        dates: `${intent.hotel.check_in || 'TBD'} - ${intent.hotel.check_out || 'TBD'}`,
-        highlights: [
-          'Spa & wellness center',
-          'Michelin-star restaurant',
-          'Rooftop pool',
-        ],
-        per: 'per night',
-      },
-      price_cents: 75000,
-      currency: 'USD',
-      rank: 1,
-      selected: false,
-      image_url: 'https://images.pexels.com/photos/164595/pexels-photo-164595.jpeg?auto=compress&cs=tinysrgb&w=800',
+export async function syncConversationToFront(
+  conversationId: string,
+  profileId: string,
+  initialMessage?: string
+): Promise<string | null> {
+  try {
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select('front_conversation_id')
+      .eq('id', conversationId)
+      .maybeSingle();
+
+    if (conversation?.front_conversation_id) {
+      return conversation.front_conversation_id;
+    }
+
+    const { data, error } = await supabase.functions.invoke('front-inbound', {
+      body: {
+        conversation_id: conversationId,
+        profile_id: profileId,
+        initial_message: initialMessage,
+        source: 'portal'
+      }
     });
 
-    mockResults.push({
-      id: `hotel-2-${Date.now()}`,
-      supplier_type: 'hotel',
-      summary: `Boutique Hotel - ${intent.hotel.city || 'City Center'}`,
-      terms: {
-        description: 'Charming boutique property',
-        dates: `${intent.hotel.check_in || 'TBD'} - ${intent.hotel.check_out || 'TBD'}`,
-        highlights: [
-          'Complimentary breakfast',
-          'Concierge service',
-          'Central location',
-        ],
-        per: 'per night',
-      },
-      price_cents: 45000,
-      currency: 'USD',
-      rank: 2,
-      selected: false,
-      image_url: 'https://images.pexels.com/photos/338504/pexels-photo-338504.jpeg?auto=compress&cs=tinysrgb&w=800',
-    });
+    if (error) {
+      console.error('Front sync error:', error);
+      return null;
+    }
+
+    if (data?.front_conversation_id) {
+      await supabase
+        .from('conversations')
+        .update({ front_conversation_id: data.front_conversation_id })
+        .eq('id', conversationId);
+
+      return data.front_conversation_id;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error syncing to Front:', error);
+    return null;
   }
+}
 
-  await updateTravelRequest(requestId, {
-    results: mockResults,
-    status: 'offered',
-  });
+export async function requestHumanAgent(requestId: string): Promise<void> {
+  try {
+    await updateTravelRequest(requestId, {
+      status: 'awaiting_approval',
+    });
+
+    await supabase
+      .from('requests')
+      .update({ mode: 'human' })
+      .eq('id', requestId);
+
+    const { error } = await supabase.functions.invoke('front-approval', {
+      body: {
+        request_id: requestId,
+        escalate: true
+      }
+    });
+
+    if (error) {
+      console.error('Front approval error:', error);
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error requesting human agent:', error);
+    throw error;
+  }
 }
