@@ -76,17 +76,37 @@ const AMENITIES = [
 
 function extractAirportCode(text: string): string | undefined {
   const upperText = text.toUpperCase();
+  const trimmedText = text.trim();
 
-  for (const [city, codes] of Object.entries(AIRPORT_CODES)) {
-    if (upperText.includes(city.toUpperCase())) {
-      return codes[0];
+  const cityNames = [
+    { names: ['NEW YORK', 'NYC'], code: 'JFK' },
+    { names: ['LOS ANGELES', 'LA'], code: 'LAX' },
+    { names: ['SAN FRANCISCO', 'SF'], code: 'SFO' },
+    { names: ['CHICAGO'], code: 'ORD' },
+    { names: ['WASHINGTON', 'DC'], code: 'DCA' },
+    { names: ['MIAMI'], code: 'MIA' },
+    { names: ['LONDON'], code: 'LHR' },
+    { names: ['PARIS'], code: 'CDG' },
+    { names: ['TOKYO'], code: 'NRT' },
+    { names: ['AUSTIN'], code: 'AUS' },
+    { names: ['BOSTON'], code: 'BOS' },
+    { names: ['SEATTLE'], code: 'SEA' },
+    { names: ['DENVER'], code: 'DEN' },
+    { names: ['ATLANTA'], code: 'ATL' },
+  ];
+
+  for (const { names, code } of cityNames) {
+    for (const name of names) {
+      if (upperText === name || upperText.includes(` ${name} `) || upperText.startsWith(name + ' ') || upperText.endsWith(' ' + name)) {
+        return code;
+      }
     }
   }
 
-  const airportRegex = /\b([A-Z]{3})\b/g;
-  const matches = text.match(airportRegex);
-  if (matches && matches.length > 0) {
-    return matches[0];
+  const airportRegex = /\b([A-Z]{3})\b/;
+  const match = trimmedText.match(airportRegex);
+  if (match) {
+    return match[1];
   }
 
   return undefined;

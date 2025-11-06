@@ -208,7 +208,10 @@ const TravelPage: React.FC = () => {
       await createMessage(conversationIdRef.current, 'in', 'user', userInput);
 
       const intent = parseTravelRequest(userInput);
-      const isFollowUp = activeTravelRequest && (intent.flight?.cabin || intent.hotel || intent.types.includes('other'));
+      const isFollowUp = activeTravelRequest && (
+        activeTravelRequest.status === 'collecting' ||
+        userInput.split(' ').length < 15
+      );
 
       let request = activeTravelRequest;
 
