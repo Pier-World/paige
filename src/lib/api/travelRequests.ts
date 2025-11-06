@@ -320,11 +320,12 @@ export function subscribeToNewMessages(
   };
 }
 
-export async function searchWithOrchestrator(requestId: string): Promise<void> {
+export async function searchWithOrchestrator(requestId: string, rawText: string): Promise<void> {
   try {
     const { data, error } = await supabase.functions.invoke('orchestrate-request', {
       body: {
         request_id: requestId,
+        text: rawText,
         source: 'portal'
       }
     });

@@ -151,8 +151,9 @@ function extractDate(text: string, refDate: Date = new Date()): string | undefin
     };
     const month = monthMap[monthMatch[1].toLowerCase().slice(0, 3)];
     const day = parseInt(monthMatch[2]);
-    const date = new Date(year, month, day);
-    if (date < refDate) {
+    const date = new Date(year, month, day, 12, 0, 0, 0);
+    const refDateMidnight = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate(), 0, 0, 0, 0);
+    if (date < refDateMidnight) {
       year += 1;
       date.setFullYear(year);
     }
@@ -194,8 +195,14 @@ export function parseTravelRequest(text: string): TravelIntent {
     intent.types.push(hasPrivateJetKeywords ? 'private_jet' : 'flight');
 
     const parts = text.split(/\s+(?:to|→)\s+/i);
-    const from = parts.length > 1 ? extractAirportCode(parts[0]) : undefined;
-    const to = parts.length > 1 ? extractAirportCode(parts[1]) : undefined;
+    let from: string | undefined;
+    let to: string | undefined;
+
+    if (parts.length > 1) {
+      from = extractAirportCode(parts[0]);
+      const destinationPart = parts[1].split(/\s+on\s+/i)[0];
+      to = extractAirportCode(destinationPart);
+    }
 
     intent.flight = {
       from,
@@ -257,68 +264,80 @@ export function parseTravelRequest(text: string): TravelIntent {
 }
 
 export function generateSummaryMessage(intent: TravelIntent, userName: string): string {
-  const parts: string[] = [];
   const missingInfo: string[] = [];
+  let routeDescription = '';
+  let datesDescription = '';
+  let cabinDescription = '';
+  let tripType = 'one way';
 
   if (intent.flight) {
-    const { from, to, depart, return: ret, cabin, passengers } = intent.flight;
-    const route = [from, to].filter(Boolean).join(' → ');
-    const dates = [depart, ret].filter(Boolean);
+    const { from, to, depart, return: ret, cabin, passengers, nonstop } = intent.flight;
 
-    if (route) {
-      parts.push(`${route}`);
-    } else {
-      if (!from) missingInfo.push('departure city');
-      if (!to) missingInfo.push('destination');
+    if (!from) missingInfo.push('departure city');
+    if (!to) missingInfo.push('destination');
+    if (!depart) missingInfo.push('travel dates');
+    if (!cabin) missingInfo.push('cabin preference (Economy, Business, or First class)');
+
+    const fromCity = from && from.length === 3 ? getCityName(from) || from : from;
+    const toCity = to && to.length === 3 ? getCityName(to) || to : to;
+
+    if (from && to) {
+      routeDescription = `from ${fromCity} to ${toCity}`;
+    } else if (to) {
+      routeDescription = `to ${toCity}`;
     }
 
-    if (dates.length > 0) {
-      const formattedDates = dates.map(d => {
-        const date = new Date(d + 'T12:00:00Z');
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-      });
-      parts.push(`on ${formattedDates.join(' to ')}`);
-    } else {
-      missingInfo.push('travel dates');
+    if (depart) {
+      const departDate = new Date(depart + 'T12:00:00Z');
+      const formattedDepart = departDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+      if (ret) {
+        const returnDate = new Date(ret + 'T12:00:00Z');
+        const formattedReturn = returnDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+        datesDescription = `on ${formattedDepart}`;
+        tripType = 'round trip';
+      } else {
+        datesDescription = `on ${formattedDepart}`;
+        tripType = 'one way';
+      }
     }
 
     if (cabin) {
-      parts.push(`in ${cabin} class`);
-    } else {
-      missingInfo.push('cabin preference (Economy, Business, or First class)');
-    }
-
-    if (passengers && passengers > 1) {
-      parts.push(`for ${passengers} passengers`);
+      cabinDescription = ` ${cabin.toLowerCase()} class`;
     }
   }
 
-  if (intent.hotel) {
-    const { city, check_in, check_out, brand_prefs } = intent.hotel;
-    if (city) {
-      parts.push(`hotel in ${city}`);
-    }
-    if (check_in && check_out) {
-      const formattedCheckin = new Date(check_in + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-      const formattedCheckout = new Date(check_out + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-      parts.push(`${formattedCheckin} to ${formattedCheckout}`);
-    }
-    if (brand_prefs && brand_prefs.length > 0) {
-      parts.push(`preferably ${brand_prefs.join(' or ')}`);
-    }
+  if (missingInfo.length > 0) {
+    return `Got it, ${userName}. To provide the best options, could you please share your ${missingInfo.join(', ')}?`;
   }
 
-  if (parts.length === 0) {
+  if (!routeDescription) {
     return `Got it, ${userName}. I'm working on your request. Can you provide more details about what you're looking for?`;
   }
 
-  let message = `Perfect, ${userName}. I'm searching for ${parts.join(', ')}.`;
+  return `Perfect, ${userName}! I'm looking into ${tripType}${cabinDescription} flights ${routeDescription} ${datesDescription}. I'll present a few options that should be better than what you'd be able to find regularly.`;
+}
 
-  if (missingInfo.length > 0) {
-    message += ` To provide the best options, could you also let me know your ${missingInfo.join(', ')}?`;
-  } else {
-    message += " I'll have options for you in just a moment.";
-  }
+function getCityName(code: string): string | undefined {
+  const cityMap: Record<string, string> = {
+    'JFK': 'New York', 'LGA': 'New York', 'EWR': 'New York',
+    'LAX': 'Los Angeles', 'BUR': 'Los Angeles', 'SNA': 'Los Angeles',
+    'SFO': 'San Francisco', 'OAK': 'San Francisco', 'SJC': 'San Francisco',
+    'ORD': 'Chicago', 'MDW': 'Chicago',
+    'DCA': 'Washington DC', 'IAD': 'Washington DC', 'BWI': 'Washington DC',
+    'MIA': 'Miami', 'FLL': 'Miami',
+    'LHR': 'London', 'LGW': 'London', 'STN': 'London',
+    'CDG': 'Paris', 'ORY': 'Paris',
+    'NRT': 'Tokyo', 'HND': 'Tokyo',
+    'AUS': 'Austin',
+    'BOS': 'Boston',
+    'SEA': 'Seattle',
+    'DEN': 'Denver',
+    'ATL': 'Atlanta',
+    'PHX': 'Phoenix',
+    'LAS': 'Las Vegas',
+    'MCO': 'Orlando',
+  };
 
-  return message;
+  return cityMap[code.toUpperCase()];
 }

@@ -100,7 +100,16 @@ const TravelPage: React.FC = () => {
             setMessages([welcomeMsg]);
           }
 
-          await syncConversationToFront(convId, user.id, `Portal conversation started with ${user.first_name || 'user'}`);
+          try {
+            const frontId = await syncConversationToFront(convId, user.id, `Portal conversation started with ${user.first_name || 'user'}`);
+            if (frontId) {
+              console.log('Successfully synced to Front:', frontId);
+            } else {
+              console.warn('Front sync returned null - conversation may not have been created');
+            }
+          } catch (error) {
+            console.error('Failed to sync to Front:', error);
+          }
 
           const unsubscribeMessages = subscribeToNewMessages(convId, (newMsg) => {
             if (newMsg.sent_by !== 'user') {
@@ -245,7 +254,7 @@ const TravelPage: React.FC = () => {
 
           if (!summaryMessage.includes('could you also let me know')) {
             setSearching(true);
-            await searchWithOrchestrator(request.id);
+            await searchWithOrchestrator(request.id, userInput);
           }
         }, 1000);
       } else {
@@ -268,7 +277,7 @@ const TravelPage: React.FC = () => {
 
           if (!summaryMessage.includes('could you also let me know')) {
             setSearching(true);
-            await searchWithOrchestrator(request.id);
+            await searchWithOrchestrator(request.id, userInput);
           }
         }, 1000);
       }
