@@ -7,6 +7,7 @@ import { SmartChipsBar } from '../components/features/SmartChipsBar';
 import { ResultCards } from '../components/features/ResultCards';
 import { BookingModal } from '../components/features/BookingModal';
 import useTravelStore from '../stores/travelStore';
+import { supabase } from '../lib/supabase';
 import { parseTravelRequest, generateSummaryMessage } from '../lib/travelParser';
 import {
   getOrCreateConversation,
@@ -113,6 +114,7 @@ const TravelPage: React.FC = () => {
 
           const unsubscribeMessages = subscribeToNewMessages(convId, (newMsg) => {
             if (newMsg.sent_by !== 'user') {
+              setIsTyping(false);
               setMessages(prev => [...prev, {
                 id: newMsg.id,
                 content: newMsg.body,
@@ -205,88 +207,38 @@ const TravelPage: React.FC = () => {
     setIsTyping(true);
 
     try {
-      await createMessage(conversationIdRef.current, 'in', 'user', userInput);
+      const messageRecord = await createMessage(conversationIdRef.current, 'in', 'user', userInput, activeTravelRequest?.id);
 
-      const intent = parseTravelRequest(userInput);
-      const isFollowUp = activeTravelRequest && (
-        activeTravelRequest.status === 'collecting' ||
-        userInput.split(' ').length < 15
-      );
+      console.log('Message sent, calling orchestrator:', {
+        message_id: messageRecord.id,
+        conversation_id: conversationIdRef.current,
+        text: userInput
+      });
 
-      let request = activeTravelRequest;
+      const { data, error } = await supabase.functions.invoke('orchestrate-request', {
+        body: {
+          message_id: messageRecord.id,
+          source: 'portal'
+        }
+      });
 
-      if (isFollowUp && activeTravelRequest) {
-        const updatedIntent = {
-          ...activeTravelRequest.entities,
-          flight: {
-            ...activeTravelRequest.entities.flight,
-            ...intent.flight,
-          },
-          hotel: {
-            ...activeTravelRequest.entities.hotel,
-            ...intent.hotel,
-          },
-        };
-
-        await updateTravelRequest(activeTravelRequest.id, {
-          entities: updatedIntent,
-          raw_text: `${activeTravelRequest.raw_text}\n${userInput}`,
-        });
-
-        request = {
-          ...activeTravelRequest,
-          entities: updatedIntent,
-          raw_text: `${activeTravelRequest.raw_text}\n${userInput}`,
-        };
-        setActiveTravelRequest(request);
-        updateIntent(updatedIntent);
-
-        const summaryMessage = generateSummaryMessage(updatedIntent, user.first_name || 'there');
-
-        setTimeout(async () => {
-          const aiResponse: Message = {
-            id: (Date.now() + 1).toString(),
-            content: summaryMessage,
-            sender: 'ai',
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, aiResponse]);
-          setIsTyping(false);
-
-          await createMessage(conversationIdRef.current!, 'out', 'paige', summaryMessage, request.id);
-
-          if (!summaryMessage.includes('could you also let me know')) {
-            setSearching(true);
-            await searchWithOrchestrator(request.id, userInput);
-          }
-        }, 1000);
-      } else {
-        request = await createTravelRequest(user.id, userInput, intent);
-        setActiveTravelRequest(request);
-
-        const summaryMessage = generateSummaryMessage(intent, user.first_name || 'there');
-
-        setTimeout(async () => {
-          const aiResponse: Message = {
-            id: (Date.now() + 1).toString(),
-            content: summaryMessage,
-            sender: 'ai',
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, aiResponse]);
-          setIsTyping(false);
-
-          await createMessage(conversationIdRef.current!, 'out', 'paige', summaryMessage, request.id);
-
-          if (!summaryMessage.includes('could you also let me know')) {
-            setSearching(true);
-            await searchWithOrchestrator(request.id, userInput);
-          }
-        }, 1000);
+      if (error) {
+        console.error('Orchestrator error:', error);
+        throw error;
       }
+
+      console.log('Orchestrator success:', data);
+
     } catch (error) {
-      console.error('Error handling message:', error);
+      console.error('Error calling orchestrator:', error);
       setIsTyping(false);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: "I'm having trouble processing your request. Please try again.",
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
     }
   };
 
@@ -418,7 +370,7 @@ const TravelPage: React.FC = () => {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
                 <Sparkles className="text-amber-400" size={24} />
-                <h1 className="text-3xl font-display font-medium">Travel Concierge</h1>
+                <h1 className="text-3xl font-display font-medium">Make a Request</h1>
               </div>
               <button
                 onClick={handleNewConversation}
