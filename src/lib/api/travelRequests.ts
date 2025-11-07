@@ -463,12 +463,11 @@ export async function syncConversationToFront(
       return conversation.front_conversation_id;
     }
 
-    const { data, error } = await supabase.functions.invoke('front-inbound', {
+    const { data, error } = await supabase.functions.invoke('create-front-conversation', {
       body: {
         conversation_id: conversationId,
         profile_id: profileId,
-        initial_message: initialMessage,
-        source: 'portal'
+        initial_message: initialMessage
       }
     });
 

@@ -228,12 +228,12 @@ const TravelPage: React.FC = () => {
       }
 
       try {
-        console.log('Calling orchestrator with message_id:', messageRecord.id);
+        console.log('Calling orchestrator with request_id:', requestId, 'conversation_id:', conversationIdRef.current);
 
-        const orchPromise = supabase.functions.invoke('orchestrate-request', {
+        const orchPromise = supabase.functions.invoke('ai-orchestrator', {
           body: {
-            message_id: messageRecord.id,
-            source: 'portal'
+            request_id: requestId,
+            conversation_id: conversationIdRef.current
           }
         });
 
