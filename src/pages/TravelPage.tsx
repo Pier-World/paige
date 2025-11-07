@@ -227,22 +227,41 @@ const TravelPage: React.FC = () => {
         }
       }
 
-      setIsTyping(false);
+      try {
+        console.log('Calling orchestrator with message_id:', messageRecord.id);
 
-      const aiResponse = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationIdRef.current,
-          direction: 'out',
-          sent_by: 'paige',
-          body: 'Thank you for your request! I\'ve notified our concierge team. They\'ll review your request and get back to you with options shortly. In the meantime, feel free to provide any additional details or click "Talk to Human Agent" below for immediate assistance.',
-          request_id: requestId
-        })
-        .select()
-        .single();
+        const { data: orchData, error: orchError } = await supabase.functions.invoke('orchestrate-request', {
+          body: {
+            message_id: messageRecord.id,
+            source: 'portal'
+          }
+        });
 
-      if (!aiResponse.error) {
-        console.log('✅ Created response and synced to Front');
+        if (orchError) {
+          console.error('Orchestrator error:', orchError);
+          throw orchError;
+        }
+
+        console.log('✅ Orchestrator called successfully');
+      } catch (orchError) {
+        console.error('❌ Orchestrator failed:', orchError);
+
+        setIsTyping(false);
+        const fallbackResponse = await supabase
+          .from('messages')
+          .insert({
+            conversation_id: conversationIdRef.current,
+            direction: 'out',
+            sent_by: 'paige',
+            body: 'Thank you for your request! I\'ve notified our concierge team. They\'ll review your request and get back to you with options shortly. For immediate assistance, please click "Talk to Human Agent" below.',
+            request_id: requestId
+          })
+          .select()
+          .single();
+
+        if (!fallbackResponse.error) {
+          console.log('✅ Fallback response created');
+        }
       }
 
     } catch (error) {
@@ -342,9 +361,16 @@ const TravelPage: React.FC = () => {
   };
 
   const handleRequestHumanAgent = async () => {
-    if (!activeTravelRequest) return;
+    console.log('🔘 Human agent button clicked');
+    console.log('Active request:', activeTravelRequest);
+
+    if (!activeTravelRequest) {
+      console.error('❌ No active travel request');
+      return;
+    }
 
     try {
+      console.log('✅ Creating system message...');
       const systemMessage: Message = {
         id: (Date.now() + 4).toString(),
         content: "Connecting you to a human concierge agent. They'll be with you shortly and will have full context of our conversation.",
@@ -354,6 +380,7 @@ const TravelPage: React.FC = () => {
       setMessages(prev => [...prev, systemMessage]);
 
       if (conversationIdRef.current) {
+        console.log('✅ Saving message to database...');
         await createMessage(
           conversationIdRef.current,
           'out',
@@ -363,9 +390,11 @@ const TravelPage: React.FC = () => {
         );
       }
 
+      console.log('✅ Calling requestHumanAgent...');
       await requestHumanAgent(activeTravelRequest.id);
+      console.log('✅ Human agent requested successfully');
     } catch (error) {
-      console.error('Error requesting human agent:', error);
+      console.error('❌ Error requesting human agent:', error);
       const errorMessage: Message = {
         id: (Date.now() + 5).toString(),
         content: "I'm having trouble connecting you to an agent. Please try again or contact support.",

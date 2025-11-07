@@ -458,16 +458,27 @@ export async function syncConversationToFront(
 
 export async function requestHumanAgent(requestId: string): Promise<void> {
   try {
+    console.log('🔄 Updating request status to awaiting_approval...', requestId);
     await updateTravelRequest(requestId, {
       status: 'awaiting_approval',
     });
+    console.log('✅ Status updated');
 
-    await supabase
+    console.log('🔄 Updating request mode to human...');
+    const { data: modeUpdate, error: modeError } = await supabase
       .from('requests')
       .update({ mode: 'human' })
-      .eq('id', requestId);
+      .eq('id', requestId)
+      .select();
 
-    const { error } = await supabase.functions.invoke('front-approval', {
+    if (modeError) {
+      console.error('❌ Mode update error:', modeError);
+      throw modeError;
+    }
+    console.log('✅ Mode updated:', modeUpdate);
+
+    console.log('🔄 Calling front-approval edge function...');
+    const { data, error } = await supabase.functions.invoke('front-approval', {
       body: {
         request_id: requestId,
         escalate: true
@@ -475,11 +486,13 @@ export async function requestHumanAgent(requestId: string): Promise<void> {
     });
 
     if (error) {
-      console.error('Front approval error:', error);
+      console.error('❌ Front approval error:', error);
       throw error;
     }
+
+    console.log('✅ Front approval response:', data);
   } catch (error) {
-    console.error('Error requesting human agent:', error);
+    console.error('❌ Error requesting human agent:', error);
     throw error;
   }
 }
