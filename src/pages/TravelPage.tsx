@@ -250,7 +250,7 @@ const TravelPage: React.FC = () => {
           .insert({
             conversation_id: conversationIdRef.current,
             direction: 'out',
-            sent_by: 'ai',
+            sent_by: 'paige',
             body: 'Thank you for your request. Our team has been notified and will respond shortly. For immediate assistance, please click "Talk to Human Agent" below.',
             request_id: requestId
           })
