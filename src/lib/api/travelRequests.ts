@@ -3,27 +3,38 @@ import type { TravelIntent } from '../travelParser';
 import type { TravelRequest, TravelMessage, TravelOffer } from '../../stores/travelStore';
 
 export async function getOrCreateConversation(userId: string): Promise<string> {
+  console.log('🔄 Getting/creating conversation for user:', userId);
+
   let profile = await supabase
     .from('profiles')
     .select('id')
     .eq('id', userId)
     .maybeSingle();
 
+  console.log('Profile query result:', profile);
+
   if (!profile.data) {
+    console.log('📝 Creating new profile...');
     try {
       const newProfile = await supabase
         .from('profiles')
         .insert({ id: userId })
         .select()
         .maybeSingle();
+
+      console.log('Profile insert result:', newProfile);
       profile = newProfile;
     } catch (error: any) {
+      console.error('Profile insert error:', error);
       if (error?.code === '23505') {
+        console.log('Profile exists, fetching...');
         profile = await supabase
           .from('profiles')
           .select('id')
           .eq('id', userId)
           .maybeSingle();
+      } else {
+        throw error;
       }
     }
   }
@@ -32,6 +43,9 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
     throw new Error('Failed to get profile');
   }
 
+  console.log('✅ Profile ready:', profile.data.id);
+
+  console.log('🔄 Getting/creating channel...');
   let channel = await supabase
     .from('channels')
     .select('id')
@@ -39,7 +53,10 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
     .eq('type', 'portal')
     .maybeSingle();
 
+  console.log('Channel query result:', channel);
+
   if (!channel.data) {
+    console.log('📝 Creating new channel...');
     const newChannel = await supabase
       .from('channels')
       .insert({
@@ -50,6 +67,13 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
       .select()
       .single();
 
+    console.log('Channel insert result:', newChannel);
+
+    if (newChannel.error) {
+      console.error('❌ Channel insert error:', newChannel.error);
+      throw new Error(`Failed to create channel: ${newChannel.error.message}`);
+    }
+
     channel = newChannel;
   }
 
@@ -57,6 +81,9 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
     throw new Error('Failed to create channel');
   }
 
+  console.log('✅ Channel ready:', channel.data.id);
+
+  console.log('🔄 Creating conversation...');
   const newConversation = await supabase
     .from('conversations')
     .insert({
@@ -65,10 +92,18 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
     .select()
     .single();
 
+  console.log('Conversation insert result:', newConversation);
+
+  if (newConversation.error) {
+    console.error('❌ Conversation insert error:', newConversation.error);
+    throw new Error(`Failed to create conversation: ${newConversation.error.message}`);
+  }
+
   if (!newConversation.data) {
     throw new Error('Failed to create conversation');
   }
 
+  console.log('✅ Conversation created:', newConversation.data.id);
   return newConversation.data.id;
 }
 
