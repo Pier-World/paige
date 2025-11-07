@@ -108,7 +108,7 @@ export async function createMinimalRequest(
     .from('requests')
     .insert({
       profile_id: profile.data.id,
-      intent: 'general',
+      intent: 'other',
       raw_text: rawText,
       entities: { types: [] },
       status: 'collecting',

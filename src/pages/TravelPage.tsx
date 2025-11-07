@@ -100,17 +100,6 @@ const TravelPage: React.FC = () => {
             setMessages([welcomeMsg]);
           }
 
-          try {
-            const frontId = await syncConversationToFront(convId, user.id, `Portal conversation started with ${user.first_name || 'user'}`);
-            if (frontId) {
-              console.log('Successfully synced to Front:', frontId);
-            } else {
-              console.warn('Front sync returned null - conversation may not have been created');
-            }
-          } catch (error) {
-            console.error('Failed to sync to Front:', error);
-          }
-
           const unsubscribeMessages = subscribeToNewMessages(convId, (newMsg) => {
             if (newMsg.sent_by !== 'user') {
               setIsTyping(false);
@@ -207,12 +196,28 @@ const TravelPage: React.FC = () => {
 
     try {
       let requestId = activeTravelRequest?.id;
+      const isFirstMessage = !requestId;
 
       if (!requestId) {
         const newRequest = await createMinimalRequest(user.id, userInput);
         requestId = newRequest.id;
         setActiveTravelRequest(newRequest);
         console.log('Created minimal request for orchestrator:', requestId);
+      }
+
+      if (isFirstMessage) {
+        console.log('First message - syncing to Front inbox...');
+        const frontConvId = await syncConversationToFront(
+          conversationIdRef.current,
+          user.id,
+          userInput
+        );
+
+        if (frontConvId) {
+          console.log('Successfully synced to Front:', frontConvId);
+        } else {
+          console.warn('Front sync returned null - conversation may not appear in Front inbox');
+        }
       }
 
       const messageRecord = await createMessage(conversationIdRef.current, 'in', 'user', userInput, requestId);
