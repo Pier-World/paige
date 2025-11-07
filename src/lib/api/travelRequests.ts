@@ -36,7 +36,7 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
     .from('channels')
     .select('id')
     .eq('profile_id', profile.data.id)
-    .eq('type', 'front')
+    .eq('type', 'portal')
     .maybeSingle();
 
   if (!channel.data) {
@@ -44,7 +44,8 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
       .from('channels')
       .insert({
         profile_id: profile.data.id,
-        type: 'front',
+        type: 'portal',
+        external_contact_id: profile.data.id
       })
       .select()
       .single();
@@ -110,8 +111,9 @@ export async function createMinimalRequest(
       profile_id: profile.data.id,
       intent: 'other',
       raw_text: rawText,
-      entities: { types: [] },
+      entities: {},
       status: 'collecting',
+      mode: 'auto'
     })
     .select()
     .single();
@@ -477,20 +479,21 @@ export async function requestHumanAgent(requestId: string): Promise<void> {
     }
     console.log('✅ Mode updated:', modeUpdate);
 
-    console.log('🔄 Calling front-approval edge function...');
-    const { data, error } = await supabase.functions.invoke('front-approval', {
-      body: {
-        request_id: requestId,
-        escalate: true
-      }
-    });
+    console.log('🔄 Syncing escalation to Front via message...');
 
-    if (error) {
-      console.error('❌ Front approval error:', error);
-      throw error;
+    const { data: request } = await supabase
+      .from('requests')
+      .select('*, conversations!inner(id, front_conversation_id)')
+      .eq('id', requestId)
+      .single();
+
+    if (request && request.conversations?.[0]?.front_conversation_id) {
+      console.log('✅ Request already synced to Front conversation:', request.conversations[0].front_conversation_id);
+    } else {
+      console.log('⚠️ Request not yet synced to Front, will sync on next message');
     }
 
-    console.log('✅ Front approval response:', data);
+    console.log('✅ Human escalation completed');
   } catch (error) {
     console.error('❌ Error requesting human agent:', error);
     throw error;

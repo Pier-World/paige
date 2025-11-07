@@ -230,37 +230,47 @@ const TravelPage: React.FC = () => {
       try {
         console.log('Calling orchestrator with message_id:', messageRecord.id);
 
-        const { data: orchData, error: orchError } = await supabase.functions.invoke('orchestrate-request', {
+        const orchPromise = supabase.functions.invoke('orchestrate-request', {
           body: {
             message_id: messageRecord.id,
             source: 'portal'
           }
         });
 
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Orchestrator timeout')), 8000)
+        );
+
+        const { data: orchData, error: orchError } = await Promise.race([
+          orchPromise,
+          timeoutPromise
+        ]) as any;
+
         if (orchError) {
-          console.error('Orchestrator error:', orchError);
           throw orchError;
         }
 
-        console.log('✅ Orchestrator called successfully');
-      } catch (orchError) {
-        console.error('❌ Orchestrator failed:', orchError);
+        console.log('✅ Orchestrator responded, waiting for AI reply via realtime...');
+
+      } catch (orchError: any) {
+        console.warn('⚠️ Orchestrator unavailable:', orchError?.message || orchError);
 
         setIsTyping(false);
+
         const fallbackResponse = await supabase
           .from('messages')
           .insert({
             conversation_id: conversationIdRef.current,
             direction: 'out',
             sent_by: 'paige',
-            body: 'Thank you for your request! I\'ve notified our concierge team. They\'ll review your request and get back to you with options shortly. For immediate assistance, please click "Talk to Human Agent" below.',
+            body: 'Thank you for your request! Our team has received it and will get back to you with personalized options shortly. In the meantime, feel free to provide any additional details or preferences.',
             request_id: requestId
           })
           .select()
           .single();
 
         if (!fallbackResponse.error) {
-          console.log('✅ Fallback response created');
+          console.log('✅ Fallback response sent (orchestrator unavailable)');
         }
       }
 
