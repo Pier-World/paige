@@ -8,10 +8,9 @@ import { ResultCards } from '../components/features/ResultCards';
 import { BookingModal } from '../components/features/BookingModal';
 import useTravelStore from '../stores/travelStore';
 import { supabase } from '../lib/supabase';
-import { parseTravelRequest, generateSummaryMessage } from '../lib/travelParser';
 import {
   getOrCreateConversation,
-  createTravelRequest,
+  createMinimalRequest,
   createMessage,
   updateTravelRequest,
   subscribeToRequestUpdates,
@@ -210,19 +209,21 @@ const TravelPage: React.FC = () => {
       let requestId = activeTravelRequest?.id;
 
       if (!requestId) {
-        const newRequest = await createTravelRequest(user.id, userInput, parseTravelRequest(userInput));
+        const newRequest = await createMinimalRequest(user.id, userInput);
         requestId = newRequest.id;
         setActiveTravelRequest(newRequest);
-        console.log('Created new request:', requestId);
+        console.log('Created minimal request for orchestrator:', requestId);
       }
 
       const messageRecord = await createMessage(conversationIdRef.current, 'in', 'user', userInput, requestId);
 
-      console.log('Message sent, calling orchestrator:', {
+      console.log('Message and request created, calling orchestrator:', {
         message_id: messageRecord.id,
         request_id: requestId,
         conversation_id: conversationIdRef.current
       });
+
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       const { data, error } = await supabase.functions.invoke('orchestrate-request', {
         body: {

@@ -71,6 +71,69 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
   return newConversation.data.id;
 }
 
+export async function createMinimalRequest(
+  userId: string,
+  rawText: string
+): Promise<TravelRequest> {
+  let profile = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (!profile.data) {
+    try {
+      const newProfile = await supabase
+        .from('profiles')
+        .insert({ id: userId })
+        .select()
+        .maybeSingle();
+      profile = newProfile;
+    } catch (error: any) {
+      if (error?.code === '23505') {
+        profile = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+      }
+    }
+  }
+
+  if (!profile.data) {
+    throw new Error('Failed to get profile');
+  }
+
+  const { data, error } = await supabase
+    .from('requests')
+    .insert({
+      profile_id: profile.data.id,
+      intent: 'general',
+      raw_text: rawText,
+      entities: { types: [] },
+      status: 'collecting',
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating minimal request:', error);
+    throw error;
+  }
+
+  return {
+    id: data.id,
+    profile_id: data.profile_id,
+    intent: data.intent,
+    raw_text: data.raw_text,
+    entities: data.entities as TravelIntent,
+    status: data.status,
+    results: data.results || [],
+    front_conversation_id: data.front_conversation_id,
+    created_at: new Date(data.created_at),
+  };
+}
+
 export async function createTravelRequest(
   userId: string,
   rawText: string,
