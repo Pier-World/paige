@@ -208,24 +208,8 @@ const TravelPage: React.FC = () => {
       const messageRecord = await createMessage(conversationIdRef.current, 'in', 'user', userInput, requestId);
       console.log('✅ Message created:', messageRecord.id);
 
-      if (isFirstMessage) {
-        try {
-          console.log('Syncing to Front...');
-          const frontConvId = await syncConversationToFront(
-            conversationIdRef.current,
-            user.id,
-            userInput
-          );
-
-          if (frontConvId) {
-            console.log('✅ Synced to Front:', frontConvId);
-          } else {
-            console.warn('⚠️ Front sync returned null');
-          }
-        } catch (frontError) {
-          console.error('⚠️ Front sync error (non-fatal):', frontError);
-        }
-      }
+      // Note: Front conversation creation is now handled automatically by ai-orchestrator
+      // when it posts the first comment/reply
 
       try {
         console.log('Calling orchestrator with request_id:', requestId, 'conversation_id:', conversationIdRef.current);
