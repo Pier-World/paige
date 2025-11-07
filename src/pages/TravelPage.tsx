@@ -202,54 +202,72 @@ const TravelPage: React.FC = () => {
         const newRequest = await createMinimalRequest(user.id, userInput);
         requestId = newRequest.id;
         setActiveTravelRequest(newRequest);
-        console.log('Created minimal request for orchestrator:', requestId);
-      }
-
-      if (isFirstMessage) {
-        console.log('First message - syncing to Front inbox...');
-        const frontConvId = await syncConversationToFront(
-          conversationIdRef.current,
-          user.id,
-          userInput
-        );
-
-        if (frontConvId) {
-          console.log('Successfully synced to Front:', frontConvId);
-        } else {
-          console.warn('Front sync returned null - conversation may not appear in Front inbox');
-        }
+        console.log('✅ Created request:', requestId);
       }
 
       const messageRecord = await createMessage(conversationIdRef.current, 'in', 'user', userInput, requestId);
+      console.log('✅ Message created:', messageRecord.id);
 
-      console.log('Message and request created, calling orchestrator:', {
-        message_id: messageRecord.id,
-        request_id: requestId,
-        conversation_id: conversationIdRef.current
-      });
+      if (isFirstMessage) {
+        try {
+          console.log('Syncing to Front...');
+          const frontConvId = await syncConversationToFront(
+            conversationIdRef.current,
+            user.id,
+            userInput
+          );
 
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const { data, error } = await supabase.functions.invoke('orchestrate-request', {
-        body: {
-          message_id: messageRecord.id,
-          source: 'portal'
+          if (frontConvId) {
+            console.log('✅ Synced to Front:', frontConvId);
+          } else {
+            console.warn('⚠️ Front sync returned null');
+          }
+        } catch (frontError) {
+          console.error('⚠️ Front sync error (non-fatal):', frontError);
         }
-      });
-
-      if (error) {
-        console.error('Orchestrator error:', error);
-        throw error;
       }
 
-      console.log('Orchestrator success:', data);
+      try {
+        console.log('Calling orchestrator...');
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const { data, error } = await supabase.functions.invoke('orchestrate-request', {
+          body: {
+            message_id: messageRecord.id,
+            source: 'portal'
+          }
+        });
+
+        if (error) throw error;
+        console.log('✅ Orchestrator success');
+
+      } catch (orchError) {
+        console.error('❌ Orchestrator failed:', orchError);
+        setIsTyping(false);
+
+        const aiResponse = await supabase
+          .from('messages')
+          .insert({
+            conversation_id: conversationIdRef.current,
+            direction: 'out',
+            sent_by: 'ai',
+            body: 'Thank you for your request. Our team has been notified and will respond shortly. For immediate assistance, please click "Talk to Human Agent" below.',
+            request_id: requestId
+          })
+          .select()
+          .single();
+
+        if (!aiResponse.error) {
+          console.log('✅ Created fallback response');
+        }
+      }
 
     } catch (error) {
-      console.error('Error calling orchestrator:', error);
+      console.error('❌ Critical error:', error);
       setIsTyping(false);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: "I'm having trouble processing your request. Please try again.",
+        content: "I'm having trouble processing your request. Please try again or click 'Talk to Human Agent' for immediate assistance.",
         sender: 'ai',
         timestamp: new Date(),
       };
