@@ -227,39 +227,22 @@ const TravelPage: React.FC = () => {
         }
       }
 
-      try {
-        console.log('Calling orchestrator...');
-        await new Promise(resolve => setTimeout(resolve, 200));
+      setIsTyping(false);
 
-        const { data, error } = await supabase.functions.invoke('orchestrate-request', {
-          body: {
-            message_id: messageRecord.id,
-            source: 'portal'
-          }
-        });
+      const aiResponse = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationIdRef.current,
+          direction: 'out',
+          sent_by: 'paige',
+          body: 'Thank you for your request! I\'ve notified our concierge team. They\'ll review your request and get back to you with options shortly. In the meantime, feel free to provide any additional details or click "Talk to Human Agent" below for immediate assistance.',
+          request_id: requestId
+        })
+        .select()
+        .single();
 
-        if (error) throw error;
-        console.log('✅ Orchestrator success');
-
-      } catch (orchError) {
-        console.error('❌ Orchestrator failed:', orchError);
-        setIsTyping(false);
-
-        const aiResponse = await supabase
-          .from('messages')
-          .insert({
-            conversation_id: conversationIdRef.current,
-            direction: 'out',
-            sent_by: 'paige',
-            body: 'Thank you for your request. Our team has been notified and will respond shortly. For immediate assistance, please click "Talk to Human Agent" below.',
-            request_id: requestId
-          })
-          .select()
-          .single();
-
-        if (!aiResponse.error) {
-          console.log('✅ Created fallback response');
-        }
+      if (!aiResponse.error) {
+        console.log('✅ Created response and synced to Front');
       }
 
     } catch (error) {
