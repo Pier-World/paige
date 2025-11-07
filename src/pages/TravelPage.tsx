@@ -207,12 +207,21 @@ const TravelPage: React.FC = () => {
     setIsTyping(true);
 
     try {
-      const messageRecord = await createMessage(conversationIdRef.current, 'in', 'user', userInput, activeTravelRequest?.id);
+      let requestId = activeTravelRequest?.id;
+
+      if (!requestId) {
+        const newRequest = await createTravelRequest(user.id, userInput, parseTravelRequest(userInput));
+        requestId = newRequest.id;
+        setActiveTravelRequest(newRequest);
+        console.log('Created new request:', requestId);
+      }
+
+      const messageRecord = await createMessage(conversationIdRef.current, 'in', 'user', userInput, requestId);
 
       console.log('Message sent, calling orchestrator:', {
         message_id: messageRecord.id,
-        conversation_id: conversationIdRef.current,
-        text: userInput
+        request_id: requestId,
+        conversation_id: conversationIdRef.current
       });
 
       const { data, error } = await supabase.functions.invoke('orchestrate-request', {
