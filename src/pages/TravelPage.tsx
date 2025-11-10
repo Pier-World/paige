@@ -1,32 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Mic, MicOff, User, Sparkles, Check, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { MessageCircle, Sparkles, Clock, Shield, CheckCircle } from 'lucide-react';
 import { PageLayout } from '../components/layout/PageLayout';
 import { useAuth } from '../context/AuthContext';
 import { SmartChipsBar } from '../components/features/SmartChipsBar';
 import { ResultCards } from '../components/features/ResultCards';
 import { BookingModal } from '../components/features/BookingModal';
 import useTravelStore from '../stores/travelStore';
-import { supabase } from '../lib/supabase';
-import {
-  getOrCreateConversation,
-  createMinimalRequest,
-  createMessage,
-  updateTravelRequest,
-  subscribeToRequestUpdates,
-  subscribeToNewMessages,
-  searchWithOrchestrator,
-  getMessagesForConversation,
-  syncConversationToFront,
-  requestHumanAgent,
-} from '../lib/api/travelRequests';
-
-interface Message {
-  id: string;
-  content: string;
-  sender: 'user' | 'ai' | 'agent';
-  timestamp: Date;
-}
+import { loadFrontScript, initFrontChat, showFrontChat, onUnreadChange } from '../lib/frontChat';
+import { subscribeToRequestUpdates } from '../lib/api/travelRequests';
 
 const EXAMPLE_PROMPTS = [
   "Round trip NYC → Austin Friday to Sunday",
@@ -38,18 +20,10 @@ const EXAMPLE_PROMPTS = [
 ];
 
 const TravelPage: React.FC = () => {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [liveTranscript, setLiveTranscript] = useState('');
+  const { user, profile } = useAuth();
   const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
-  const [isTyping, setIsTyping] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<any>(null);
-  const conversationIdRef = useRef<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const {
     activeTravelRequest,
@@ -57,8 +31,6 @@ const TravelPage: React.FC = () => {
     chips,
     updateIntent,
     setSearching,
-    setConversationId,
-    updateRequestStatus,
   } = useTravelStore();
 
   useEffect(() => {
@@ -69,60 +41,33 @@ const TravelPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    if (!user || !profile) return;
+
+    const chatId = import.meta.env.VITE_FRONT_CHAT_ID;
+    if (chatId) {
+      loadFrontScript(chatId);
     }
-  }, [messages, chips]);
+  }, [user, profile]);
 
   useEffect(() => {
-    const initConversation = async () => {
-      if (user?.id) {
-        try {
-          const convId = await getOrCreateConversation(user.id);
-          conversationIdRef.current = convId;
-          setConversationId(convId);
+    if (!user || !profile) return;
 
-          const existingMessages = await getMessagesForConversation(convId);
-          if (existingMessages.length > 0) {
-            setMessages(existingMessages.map(msg => ({
-              id: msg.id,
-              content: msg.body,
-              sender: msg.sent_by === 'user' ? 'user' : msg.sent_by === 'agent' ? 'agent' : 'ai',
-              timestamp: msg.created_at,
-            })));
-          } else {
-            const welcomeMsg: Message = {
-              id: '1',
-              content: `Good ${getTimeOfDay()}, ${user?.first_name || 'there'}! I'm Paige, your travel concierge assistant. I can help you book flights, hotels, ground transportation, and more. What would you like to arrange today?`,
-              sender: 'ai',
-              timestamp: new Date(),
-            };
-            setMessages([welcomeMsg]);
-          }
+    const timer = setTimeout(() => {
+      initFrontChat({
+        email: profile.email,
+        name: profile.full_name || profile.email,
+        id: user.id,
+        membership_tier: profile.membership_tier,
+        front_user_hash: profile.front_user_hash || null,
+      });
 
-          const unsubscribeMessages = subscribeToNewMessages(convId, (newMsg) => {
-            if (newMsg.sent_by !== 'user') {
-              setIsTyping(false);
-              setMessages(prev => [...prev, {
-                id: newMsg.id,
-                content: newMsg.body,
-                sender: newMsg.sent_by === 'agent' ? 'agent' : 'ai',
-                timestamp: newMsg.created_at,
-              }]);
-            }
-          });
+      onUnreadChange((count) => {
+        setUnreadCount(count);
+      });
+    }, 1000);
 
-          return () => {
-            unsubscribeMessages();
-          };
-        } catch (error) {
-          console.error('Error initializing conversation:', error);
-        }
-      }
-    };
-
-    initConversation();
-  }, [user, setConversationId]);
+    return () => clearTimeout(timer);
+  }, [user, profile]);
 
   useEffect(() => {
     if (activeTravelRequest) {
@@ -139,505 +84,190 @@ const TravelPage: React.FC = () => {
     }
   }, [activeTravelRequest, setActiveTravelRequest, setSearching]);
 
-  useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-
-      recognitionRef.current.onresult = (event: any) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        if (finalTranscript) {
-          setInputValue(prev => prev + finalTranscript);
-          setLiveTranscript('');
-        } else {
-          setLiveTranscript(interimTranscript);
-        }
-      };
-
-      recognitionRef.current.onerror = () => {
-        setIsRecording(false);
-        setLiveTranscript('');
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsRecording(false);
-        setLiveTranscript('');
-      };
-    }
-  }, []);
-
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || !user?.id || !conversationIdRef.current) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputValue,
-      sender: 'user',
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    const userInput = inputValue;
-    setInputValue('');
-    setIsTyping(true);
-
-    try {
-      let requestId = activeTravelRequest?.id;
-      const isFirstMessage = !requestId;
-
-      if (!requestId) {
-        const newRequest = await createMinimalRequest(user.id, userInput);
-        requestId = newRequest.id;
-        setActiveTravelRequest(newRequest);
-        console.log('✅ Created request:', requestId);
-      }
-
-      const messageRecord = await createMessage(conversationIdRef.current, 'in', 'user', userInput, requestId);
-      console.log('✅ Message created:', messageRecord.id);
-
-      // Note: Front conversation creation is now handled automatically by ai-orchestrator
-      // when it posts the first comment/reply
-
-      try {
-        console.log('Calling orchestrator with request_id:', requestId, 'conversation_id:', conversationIdRef.current);
-
-        const orchPromise = supabase.functions.invoke('ai-orchestrator', {
-          body: {
-            request_id: requestId,
-            conversation_id: conversationIdRef.current
-          }
-        });
-
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Orchestrator timeout')), 8000)
-        );
-
-        const { data: orchData, error: orchError } = await Promise.race([
-          orchPromise,
-          timeoutPromise
-        ]) as any;
-
-        if (orchError) {
-          throw orchError;
-        }
-
-        console.log('✅ Orchestrator responded, waiting for AI reply via realtime...');
-
-      } catch (orchError: any) {
-        console.warn('⚠️ Orchestrator unavailable:', orchError?.message || orchError);
-
-        setIsTyping(false);
-
-        const fallbackResponse = await supabase
-          .from('messages')
-          .insert({
-            conversation_id: conversationIdRef.current,
-            direction: 'out',
-            sent_by: 'paige',
-            body: 'Thank you for your request! Our team has received it and will get back to you with personalized options shortly. In the meantime, feel free to provide any additional details or preferences.',
-            request_id: requestId
-          })
-          .select()
-          .single();
-
-        if (!fallbackResponse.error) {
-          console.log('✅ Fallback response sent (orchestrator unavailable)');
-        }
-      }
-
-    } catch (error) {
-      console.error('❌ Critical error:', error);
-      setIsTyping(false);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: "I'm having trouble processing your request. Please try again or click 'Talk to Human Agent' for immediate assistance.",
-        sender: 'ai',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    }
+  const getTimeOfDay = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'morning';
+    if (hour < 18) return 'afternoon';
+    return 'evening';
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+  const handleOpenChat = () => {
+    showFrontChat();
   };
 
-  const toggleRecording = () => {
-    if (!recognitionRef.current) {
-      alert('Speech recognition is not supported in your browser. Please try Chrome or Safari.');
-      return;
-    }
-
-    if (isRecording) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
-      setLiveTranscript('');
-    } else {
-      recognitionRef.current.start();
-      setIsRecording(true);
-    }
+  const handleExampleClick = (prompt: string) => {
+    showFrontChat();
   };
-
-  const handleExampleClick = () => {
-    setInputValue(EXAMPLE_PROMPTS[currentExampleIndex]);
-    inputRef.current?.focus();
-  };
-
-  const handleNewConversation = async () => {
-    if (!user?.id) return;
-
-    try {
-      conversationIdRef.current = null;
-      setMessages([]);
-      setActiveTravelRequest(null);
-      setSearching(false);
-
-      const convId = await getOrCreateConversation(user.id);
-      conversationIdRef.current = convId;
-      setConversationId(convId);
-
-      const welcomeMsg: Message = {
-        id: Date.now().toString(),
-        content: `Good ${getTimeOfDay()}, ${user?.first_name || 'there'}! I'm Paige, your travel concierge assistant. I can help you book flights, hotels, ground transportation, and more. What would you like to arrange today?`,
-        sender: 'ai',
-        timestamp: new Date(),
-      };
-      setMessages([welcomeMsg]);
-
-      await createMessage(convId, 'out', 'ai', welcomeMsg.content);
-    } catch (error) {
-      console.error('Error creating new conversation:', error);
-    }
-  };
-
-  const handleConfirmBooking = async () => {
-    if (activeTravelRequest) {
-      await updateTravelRequest(activeTravelRequest.id, {
-        status: 'booked',
-      });
-      updateRequestStatus('booked');
-
-      const confirmMessage: Message = {
-        id: (Date.now() + 3).toString(),
-        content: "Your booking has been confirmed! You'll receive a confirmation email shortly with all the details. Is there anything else I can help you with?",
-        sender: 'agent',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, confirmMessage]);
-
-      if (conversationIdRef.current) {
-        await createMessage(
-          conversationIdRef.current,
-          'out',
-          'agent',
-          confirmMessage.content,
-          activeTravelRequest.id
-        );
-      }
-    }
-    setIsBookingModalOpen(false);
-  };
-
-  const handleRequestHumanAgent = async () => {
-    console.log('🔘 Human agent button clicked');
-    console.log('Active request:', activeTravelRequest);
-
-    if (!activeTravelRequest) {
-      console.error('❌ No active travel request');
-      return;
-    }
-
-    try {
-      console.log('✅ Creating system message...');
-      const systemMessage: Message = {
-        id: (Date.now() + 4).toString(),
-        content: "Connecting you to a human concierge agent. They'll be with you shortly and will have full context of our conversation.",
-        sender: 'ai',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, systemMessage]);
-
-      if (conversationIdRef.current) {
-        console.log('✅ Saving message to database...');
-        await createMessage(
-          conversationIdRef.current,
-          'out',
-          'paige',
-          systemMessage.content,
-          activeTravelRequest.id
-        );
-      }
-
-      console.log('✅ Calling requestHumanAgent...');
-      await requestHumanAgent(activeTravelRequest.id);
-      console.log('✅ Human agent requested successfully');
-    } catch (error) {
-      console.error('❌ Error requesting human agent:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 5).toString(),
-        content: "I'm having trouble connecting you to an agent. Please try again or contact support.",
-        sender: 'ai',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    }
-  };
-
-  const selectedOffer = activeTravelRequest?.results.find(offer => offer.selected) || null;
 
   return (
     <PageLayout>
-      <div className="fixed inset-0 top-[80px] flex flex-col bg-white">
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white py-6 px-6 border-b border-slate-700 flex-shrink-0">
-          <div className="max-w-3xl mx-auto">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <Sparkles className="text-amber-400" size={24} />
-                <h1 className="text-3xl font-display font-medium">Make a Request</h1>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="mb-12 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-4 py-2 rounded-full mb-4"
+          >
+            <Sparkles className="w-4 h-4 text-blue-500" />
+            <span className="text-sm font-medium text-gray-700">AI + Human Travel Concierge</span>
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-4xl md:text-5xl font-bold text-gray-900 mb-4"
+          >
+            Meet Paige
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-xl text-gray-600 max-w-2xl mx-auto"
+          >
+            Your personal travel concierge. Chat with Paige to book flights, hotels, ground transportation, and more.
+          </motion.p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6 mb-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100"
+          >
+            <div className="p-8">
+              <div className="flex items-start gap-4 mb-6">
+                <div className="flex-shrink-0">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                    <Sparkles className="w-8 h-8 text-white" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Chat with Paige</h3>
+                  <p className="text-gray-600">
+                    Book flights, hotels, drivers, and more. Get replies in minutes from our AI + human team.
+                  </p>
+                </div>
               </div>
+
               <button
-                onClick={handleNewConversation}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-sm font-medium"
+                onClick={handleOpenChat}
+                className="w-full px-6 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 relative"
               >
-                <Plus size={18} />
-                New Conversation
-              </button>
-            </div>
-            <p className="text-slate-300">
-              Chat with Paige, our AI assistant, or connect with a human concierge
-            </p>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-            <AnimatePresence>
-              {messages.map((message) => (
-                <MessageBubble key={message.id} message={message} />
-              ))}
-            </AnimatePresence>
-
-            {chips.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="ml-11"
-              >
-                <SmartChipsBar />
-              </motion.div>
-            )}
-
-            {activeTravelRequest && activeTravelRequest.results.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-8"
-              >
-                <ResultCards />
-                {selectedOffer && (
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      onClick={() => setIsBookingModalOpen(true)}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
-                    >
-                      Proceed to Booking
-                    </button>
-                  </div>
+                <MessageCircle className="w-5 h-5" />
+                <span>Open Paige Chat</span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
+                    {unreadCount}
+                  </span>
                 )}
-              </motion.div>
-            )}
+              </button>
 
-            {isTyping && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-start gap-3"
-              >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
-                  <Sparkles size={16} className="text-white" />
-                </div>
-                <div className="bg-slate-100 rounded-2xl rounded-tl-sm px-5 py-3">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                    <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        <div className="border-t border-slate-200 px-6 py-4 flex-shrink-0 bg-white">
-          <div className="max-w-3xl mx-auto">
-            {liveTranscript && (
-              <div className="mb-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-                <span className="font-medium">Listening: </span>{liveTranscript}
-              </div>
-            )}
-            <div className="relative">
-              {!inputValue && !liveTranscript && (
-                <AnimatePresence mode="wait">
-                  <motion.button
-                    key={currentExampleIndex}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    onClick={handleExampleClick}
-                    className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-left pointer-events-auto hover:text-slate-500 transition-colors z-10 text-[15px]"
+              <div className="mt-6 space-y-3">
+                <p className="text-sm font-medium text-gray-700 mb-3">Try asking:</p>
+                {EXAMPLE_PROMPTS.slice(0, 3).map((prompt, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleExampleClick(prompt)}
+                    className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors text-sm text-gray-700 border border-gray-200"
                   >
-                    {EXAMPLE_PROMPTS[currentExampleIndex]}
-                  </motion.button>
-                </AnimatePresence>
-              )}
+                    "{prompt}"
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
 
-              <div className="flex items-center gap-2 bg-slate-100 rounded-3xl px-4 py-3">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder=" "
-                  className="flex-1 bg-transparent outline-none text-slate-900 placeholder-transparent text-[15px]"
-                />
-
-                <button
-                  onClick={toggleRecording}
-                  className={`p-2 rounded-full transition-all flex-shrink-0 ${
-                    isRecording
-                      ? 'bg-red-500 text-white animate-pulse'
-                      : 'text-slate-600 hover:bg-slate-200'
-                  }`}
-                  title={isRecording ? 'Stop recording' : 'Start voice input'}
-                >
-                  {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
-                </button>
-
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!inputValue.trim()}
-                  className={`p-2 rounded-full transition-all flex-shrink-0 ${
-                    inputValue.trim()
-                      ? 'bg-slate-900 text-white hover:bg-slate-800'
-                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                  }`}
-                >
-                  <Send size={18} />
-                </button>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="space-y-6"
+          >
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <div className="flex items-start gap-3 mb-4">
+                <Clock className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1">Fast Response Times</h4>
+                  <p className="text-sm text-gray-600">
+                    Our team typically responds within 5 minutes during business hours.
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between mt-3">
-              <p className="text-xs text-slate-500 text-center flex-1">
-                Press Enter to send • Click the microphone to speak • Our team typically responds within 5 minutes
-              </p>
-              {activeTravelRequest && activeTravelRequest.status !== 'awaiting_approval' && activeTravelRequest.status !== 'booked' && (
-                <button
-                  onClick={handleRequestHumanAgent}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium px-3 py-1 hover:bg-blue-50 rounded-lg transition-colors"
-                >
-                  Talk to Human Agent
-                </button>
-              )}
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <div className="flex items-start gap-3 mb-4">
+                <Shield className="w-6 h-6 text-purple-600 flex-shrink-0 mt-1" />
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1">Expert Assistance</h4>
+                  <p className="text-sm text-gray-600">
+                    AI-powered with human oversight. Complex requests are handled by our travel experts.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <div className="flex items-start gap-3 mb-4">
+                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1">Exclusive Member Benefits</h4>
+                  <p className="text-sm text-gray-600">
+                    Access special rates and availability not available to the public.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
+
+        {chips.length > 0 && (
+          <div className="mb-8">
+            <SmartChipsBar
+              chips={chips}
+              onChipClick={(chip) => {
+                updateIntent(chip);
+                showFrontChat();
+              }}
+            />
+          </div>
+        )}
+
+        {activeTravelRequest && activeTravelRequest.results.length > 0 && (
+          <div className="mb-8">
+            <ResultCards
+              results={activeTravelRequest.results}
+              onSelectResult={() => setIsBookingModalOpen(true)}
+            />
+          </div>
+        )}
+
+        <BookingModal
+          isOpen={isBookingModalOpen}
+          onClose={() => setIsBookingModalOpen(false)}
+        />
       </div>
 
-      <BookingModal
-        isOpen={isBookingModalOpen}
-        onClose={() => setIsBookingModalOpen(false)}
-        selectedOffer={selectedOffer}
-        onConfirm={handleConfirmBooking}
-      />
+      <div className="fixed bottom-6 right-6 z-40">
+        <button
+          onClick={handleOpenChat}
+          className="relative px-5 py-3 rounded-full bg-[#0C1424] text-white flex items-center gap-2 shadow-2xl hover:opacity-90 transition-all duration-200"
+        >
+          <Sparkles className="w-5 h-5" />
+          <span className="font-medium">Ask Paige</span>
+          {unreadCount > 0 && (
+            <span className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold animate-pulse">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      </div>
     </PageLayout>
   );
 };
-
-const MessageBubble: React.FC<{ message: Message }> = ({ message }) => {
-  const isUser = message.sender === 'user';
-  const isAgent = message.sender === 'agent';
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
-      className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}
-    >
-      {!isUser && (
-        <div
-          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-            isAgent
-              ? 'bg-gradient-to-br from-emerald-500 to-emerald-600'
-              : 'bg-gradient-to-br from-blue-500 to-blue-600'
-          }`}
-        >
-          {isAgent ? <Check size={16} className="text-white" /> : <Sparkles size={16} className="text-white" />}
-        </div>
-      )}
-
-      {isUser && (
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center flex-shrink-0">
-          <User size={16} className="text-white" />
-        </div>
-      )}
-
-      <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} flex-1 min-w-0`}>
-        {!isUser && (
-          <span className={`text-xs font-medium mb-1.5 ${isAgent ? 'text-emerald-600' : 'text-blue-600'}`}>
-            {isAgent ? 'Concierge Team' : 'Paige'}
-          </span>
-        )}
-
-        <div
-          className={`rounded-2xl px-5 py-3 max-w-[85%] ${
-            isUser
-              ? 'bg-slate-900 text-white'
-              : isAgent
-              ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
-              : 'bg-slate-100 text-slate-900'
-          }`}
-        >
-          <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
-        </div>
-
-        <span className="text-[11px] text-slate-400 mt-1">
-          {message.timestamp.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-          })}
-        </span>
-      </div>
-    </motion.div>
-  );
-};
-
-function getTimeOfDay(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'morning';
-  if (hour < 18) return 'afternoon';
-  return 'evening';
-}
 
 export default TravelPage;

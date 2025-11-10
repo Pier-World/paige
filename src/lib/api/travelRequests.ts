@@ -2,6 +2,18 @@ import { supabase } from '../supabase';
 import type { TravelIntent } from '../travelParser';
 import type { TravelRequest, TravelMessage, TravelOffer } from '../../stores/travelStore';
 
+/*
+  DEPRECATION NOTICE:
+  The following functions are deprecated as of the Front Chat widget integration:
+  - getOrCreateConversation() - Conversations now managed by Front widget
+  - createMessage() - Messages now sent through Front widget
+  - syncConversationToFront() - No longer needed, widget handles Front sync
+  - searchWithOrchestrator() - Orchestrator now triggered via Front webhooks only
+
+  These functions remain for backward compatibility but should not be used in new code.
+  The Travel page now uses Front Chat widget as the single source of truth.
+*/
+
 export async function getOrCreateConversation(userId: string): Promise<string> {
   console.log('🔄 Getting/creating conversation for user:', userId);
 
