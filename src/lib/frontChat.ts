@@ -44,8 +44,7 @@ export function initFrontChat(user: FrontChatUser): void {
       try {
         const config: Record<string, any> = {
           chatId,
-          useDefaultLauncher: false,
-          shouldShowWindowOnLaunch: false,
+          useDefaultLauncher: true,
           email: user.email,
           name: user.name || user.email,
           customFields: {
@@ -59,7 +58,7 @@ export function initFrontChat(user: FrontChatUser): void {
           config.userHash = user.front_user_hash;
         }
 
-        console.log('🔧 Initializing Front Chat with config:', { chatId, email: user.email, hasUserHash: !!user.front_user_hash });
+        console.log('🔧 Initializing Front Chat with default launcher:', { chatId, email: user.email });
 
         window.FrontChat('init', config);
 

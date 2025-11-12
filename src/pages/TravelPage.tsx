@@ -73,12 +73,14 @@ const TravelPage: React.FC = () => {
 
   const handleOpenChat = () => {
     console.log('🔵 Open Paige Chat button clicked');
-    showFrontChat();
+    // Front's default launcher will appear in bottom right
+    alert('Look for the Front chat button in the bottom right corner of your screen!');
   };
 
   const handleExampleClick = (prompt: string) => {
     console.log('🔵 Example prompt clicked:', prompt);
-    showFrontChat();
+    // Front's default launcher will appear in bottom right
+    alert('Look for the Front chat button in the bottom right corner to start chatting!\n\nExample prompt: "' + prompt + '"');
   };
 
   return (
@@ -135,18 +137,23 @@ const TravelPage: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                onClick={handleOpenChat}
-                className="w-full px-6 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 relative"
-              >
-                <MessageCircle className="w-5 h-5" />
-                <span>Open Paige Chat</span>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={handleOpenChat}
+                  className="w-full px-6 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 relative"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  <span>Open Paige Chat</span>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+                <p className="text-xs text-center text-gray-500">
+                  Look for the Front chat button in the bottom right corner
+                </p>
+              </div>
 
               <div className="mt-6 space-y-3">
                 <p className="text-sm font-medium text-gray-700 mb-3">Try asking:</p>
@@ -234,20 +241,7 @@ const TravelPage: React.FC = () => {
         />
       </div>
 
-      <div className="fixed bottom-6 right-6 z-40">
-        <button
-          onClick={handleOpenChat}
-          className="relative px-5 py-3 rounded-full bg-[#0C1424] text-white flex items-center gap-2 shadow-2xl hover:opacity-90 transition-all duration-200"
-        >
-          <Sparkles className="w-5 h-5" />
-          <span className="font-medium">Ask Paige</span>
-          {unreadCount > 0 && (
-            <span className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold animate-pulse">
-              {unreadCount}
-            </span>
-          )}
-        </button>
-      </div>
+      {/* Front Chat will show its own default launcher button */}
     </PageLayout>
   );
 };
