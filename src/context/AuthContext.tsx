@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '../types';
+import { loadFrontScript, initFrontChat } from '../lib/frontChat';
 
 interface AuthContextType {
   user: User | null;
+  profile: User | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{
     error: Error | null;
@@ -70,6 +72,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         throw new Error('No user profile found');
       }
 
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('full_name, front_user_hash')
+        .eq('id', userId)
+        .maybeSingle();
+
       return {
         id: userId,
         email: userData.email,
@@ -80,7 +88,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         phone: userData.phone,
         preferences: userData.preferences,
         membership_level: userData.membership_level,
-        created_at: userData.created_at
+        created_at: userData.created_at,
+        full_name: profileData?.full_name || `${userData.first_name} ${userData.last_name}`,
+        front_user_hash: profileData?.front_user_hash || null,
+        membership_tier: userData.membership_level
       };
     } catch (error) {
       return null;
@@ -107,6 +118,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           const profile = await fetchUserProfile(session.user.id);
           if (profile && mounted) {
             setUser(profile);
+
+            const chatId = import.meta.env.VITE_FRONT_CHAT_ID;
+            if (chatId) {
+              loadFrontScript(chatId);
+              setTimeout(() => {
+                initFrontChat({
+                  email: profile.email,
+                  name: profile.full_name || profile.email,
+                  id: profile.id,
+                  membership_tier: profile.membership_tier,
+                  front_user_hash: profile.front_user_hash || null,
+                });
+              }, 1000);
+            }
           }
         } else if (mounted) {
           clearTimeout(timeout);
@@ -127,6 +152,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             const profile = await fetchUserProfile(session.user.id);
             if (profile && mounted) {
               setUser(profile);
+
+              const chatId = import.meta.env.VITE_FRONT_CHAT_ID;
+              if (chatId) {
+                loadFrontScript(chatId);
+                setTimeout(() => {
+                  initFrontChat({
+                    email: profile.email,
+                    name: profile.full_name || profile.email,
+                    id: profile.id,
+                    membership_tier: profile.membership_tier,
+                    front_user_hash: profile.front_user_hash || null,
+                  });
+                }, 1000);
+              }
             }
           } else if (event === 'SIGNED_OUT') {
             setUser(null);
@@ -328,6 +367,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const value = {
     user,
+    profile: user,
     isLoading,
     signIn,
     signOut,

@@ -9,6 +9,9 @@ export interface User {
   preferences?: UserPreferences;
   membership_level: 'Standard' | 'Premium' | 'Executive' | 'Founding Member';
   created_at: string;
+  full_name?: string;
+  front_user_hash?: string | null;
+  membership_tier?: string;
 }
 
 export interface UserPreferences {

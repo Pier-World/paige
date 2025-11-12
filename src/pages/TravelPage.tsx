@@ -7,7 +7,7 @@ import { SmartChipsBar } from '../components/features/SmartChipsBar';
 import { ResultCards } from '../components/features/ResultCards';
 import { BookingModal } from '../components/features/BookingModal';
 import useTravelStore from '../stores/travelStore';
-import { loadFrontScript, initFrontChat, showFrontChat, onUnreadChange } from '../lib/frontChat';
+import { showFrontChat, onUnreadChange } from '../lib/frontChat';
 import { subscribeToRequestUpdates } from '../lib/api/travelRequests';
 
 const EXAMPLE_PROMPTS = [
@@ -41,33 +41,10 @@ const TravelPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!user || !profile) return;
-
-    const chatId = import.meta.env.VITE_FRONT_CHAT_ID;
-    if (chatId) {
-      loadFrontScript(chatId);
-    }
-  }, [user, profile]);
-
-  useEffect(() => {
-    if (!user || !profile) return;
-
-    const timer = setTimeout(() => {
-      initFrontChat({
-        email: profile.email,
-        name: profile.full_name || profile.email,
-        id: user.id,
-        membership_tier: profile.membership_tier,
-        front_user_hash: profile.front_user_hash || null,
-      });
-
-      onUnreadChange((count) => {
-        setUnreadCount(count);
-      });
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [user, profile]);
+    onUnreadChange((count) => {
+      setUnreadCount(count);
+    });
+  }, []);
 
   useEffect(() => {
     if (activeTravelRequest) {
