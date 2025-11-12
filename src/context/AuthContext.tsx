@@ -119,19 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           if (profile && mounted) {
             setUser(profile);
 
-            const chatId = import.meta.env.VITE_FRONT_CHAT_ID;
-            if (chatId) {
-              loadFrontScript(chatId);
-              setTimeout(() => {
-                initFrontChat({
-                  email: profile.email,
-                  name: profile.full_name || profile.email,
-                  id: profile.id,
-                  membership_tier: profile.membership_tier,
-                  front_user_hash: profile.front_user_hash || null,
-                });
-              }, 1000);
-            }
+            // Front Chat is initialized directly in index.html
           }
         } else if (mounted) {
           clearTimeout(timeout);
@@ -153,19 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             if (profile && mounted) {
               setUser(profile);
 
-              const chatId = import.meta.env.VITE_FRONT_CHAT_ID;
-              if (chatId) {
-                loadFrontScript(chatId);
-                setTimeout(() => {
-                  initFrontChat({
-                    email: profile.email,
-                    name: profile.full_name || profile.email,
-                    id: profile.id,
-                    membership_tier: profile.membership_tier,
-                    front_user_hash: profile.front_user_hash || null,
-                  });
-                }, 1000);
-              }
+              // Front Chat is initialized directly in index.html
             }
           } else if (event === 'SIGNED_OUT') {
             setUser(null);

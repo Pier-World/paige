@@ -23,6 +23,21 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://images.pexels.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Front Chat Widget -->
+    <script>
+      window.FrontChat = function() {
+        (window.FrontChat.q = window.FrontChat.q || []).push(arguments);
+      };
+      window.FrontChat.l = new Date();
+    </script>
+    <script async src="https://chat-assets.frontapp.com/v1/chat.bundle.js"></script>
+    <script>
+      window.FrontChat('init', {
+        chatId: '6f31fd010a7e9e777dc99ca3f15ff972',
+        useDefaultLauncher: true
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>
