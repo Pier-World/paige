@@ -1,4 +1,5 @@
 let isInitialized = false;
+let initCallbacks: Array<() => void> = [];
 
 declare global {
   interface Window {
@@ -61,6 +62,10 @@ export function initFrontChat(user: FrontChatUser): void {
       window.FrontChat('init', config);
       isInitialized = true;
       console.log('✅ Front Chat initialized for:', user.email);
+
+      // Run any pending callbacks
+      initCallbacks.forEach(callback => callback());
+      initCallbacks = [];
     }
   }, 100);
 
@@ -68,8 +73,19 @@ export function initFrontChat(user: FrontChatUser): void {
 }
 
 export function showFrontChat(): void {
-  if (typeof window !== 'undefined' && window.FrontChat) {
-    window.FrontChat('show');
+  if (typeof window !== 'undefined' && window.FrontChat && isInitialized) {
+    try {
+      window.FrontChat('show');
+      console.log('✅ Front Chat show() called');
+    } catch (error) {
+      console.error('❌ Error showing Front Chat:', error);
+    }
+  } else {
+    console.warn('⚠️ Front Chat not ready:', {
+      hasWindow: typeof window !== 'undefined',
+      hasFrontChat: !!window.FrontChat,
+      isInitialized
+    });
   }
 }
 
@@ -81,13 +97,33 @@ export function hideFrontChat(): void {
 
 export function onUnreadChange(callback: (count: number) => void): void {
   if (typeof window === 'undefined') return;
-  if (!window.FrontChat) return;
+  if (!window.FrontChat || !isInitialized) {
+    console.log('⚠️ Front Chat not initialized yet, will setup unread listener later');
+    return;
+  }
 
-  window.FrontChat('on', 'unreadCountChange', (count: number) => {
-    callback(count);
-  });
+  try {
+    window.FrontChat('on', 'unreadCountChange', (count: number) => {
+      callback(count);
+    });
+    console.log('✅ Unread count listener registered');
+  } catch (error) {
+    console.warn('⚠️ Could not register unread listener:', error);
+  }
 }
 
 export function resetFrontChat(): void {
   isInitialized = false;
+}
+
+export function onFrontChatReady(callback: () => void): void {
+  if (isInitialized && window.FrontChat) {
+    callback();
+  } else {
+    initCallbacks.push(callback);
+  }
+}
+
+export function isFrontChatReady(): boolean {
+  return isInitialized && typeof window !== 'undefined' && !!window.FrontChat;
 }

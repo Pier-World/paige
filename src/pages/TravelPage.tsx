@@ -7,7 +7,7 @@ import { SmartChipsBar } from '../components/features/SmartChipsBar';
 import { ResultCards } from '../components/features/ResultCards';
 import { BookingModal } from '../components/features/BookingModal';
 import useTravelStore from '../stores/travelStore';
-import { showFrontChat, onUnreadChange } from '../lib/frontChat';
+import { showFrontChat, onUnreadChange, onFrontChatReady } from '../lib/frontChat';
 import { subscribeToRequestUpdates } from '../lib/api/travelRequests';
 
 const EXAMPLE_PROMPTS = [
@@ -41,8 +41,11 @@ const TravelPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    onUnreadChange((count) => {
-      setUnreadCount(count);
+    // Wait for Front Chat to be ready before setting up listeners
+    onFrontChatReady(() => {
+      onUnreadChange((count) => {
+        setUnreadCount(count);
+      });
     });
   }, []);
 
@@ -69,10 +72,12 @@ const TravelPage: React.FC = () => {
   };
 
   const handleOpenChat = () => {
+    console.log('🔵 Open Paige Chat button clicked');
     showFrontChat();
   };
 
   const handleExampleClick = (prompt: string) => {
+    console.log('🔵 Example prompt clicked:', prompt);
     showFrontChat();
   };
 
