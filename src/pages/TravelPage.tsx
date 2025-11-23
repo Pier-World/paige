@@ -124,7 +124,7 @@ const TravelPage: React.FC = () => {
 
   return (
     <PageLayout>
-      <div className="min-h-[calc(100vh-80px)] bg-white">
+      <div className="min-h-[calc(100vh-80px)]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <AnimatePresence mode="wait">
             {!showChat ? (
@@ -326,16 +326,14 @@ const TravelPage: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-neutral-200 shadow-lg">
-                  <AIChatInterface
-                    initialMessage={inputValue}
-                    conversationId={currentConversationId}
-                    onConversationCreated={(id) => {
-                      setCurrentConversationId(id);
-                      loadConversations();
-                    }}
-                  />
-                </div>
+                <AIChatInterface
+                  initialMessage={inputValue}
+                  conversationId={currentConversationId}
+                  onConversationCreated={(id) => {
+                    setCurrentConversationId(id);
+                    loadConversations();
+                  }}
+                />
               </motion.div>
             )}
           </AnimatePresence>
