@@ -101,34 +101,40 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: messages } = await supabase
-      .from('messages')
-      .select('body, direction, sent_by, created_at')
+      .from('concierge_messages')
+      .select('content, role, created_at')
       .eq('conversation_id', conversation_id)
       .order('created_at', { ascending: true })
       .limit(10);
 
-    const conversationHistory = messages?.map(m => 
-      `[${m.created_at}] ${m.direction === 'in' ? 'Customer' : 'Assistant'}: ${m.body}`
+    const conversationHistory = messages?.map(m =>
+      `[${m.created_at}] ${m.role === 'user' ? 'Customer' : 'Paige'}: ${m.content}`
     ).join('\n') || '';
 
     const { data: conversation } = await supabase
-      .from('conversations')
-      .select('channel_id')
+      .from('concierge_conversations')
+      .select('user_id')
       .eq('id', conversation_id)
       .maybeSingle();
 
-    const { data: channel } = await supabase
-      .from('channels')
-      .select('profile_id, profiles(*)')
-      .eq('id', conversation?.channel_id)
+    const profile_id = conversation?.user_id || request.profile_id;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', profile_id)
       .maybeSingle();
 
-    const profile = channel?.profiles || {};
+    const { data: userPreferences } = await supabase
+      .from('user_preferences')
+      .select('*')
+      .eq('profile_id', profile_id)
+      .maybeSingle();
 
     const { data: pastRequests } = await supabase
       .from('requests')
-      .select('intent, entities, status, created_at')
-      .eq('profile_id', profile.id)
+      .select('intent, entities, status, created_at, raw_text')
+      .eq('profile_id', profile_id)
       .order('created_at', { ascending: false })
       .limit(5);
 
@@ -174,11 +180,16 @@ ACKNOWLEDGE:
 - Example: Customer says \"Hello\" or \"Can you help me?\"
 
 CLARIFY:
-- Use when: Missing CRITICAL information that blocks search
-- Generate: Smart questions that gather essential missing data
-- Example: Customer wants flight but no dates/destination
-- IMPORTANT: Only clarify what's truly necessary. Make smart assumptions for non-critical details.
-- When you know event dates from your knowledge base, USE THEM and suggest them to the customer
+- Use when: Missing CRITICAL information that blocks search OR when you want to personalize the experience
+- Generate: Conversational, friendly questions that gather information organically
+- Ask 2-3 questions at a time to maintain natural flow
+- Examples:
+  * "Do you prefer nonstop flights or best-value fares?"
+  * "Any preferred airlines or cabin class?"
+  * "What's your hotel style - boutique, resort, or city stay?"
+- IMPORTANT: Always acknowledge what they've already told you, then ask for what's needed
+- When you know event dates from your knowledge base, USE THEM and suggest them proactively
+- Guide the conversation through: Flights → Hotels → Dining → Experiences → Confirmation
 
 SEARCH:
 - Use when: Sufficient information to provide valuable options
@@ -206,6 +217,9 @@ CUSTOMER PROFILE:
 Name: ${profile.full_name || 'Guest'}
 Email: ${profile.email || 'Unknown'}
 Timezone: ${profile.timezone || 'Unknown'}
+
+USER PREFERENCES:
+${userPreferences ? JSON.stringify(userPreferences, null, 2) : 'No preferences set yet - learn as you go'}
 
 CONVERSATION HISTORY:
 ${conversationHistory}
@@ -284,13 +298,12 @@ Respond with JSON only:
     const decision: OrchestratorDecision = JSON.parse(completion.choices[0].message.content || '{}');
 
     const { data: newMessage } = await supabase
-      .from('messages')
+      .from('concierge_messages')
       .insert({
         conversation_id,
-        direction: 'out',
-        sent_by: 'assistant',
-        body: decision.message,
-        request_id,
+        role: 'assistant',
+        content: decision.message,
+        metadata: decision.metadata || {}
       })
       .select()
       .single();

@@ -102,7 +102,7 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
 
       await createMessage(convId, 'user', textToSend);
 
-      const previousMessages = messages.map(msg => ({
+      const previousMessages = [...messages, userMessage].map(msg => ({
         role: msg.type === 'user' ? 'user' : 'assistant',
         content: msg.content
       }));
