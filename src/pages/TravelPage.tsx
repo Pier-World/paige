@@ -1,249 +1,185 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MessageCircle, Sparkles, Clock, Shield, CheckCircle } from 'lucide-react';
+import { Sparkles, Clock, Shield, CheckCircle, Zap, TrendingUp, Gift } from 'lucide-react';
 import { PageLayout } from '../components/layout/PageLayout';
 import { useAuth } from '../context/AuthContext';
-import { SmartChipsBar } from '../components/features/SmartChipsBar';
-import { ResultCards } from '../components/features/ResultCards';
-import { BookingModal } from '../components/features/BookingModal';
-import useTravelStore from '../stores/travelStore';
-import { showFrontChat, onUnreadChange, onFrontChatReady } from '../lib/frontChat';
-import { subscribeToRequestUpdates } from '../lib/api/travelRequests';
-
-const EXAMPLE_PROMPTS = [
-  "Round trip NYC → Austin Friday to Sunday",
-  "Suite at The Ritz Paris next weekend",
-  "Private jet to Miami for 4 passengers tomorrow",
-  "Business class flight to London, nonstop",
-  "Hotel in Paris, near the Louvre, 5 nights",
-  "Restaurant reservation at Carbone on Saturday",
-];
+import { AIChatInterface } from '../components/features/AIChatInterface';
 
 const TravelPage: React.FC = () => {
   const { user, profile } = useAuth();
-  const [currentExampleIndex, setCurrentExampleIndex] = useState(0);
-  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  const {
-    activeTravelRequest,
-    setActiveTravelRequest,
-    chips,
-    updateIntent,
-    setSearching,
-  } = useTravelStore();
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentExampleIndex((prev) => (prev + 1) % EXAMPLE_PROMPTS.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    // Wait for Front Chat to be ready before setting up listeners
-    onFrontChatReady(() => {
-      onUnreadChange((count) => {
-        setUnreadCount(count);
-      });
-    });
-  }, []);
-
-  useEffect(() => {
-    if (activeTravelRequest) {
-      const unsubscribe = subscribeToRequestUpdates(activeTravelRequest.id, (updatedRequest) => {
-        setActiveTravelRequest(updatedRequest);
-        if (updatedRequest.status === 'offered' && updatedRequest.results.length > 0) {
-          setSearching(false);
-        }
-      });
-
-      return () => {
-        unsubscribe();
-      };
-    }
-  }, [activeTravelRequest, setActiveTravelRequest, setSearching]);
-
-  const getTimeOfDay = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'morning';
-    if (hour < 18) return 'afternoon';
-    return 'evening';
-  };
-
-  const handleOpenChat = () => {
-    console.log('🔵 Open Paige Chat button clicked');
-    // Front's default launcher will appear in bottom right
-    alert('Look for the Front chat button in the bottom right corner of your screen!');
-  };
-
-  const handleExampleClick = (prompt: string) => {
-    console.log('🔵 Example prompt clicked:', prompt);
-    // Front's default launcher will appear in bottom right
-    alert('Look for the Front chat button in the bottom right corner to start chatting!\n\nExample prompt: "' + prompt + '"');
-  };
 
   return (
     <PageLayout>
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-12 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10 px-4 py-2 rounded-full mb-4"
-          >
-            <Sparkles className="w-4 h-4 text-blue-500" />
-            <span className="text-sm font-medium text-gray-700">AI + Human Travel Concierge</span>
-          </motion.div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-8"
+        >
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <h1 className="text-4xl font-bold text-gray-900">Pier Concierge</h1>
+          </div>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Your personal concierge powered by AI + human expertise. Book flights, hotels, restaurants, and more — with instant gratification.
+          </p>
+        </motion.div>
 
-          <motion.h1
+        <div className="grid lg:grid-cols-3 gap-8 mb-12">
+          {/* Main Chat Interface */}
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="text-4xl md:text-5xl font-bold text-gray-900 mb-4"
+            className="lg:col-span-2"
           >
-            Meet Paige
-          </motion.h1>
+            <div className="h-[600px]">
+              <AIChatInterface />
+            </div>
+          </motion.div>
 
-          <motion.p
+          {/* Sidebar - Value Props & Features */}
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-xl text-gray-600 max-w-2xl mx-auto"
+            className="space-y-6"
           >
-            Your personal travel concierge. Chat with Paige to book flights, hotels, ground transportation, and more.
-          </motion.p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6 mb-12">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100"
-          >
-            <div className="p-8">
-              <div className="flex items-start gap-4 mb-6">
-                <div className="flex-shrink-0">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                    <Sparkles className="w-8 h-8 text-white" />
-                  </div>
+            {/* Magic Moments Card */}
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6 border border-orange-200">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-white" />
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Chat with Paige</h3>
-                  <p className="text-gray-600">
-                    Book flights, hotels, drivers, and more. Get replies in minutes from our AI + human team.
-                  </p>
+                <h3 className="text-lg font-bold text-gray-900">Instant Magic</h3>
+              </div>
+              <p className="text-sm text-gray-700 leading-relaxed">
+                Get immediate responses with real options. Our AI + human team delivers that dopamine hit of instant value — every single time.
+              </p>
+            </div>
+
+            {/* ROI Stats Card */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+                <h3 className="text-lg font-bold text-gray-900">Your ROI This Month</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <div className="text-3xl font-bold text-green-600">$7,600</div>
+                  <div className="text-sm text-gray-600">Money saved</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold text-blue-600">48 hours</div>
+                  <div className="text-sm text-gray-600">Time saved</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-bold text-purple-600">310K</div>
+                  <div className="text-sm text-gray-600">Points optimized</div>
                 </div>
               </div>
+            </div>
 
+            {/* Features List */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">What We Handle</h3>
               <div className="space-y-3">
-                <button
-                  onClick={handleOpenChat}
-                  className="w-full px-6 py-4 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 relative"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  <span>Open Paige Chat</span>
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-red-500 text-white text-xs flex items-center justify-center font-bold">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-                <p className="text-xs text-center text-gray-500">
-                  Look for the Front chat button in the bottom right corner
-                </p>
-              </div>
-
-              <div className="mt-6 space-y-3">
-                <p className="text-sm font-medium text-gray-700 mb-3">Try asking:</p>
-                {EXAMPLE_PROMPTS.slice(0, 3).map((prompt, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleExampleClick(prompt)}
-                    className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors text-sm text-gray-700 border border-gray-200"
-                  >
-                    "{prompt}"
-                  </button>
+                {FEATURES.map((feature, index) => (
+                  <div key={index} className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-medium text-gray-900 text-sm">{feature.title}</div>
+                      <div className="text-xs text-gray-600">{feature.description}</div>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
-          </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="space-y-6"
-          >
-            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-              <div className="flex items-start gap-3 mb-4">
-                <Clock className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-1">Fast Response Times</h4>
-                  <p className="text-sm text-gray-600">
-                    Our team typically responds within 5 minutes during business hours.
-                  </p>
-                </div>
+            {/* Trust Signals */}
+            <div className="bg-blue-50 rounded-2xl p-6 border border-blue-200">
+              <div className="flex items-center gap-3 mb-3">
+                <Shield className="w-6 h-6 text-blue-600" />
+                <h3 className="text-lg font-bold text-gray-900">Always Here</h3>
+              </div>
+              <p className="text-sm text-gray-700 leading-relaxed mb-3">
+                AI handles 80% instantly. Humans step in where it matters most — travel disruptions, negotiations, high-stakes bookings.
+              </p>
+              <div className="flex items-center gap-2 text-xs text-blue-700">
+                <Clock className="w-4 h-4" />
+                <span>Available 24/7/365</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-              <div className="flex items-start gap-3 mb-4">
-                <Shield className="w-6 h-6 text-purple-600 flex-shrink-0 mt-1" />
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-1">Expert Assistance</h4>
-                  <p className="text-sm text-gray-600">
-                    AI-powered with human oversight. Complex requests are handled by our travel experts.
-                  </p>
-                </div>
+            {/* Anticipatory Features */}
+            <div className="bg-purple-50 rounded-2xl p-6 border border-purple-200">
+              <div className="flex items-center gap-3 mb-3">
+                <Gift className="w-6 h-6 text-purple-600" />
+                <h3 className="text-lg font-bold text-gray-900">Proactive Magic</h3>
               </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-              <div className="flex items-start gap-3 mb-4">
-                <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-1">Exclusive Member Benefits</h4>
-                  <p className="text-sm text-gray-600">
-                    Access special rates and availability not available to the public.
-                  </p>
-                </div>
-              </div>
+              <p className="text-sm text-gray-700 leading-relaxed">
+                We anticipate your needs before you ask. Flight price drops, restaurant openings, travel prep, and life admin — handled automatically.
+              </p>
             </div>
           </motion.div>
         </div>
 
-        {chips.length > 0 && (
-          <div className="mb-8">
-            <SmartChipsBar
-              chips={chips}
-              onChipClick={(chip) => {
-                updateIntent(chip);
-                showFrontChat();
-              }}
-            />
-          </div>
-        )}
-
-        {activeTravelRequest && activeTravelRequest.results.length > 0 && (
-          <div className="mb-8">
-            <ResultCards
-              results={activeTravelRequest.results}
-              onSelectResult={() => setIsBookingModalOpen(true)}
-            />
-          </div>
-        )}
-
-        <BookingModal
-          isOpen={isBookingModalOpen}
-          onClose={() => setIsBookingModalOpen(false)}
-        />
+        {/* Bottom Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-8 text-center"
+        >
+          <h3 className="text-2xl font-bold text-white mb-3">
+            The Operating System for Your Life
+          </h3>
+          <p className="text-gray-300 max-w-3xl mx-auto">
+            Pier becomes indispensable by integrating deeply into your calendar, email, travel patterns, and preferences.
+            It's not just a service — it's the layer that makes you more effective every single day.
+          </p>
+        </motion.div>
       </div>
-
-      {/* Front Chat will show its own default launcher button */}
     </PageLayout>
   );
 };
+
+const FEATURES = [
+  {
+    title: "Flights & Private Aviation",
+    description: "Private fares, redemption optimization, upgrades"
+  },
+  {
+    title: "Hotels & Accommodations",
+    description: "Elite benefits, suite upgrades, unique properties"
+  },
+  {
+    title: "Restaurants & Dining",
+    description: "Hard-to-get reservations, private dining, wine pairings"
+  },
+  {
+    title: "Ground Transportation",
+    description: "Cars, drivers, logistics, airport transfers"
+  },
+  {
+    title: "Events & Experiences",
+    description: "Tickets, VIP access, cultural events, entertainment"
+  },
+  {
+    title: "Corporate & Team Travel",
+    description: "Offsites, recruiting dinners, board meetings"
+  },
+  {
+    title: "Lifestyle Management",
+    description: "Gifts, errands, life admin, relationship management"
+  },
+  {
+    title: "Points & Rewards",
+    description: "Optimization, strategy, maximizing value"
+  }
+];
 
 export default TravelPage;
