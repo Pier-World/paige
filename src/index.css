@@ -13,7 +13,8 @@
 
 @layer base {
   body {
-    @apply bg-white font-sans text-primary-900 antialiased;
+    @apply font-sans text-primary-900 antialiased;
+    background-color: #F8F8F8;
   }
 
   h1, h2, h3, h4, h5, h6 {

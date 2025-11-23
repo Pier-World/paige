@@ -26,7 +26,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { message, userId, conversationId: existingConvId, context }: ChatRequest = await req.json();
+    const { message, userId, conversationId, context }: ChatRequest = await req.json();
 
     if (!message) {
       return new Response(
@@ -38,14 +38,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('Concierge chat request:', { userId, existingConvId, messageLength: message.length });
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    let conversationId = existingConvId;
-
     if (!conversationId) {
       return new Response(
         JSON.stringify({ error: "Conversation ID is required" }),
@@ -56,7 +48,29 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('Using conversation:', conversationId);
+    console.log('Concierge chat request:', { userId, conversationId, messageLength: message.length });
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!profile) {
+      console.error('Profile not found for user:', userId);
+      return new Response(
+        JSON.stringify({ error: "Profile not found" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     console.log('Creating travel request');
 
     const { data: travelRequest, error: requestError } = await supabase
@@ -82,26 +96,30 @@ Deno.serve(async (req: Request) => {
     console.log('Travel request created:', travelRequest.id);
     console.log('Calling classify-message');
 
-    const classifyResponse = await fetch(
-      `${supabaseUrl}/functions/v1/classify-message`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          request_id: travelRequest.id,
-          text: message
-        }),
-      }
-    );
+    try {
+      const classifyResponse = await fetch(
+        `${supabaseUrl}/functions/v1/classify-message`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            request_id: travelRequest.id,
+            text: message
+          }),
+        }
+      );
 
-    if (!classifyResponse.ok) {
-      const errorText = await classifyResponse.text();
-      console.error('Classification failed:', classifyResponse.status, errorText);
-    } else {
-      console.log('Classification successful');
+      if (!classifyResponse.ok) {
+        const errorText = await classifyResponse.text();
+        console.error('Classification failed:', classifyResponse.status, errorText);
+      } else {
+        console.log('Classification successful');
+      }
+    } catch (error) {
+      console.error('Classification error (non-fatal):', error);
     }
 
     console.log('Calling ai-orchestrator');
@@ -124,11 +142,11 @@ Deno.serve(async (req: Request) => {
     if (!orchestratorResponse.ok) {
       const errorText = await orchestratorResponse.text();
       console.error('Orchestrator failed:', orchestratorResponse.status, errorText);
-      throw new Error(`Orchestrator failed: ${orchestratorResponse.status}`);
+      throw new Error(`Orchestrator failed: ${orchestratorResponse.status} - ${errorText}`);
     }
 
     const result = await orchestratorResponse.json();
-    console.log('Orchestrator response received');
+    console.log('Orchestrator response received:', result.decision?.action);
 
     const metadata = generateMetadata(message, result.decision?.message);
 
@@ -168,7 +186,7 @@ function generateMetadata(message: string, aiResponse?: string): any {
     responseTime: 0.3
   };
 
-  if (lowerInput.includes('flight') || lowerInput.includes('basel') || lowerInput.includes('fly')) {
+  if (lowerInput.includes('flight') || lowerInput.includes('london') || lowerInput.includes('fly') || lowerInput.includes('nyc')) {
     metadata.checklist = [
       "Checking private fares through Amex and Chase portals",
       "Comparing redemption options across your points balance",

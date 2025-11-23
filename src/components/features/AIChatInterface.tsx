@@ -38,14 +38,20 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hasProcessedInitialMessage = useRef(false);
+  const isProcessing = useRef(false);
 
   useEffect(() => {
     if (conversationId) {
       loadConversation(conversationId);
-    } else if (initialMessage && messages.length === 0) {
-      handleSend(initialMessage);
+    } else if (initialMessage && !hasProcessedInitialMessage.current && !isProcessing.current) {
+      hasProcessedInitialMessage.current = true;
+      isProcessing.current = true;
+      handleSend(initialMessage).finally(() => {
+        isProcessing.current = false;
+      });
     }
-  }, [conversationId]);
+  }, [conversationId, initialMessage]);
 
   const loadConversation = async (convId: string) => {
     try {
