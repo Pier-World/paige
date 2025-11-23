@@ -148,12 +148,10 @@ Deno.serve(async (req: Request) => {
     const result = await orchestratorResponse.json();
     console.log('Orchestrator response received:', result.decision?.action);
 
-    const metadata = generateMetadata(message, result.decision?.message);
-
     return new Response(
       JSON.stringify({
         response: result.decision?.message || "I'm processing your request...",
-        metadata,
+        metadata: result.decision?.metadata || {},
         isFallback: false,
         conversationId
       }),
@@ -180,39 +178,3 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-function generateMetadata(message: string, aiResponse?: string): any {
-  const lowerInput = message.toLowerCase();
-  const metadata: any = {
-    responseTime: 0.3
-  };
-
-  if (lowerInput.includes('flight') || lowerInput.includes('london') || lowerInput.includes('fly') || lowerInput.includes('nyc')) {
-    metadata.checklist = [
-      "Checking private fares through Amex and Chase portals",
-      "Comparing redemption options across your points balance",
-      "Looking for premium cabin upgrades with points"
-    ];
-    metadata.bonus = "I'll also check if there are any events or experiences worth timing your trip around.";
-    metadata.savings = "$2,000+";
-  }
-
-  if (lowerInput.includes('restaurant') || lowerInput.includes('reservation')) {
-    metadata.checklist = [
-      "Reaching out to restaurant contacts",
-      "Checking your dining history for preferences",
-      "Coordinating any dietary restrictions"
-    ];
-    metadata.bonus = "I can also arrange wine pairings or special menu requests if you'd like.";
-  }
-
-  if (lowerInput.includes('hotel')) {
-    metadata.checklist = [
-      "Filtering for properties with your elite status",
-      "Checking suite upgrade availability",
-      "Looking for bonus point promotions"
-    ];
-    metadata.savings = "$800+";
-  }
-
-  return metadata;
-}

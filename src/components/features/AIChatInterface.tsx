@@ -154,8 +154,6 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
 
       setMessages(prev => [...prev, aiMessage]);
 
-      await createMessage(convId, 'assistant', data.response, data.metadata);
-
     } catch (error) {
       if (timeoutId) clearTimeout(timeoutId);
       console.error('Error sending message:', error);
