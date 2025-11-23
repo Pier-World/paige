@@ -42,10 +42,10 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
   useEffect(() => {
     if (conversationId) {
       loadConversation(conversationId);
-    } else if (initialMessage) {
+    } else if (initialMessage && messages.length === 0) {
       handleSend(initialMessage);
     }
-  }, [conversationId, initialMessage]);
+  }, [conversationId]);
 
   const loadConversation = async (convId: string) => {
     try {
@@ -79,6 +79,8 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
     setInput('');
     setIsLoading(true);
 
+    let timeoutId: number | undefined;
+
     try {
       let convId = currentConversationId;
 
@@ -102,6 +104,10 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
       const { data: supabaseData } = await supabase.auth.getSession();
       const accessToken = supabaseData?.session?.access_token;
 
+      timeoutId = setTimeout(() => {
+        throw new Error('Request timeout - taking too long');
+      }, 60000) as unknown as number;
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/concierge-chat`,
         {
@@ -121,8 +127,12 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
         }
       );
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        throw new Error('Failed to get AI response');
+        const errorText = await response.text();
+        console.error('API Error:', errorText);
+        throw new Error(`Failed to get AI response: ${response.status}`);
       }
 
       const data = await response.json();
@@ -140,11 +150,12 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
       await createMessage(convId, 'assistant', data.response, data.metadata);
 
     } catch (error) {
+      if (timeoutId) clearTimeout(timeoutId);
       console.error('Error sending message:', error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: "I apologize, but I'm having trouble connecting right now. Please try again in a moment.",
+        content: "I apologize, but I'm having trouble processing your request right now. Please try again in a moment.",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -152,6 +163,10 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

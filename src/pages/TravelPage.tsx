@@ -141,8 +141,12 @@ const TravelPage: React.FC = () => {
                   transition={{ delay: 0.1 }}
                   className="mb-8"
                 >
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-neutral-800 via-neutral-700 to-neutral-900 flex items-center justify-center shadow-xl">
-                    <Sparkles className="w-12 h-12 text-white" />
+                  <div className="w-24 h-24 flex items-center justify-center">
+                    <img
+                      src="/39b98fd9cfae359c9d1fbee154bd279a.gif"
+                      alt="AI Assistant"
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                 </motion.div>
 
@@ -250,7 +254,7 @@ const TravelPage: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-neutral-500" />
                         <h3 className="text-xs uppercase tracking-wider text-neutral-500 font-medium">
-                          Recent Conversations
+                          Recent Requests
                         </h3>
                       </div>
                       <span className="text-xs text-neutral-400">
@@ -259,7 +263,7 @@ const TravelPage: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                      {conversations.map((conv) => (
+                      {conversations.slice(0, 3).map((conv) => (
                         <motion.button
                           key={conv.id}
                           initial={{ opacity: 0, x: -10 }}
@@ -286,6 +290,15 @@ const TravelPage: React.FC = () => {
                           </button>
                         </motion.button>
                       ))}
+
+                      {conversations.length > 3 && (
+                        <button
+                          onClick={() => {}}
+                          className="w-full text-center py-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
+                        >
+                          View all {conversations.length} requests →
+                        </button>
+                      )}
                     </div>
                   </motion.div>
                 )}
