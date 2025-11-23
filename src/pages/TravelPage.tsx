@@ -143,7 +143,7 @@ const TravelPage: React.FC = () => {
                 >
                   <div className="w-24 h-24 flex items-center justify-center">
                     <img
-                      src="/39b98fd9cfae359c9d1fbee154bd279a.gif"
+                      src="/5458a14ae4c8f07055b7441ff0f234cf.gif"
                       alt="AI Assistant"
                       className="w-full h-full object-contain"
                     />

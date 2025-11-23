@@ -10,6 +10,7 @@ const corsHeaders = {
 interface ChatRequest {
   message: string;
   userId: string;
+  conversationId?: string;
   context?: {
     previousMessages?: Array<{ role: string; content: string }>;
     userProfile?: any;
@@ -25,7 +26,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { message, userId, context }: ChatRequest = await req.json();
+    const { message, userId, conversationId: existingConvId, context }: ChatRequest = await req.json();
 
     if (!message) {
       return new Response(
@@ -37,37 +38,28 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log('Concierge chat request:', { userId, existingConvId, messageLength: message.length });
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const conversationId = `conv_${Date.now()}`;
+    let conversationId = existingConvId;
 
-    const { data: conversation } = await supabase
-      .from('conversations')
-      .insert({
-        id: conversationId,
-        profile_id: userId,
-        channel_type: 'portal',
-        status: 'active'
-      })
-      .select()
-      .single();
-
-    if (!conversation) {
-      throw new Error('Failed to create conversation');
+    if (!conversationId) {
+      return new Response(
+        JSON.stringify({ error: "Conversation ID is required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        direction: 'in',
-        sent_by: 'user',
-        body: message,
-      });
+    console.log('Using conversation:', conversationId);
+    console.log('Creating travel request');
 
-    const { data: travelRequest } = await supabase
+    const { data: travelRequest, error: requestError } = await supabase
       .from('requests')
       .insert({
         profile_id: userId,
@@ -82,9 +74,13 @@ Deno.serve(async (req: Request) => {
       .select()
       .single();
 
-    if (!travelRequest) {
-      throw new Error('Failed to create request');
+    if (requestError || !travelRequest) {
+      console.error('Failed to create request:', requestError);
+      throw new Error(`Failed to create request: ${requestError?.message}`);
     }
+
+    console.log('Travel request created:', travelRequest.id);
+    console.log('Calling classify-message');
 
     const classifyResponse = await fetch(
       `${supabaseUrl}/functions/v1/classify-message`,
@@ -102,8 +98,13 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!classifyResponse.ok) {
-      console.error('Classification failed:', await classifyResponse.text());
+      const errorText = await classifyResponse.text();
+      console.error('Classification failed:', classifyResponse.status, errorText);
+    } else {
+      console.log('Classification successful');
     }
+
+    console.log('Calling ai-orchestrator');
 
     const orchestratorResponse = await fetch(
       `${supabaseUrl}/functions/v1/ai-orchestrator`,
@@ -121,10 +122,13 @@ Deno.serve(async (req: Request) => {
     );
 
     if (!orchestratorResponse.ok) {
-      throw new Error(`Orchestrator failed: ${await orchestratorResponse.text()}`);
+      const errorText = await orchestratorResponse.text();
+      console.error('Orchestrator failed:', orchestratorResponse.status, errorText);
+      throw new Error(`Orchestrator failed: ${orchestratorResponse.status}`);
     }
 
     const result = await orchestratorResponse.json();
+    console.log('Orchestrator response received');
 
     const metadata = generateMetadata(message, result.decision?.message);
 

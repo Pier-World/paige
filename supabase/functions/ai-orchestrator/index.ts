@@ -32,28 +32,40 @@ interface OrchestratorDecision {
 
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
-  maxRetries = 3,
-  initialDelay = 2000
+  maxRetries = 5,
+  initialDelay = 1000
 ): Promise<T> {
   let lastError: Error;
-  
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error: any) {
       lastError = error;
-      
-      if (error?.status === 429 && attempt < maxRetries) {
-        const delay = initialDelay * Math.pow(2, attempt);
-        console.log(`Rate limited. Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+
+      const isRateLimitError = error?.status === 429 ||
+                               error?.error?.type === 'rate_limit_exceeded' ||
+                               error?.message?.includes('rate limit');
+
+      if (isRateLimitError && attempt < maxRetries) {
+        const jitter = Math.random() * 1000;
+        const delay = (initialDelay * Math.pow(2, attempt)) + jitter;
+        console.log(`Rate limited. Retrying in ${Math.round(delay)}ms (attempt ${attempt + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
-      
+
+      if (attempt < maxRetries && !isRateLimitError) {
+        const delay = 500 * (attempt + 1);
+        console.log(`Request failed. Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
       throw error;
     }
   }
-  
+
   throw lastError!;
 }
 

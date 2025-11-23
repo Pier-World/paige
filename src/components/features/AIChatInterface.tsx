@@ -119,6 +119,7 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
           body: JSON.stringify({
             message: textToSend,
             userId: user.id,
+            conversationId: convId,
             context: {
               previousMessages,
               userProfile: user
