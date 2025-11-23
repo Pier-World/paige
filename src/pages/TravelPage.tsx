@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Clock, Shield, CheckCircle, Zap, TrendingUp, Gift } from 'lucide-react';
-import { PageLayout } from '../components/layout/PageLayout';
+import { AppLayout } from '../components/layout/AppLayout';
 import { useAuth } from '../context/AuthContext';
 import { AIChatInterface } from '../components/features/AIChatInterface';
 
@@ -9,8 +9,8 @@ const TravelPage: React.FC = () => {
   const { user, profile } = useAuth();
 
   return (
-    <PageLayout>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <AppLayout>
+      <div>
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -143,7 +143,7 @@ const TravelPage: React.FC = () => {
           </p>
         </motion.div>
       </div>
-    </PageLayout>
+    </AppLayout>
   );
 };
 

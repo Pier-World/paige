@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PageLayout } from '../components/layout/PageLayout';
+import { AppLayout } from '../components/layout/AppLayout';
 import { FilterBar } from '../components/features/FilterBar';
 import { EventCard } from '../components/features/EventCard';
 import { Carousel } from '../components/ui/Carousel';
@@ -147,7 +147,7 @@ const ExplorePage: React.FC = () => {
   });
 
   return (
-    <PageLayout>
+    <AppLayout>
       {/* Featured Events Carousel */}
       {featuredEvents.length > 0 && (
         <div className="bg-primary-950 pt-20 pb-12">
@@ -202,7 +202,7 @@ const ExplorePage: React.FC = () => {
           </div>
         )}
       </div>
-    </PageLayout>
+    </AppLayout>
   );
 };
 
