@@ -67,13 +67,40 @@ function extractEntitiesFromText(text: string): Record<string, any> {
 function makeDecision(request: any, messages: any[], profile: any, messageCount: number): OrchestratorDecision {
   const rawText = request.raw_text || '';
   const intent = request.intent || 'other';
-  const entities = extractEntitiesFromText(rawText);
 
-  const hasOrigin = entities.origin || request.entities?.origin;
-  const hasDestination = entities.destination || request.entities?.destination;
-  const hasDate = entities.date || request.entities?.date;
-  const hasCabin = entities.cabin || request.entities?.cabin;
-  const hasPassengers = entities.passengers || request.entities?.passengers;
+  const allUserMessages = messages.filter(m => m.role === 'user').map(m => m.content).join(' ');
+  const fullConversationText = rawText + ' ' + allUserMessages;
+
+  const entities = extractEntitiesFromText(fullConversationText);
+
+  let hasOrigin = entities.origin || request.entities?.origin;
+  let hasDestination = entities.destination || request.entities?.destination;
+  let hasDate = entities.date || request.entities?.date;
+  let hasCabin = entities.cabin || request.entities?.cabin;
+  let hasPassengers = entities.passengers || request.entities?.passengers;
+
+  if (fullConversationText.toLowerCase().includes('just me') || fullConversationText.toLowerCase().includes('just for me')) {
+    hasPassengers = 1;
+  }
+  if (fullConversationText.toLowerCase().includes('premium economy')) {
+    hasCabin = 'premium economy';
+  } else if (fullConversationText.toLowerCase().includes('economy')) {
+    hasCabin = 'economy';
+  }
+
+  if (fullConversationText.toLowerCase().includes('nyc') || fullConversationText.toLowerCase().includes('new york')) {
+    if (!hasOrigin) hasOrigin = 'NYC';
+  }
+  if (fullConversationText.toLowerCase().includes('los angeles') || fullConversationText.toLowerCase().includes('la ')) {
+    if (!hasDestination) hasDestination = 'Los Angeles';
+  }
+
+  const airportCodes = fullConversationText.match(/\b(jfk|lax|ewr|lga|sfo|ord|atl|bos|dca|dfw|mia|sea|den|phx|las|mco|iah|dtw|msp|phl|bwi|slc|san|aus|pdx|rdu|msy|bna|stl|cvg|cmh|ind|roc|buf|alb|bdl|pvd|mht|por|syr|bgr|pwm|mvp|crw|chs|sav|jax|rsw|tpa|fll|pbi|mco|san|ont|smf|oak|sjc|rno|boi|geg|anc|koa|hnl|ogg|lih|ito)\b/gi);
+  if (airportCodes && airportCodes.length > 0) {
+    if (!hasOrigin && airportCodes[0]) {
+      hasOrigin = airportCodes[0].toUpperCase();
+    }
+  }
 
   if (intent === 'flight' || rawText.toLowerCase().includes('flight') || rawText.toLowerCase().includes('fly')) {
     if (messageCount === 1) {
@@ -228,11 +255,20 @@ Deno.serve(async (req: Request) => {
       .eq('id', profile_id)
       .maybeSingle();
 
-    console.log('Making decision with:', { messageCount, intent: request.intent });
+    console.log('Making decision with:', {
+      messageCount,
+      intent: request.intent,
+      messagesFromDB: messages?.length || 0,
+      rawText: request.raw_text
+    });
 
     const decision = makeDecision(request, messages || [], profile, messageCount);
 
-    console.log('Decision made:', decision.action);
+    console.log('Decision made:', {
+      action: decision.action,
+      message: decision.message.substring(0, 100),
+      metadata: decision.metadata
+    });
 
     const { data: newMessage } = await supabase
       .from('concierge_messages')
