@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Sparkles, MapPin } from 'lucide-react';
-import { AppLayout } from '../components/layout/AppLayout';
+import { PageLayout } from '../components/layout/PageLayout';
 import { getPerks } from '../lib/api/perks';
 import { callOrchestrator } from '../lib/api/orchestrator';
 import { useAuth } from '../context/AuthContext';
@@ -142,7 +142,7 @@ const PerksPage: React.FC = () => {
   };
 
   return (
-    <AppLayout>
+    <PageLayout>
       <div className="space-y-8">
         {/* Header */}
         <motion.div
@@ -313,7 +313,7 @@ const PerksPage: React.FC = () => {
           )}
         </motion.div>
       </div>
-    </AppLayout>
+    </PageLayout>
   );
 };
 
