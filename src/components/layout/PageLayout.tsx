@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Navbar } from './Navbar';
-import { Footer } from './Footer';
 
 interface PageLayoutProps {
   children: React.ReactNode;
@@ -32,7 +31,7 @@ export const PageLayout: React.FC<PageLayoutProps> = ({ children }) => {
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
-      <motion.main 
+      <motion.main
         className="flex-grow pt-20"
         initial="initial"
         animate="in"
@@ -42,7 +41,6 @@ export const PageLayout: React.FC<PageLayoutProps> = ({ children }) => {
       >
         {children}
       </motion.main>
-      <Footer />
     </div>
   );
 };

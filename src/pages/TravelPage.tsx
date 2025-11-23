@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Send, Paperclip, Search, Plus, Clock } from 'lucide-react';
+import { Sparkles, Send, Paperclip, Plus, Clock, MessageSquare, Trash2 } from 'lucide-react';
 import { PageLayout } from '../components/layout/PageLayout';
 import { useAuth } from '../context/AuthContext';
 import { AIChatInterface } from '../components/features/AIChatInterface';
+import { getConversations, deleteConversation, type Conversation } from '../lib/api/conversations';
 
 const TravelPage: React.FC = () => {
   const { user, profile } = useAuth();
   const [greeting, setGreeting] = useState('Good evening');
   const [inputValue, setInputValue] = useState('');
   const [showChat, setShowChat] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   useEffect(() => {
     const hour = new Date().getHours();
@@ -17,6 +21,25 @@ const TravelPage: React.FC = () => {
     else if (hour < 18) setGreeting('Good afternoon');
     else setGreeting('Good evening');
   }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadConversations();
+    }
+  }, [user]);
+
+  const loadConversations = async () => {
+    if (!user?.id) return;
+    setIsLoadingHistory(true);
+    try {
+      const data = await getConversations(user.id);
+      setConversations(data);
+    } catch (error) {
+      console.error('Failed to load conversations:', error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   const examplePrompts = [
     {
@@ -43,14 +66,60 @@ const TravelPage: React.FC = () => {
 
   const handlePromptClick = (prompt: string) => {
     setInputValue(prompt);
+    setCurrentConversationId(null);
     setShowChat(true);
+  };
+
+  const handleConversationClick = (conversationId: string) => {
+    setCurrentConversationId(conversationId);
+    setInputValue('');
+    setShowChat(true);
+  };
+
+  const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Delete this conversation?')) return;
+
+    try {
+      await deleteConversation(conversationId);
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+      if (currentConversationId === conversationId) {
+        setShowChat(false);
+        setCurrentConversationId(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim()) {
+      setCurrentConversationId(null);
       setShowChat(true);
     }
+  };
+
+  const handleNewConversation = () => {
+    setInputValue('');
+    setCurrentConversationId(null);
+    setShowChat(false);
+  };
+
+  const formatRelativeTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
   };
 
   return (
@@ -66,7 +135,6 @@ const TravelPage: React.FC = () => {
                 exit={{ opacity: 0, y: -20 }}
                 className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] py-12"
               >
-                {/* Avatar/Logo */}
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -78,7 +146,6 @@ const TravelPage: React.FC = () => {
                   </div>
                 </motion.div>
 
-                {/* Greeting */}
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -93,7 +160,6 @@ const TravelPage: React.FC = () => {
                   </p>
                 </motion.div>
 
-                {/* Input Box */}
                 <motion.form
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -137,7 +203,6 @@ const TravelPage: React.FC = () => {
                   </div>
                 </motion.form>
 
-                {/* Example Prompts */}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -173,6 +238,57 @@ const TravelPage: React.FC = () => {
                     ))}
                   </div>
                 </motion.div>
+
+                {conversations.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.7 }}
+                    className="w-full max-w-3xl mt-12"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-neutral-500" />
+                        <h3 className="text-xs uppercase tracking-wider text-neutral-500 font-medium">
+                          Recent Conversations
+                        </h3>
+                      </div>
+                      <span className="text-xs text-neutral-400">
+                        Auto-deleted after 30 days
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {conversations.map((conv) => (
+                        <motion.button
+                          key={conv.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          onClick={() => handleConversationClick(conv.id)}
+                          className="group w-full bg-white border border-neutral-200 rounded-lg p-3 text-left hover:border-neutral-300 hover:shadow-sm transition-all flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <MessageSquare className="w-4 h-4 text-neutral-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-neutral-900 truncate">
+                                {conv.title}
+                              </div>
+                              <div className="text-xs text-neutral-500">
+                                {formatRelativeTime(conv.last_message_at)}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => handleDeleteConversation(conv.id, e)}
+                            className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
               </motion.div>
             ) : (
               <motion.div
@@ -183,16 +299,13 @@ const TravelPage: React.FC = () => {
               >
                 <div className="mb-6 flex items-center justify-between">
                   <button
-                    onClick={() => setShowChat(false)}
+                    onClick={handleNewConversation}
                     className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
                   >
                     ← Back to start
                   </button>
                   <button
-                    onClick={() => {
-                      setInputValue('');
-                      setShowChat(false);
-                    }}
+                    onClick={handleNewConversation}
                     className="px-4 py-2 bg-neutral-900 text-white text-sm rounded-lg hover:bg-neutral-800 transition-colors flex items-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
@@ -201,7 +314,14 @@ const TravelPage: React.FC = () => {
                 </div>
 
                 <div className="bg-white rounded-2xl border border-neutral-200 shadow-lg">
-                  <AIChatInterface initialMessage={inputValue} />
+                  <AIChatInterface
+                    initialMessage={inputValue}
+                    conversationId={currentConversationId}
+                    onConversationCreated={(id) => {
+                      setCurrentConversationId(id);
+                      loadConversations();
+                    }}
+                  />
                 </div>
               </motion.div>
             )}
