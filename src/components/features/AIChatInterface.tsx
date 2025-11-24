@@ -182,7 +182,7 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
 
   return (
     <div className="flex flex-col h-[600px]">
-      <div ref={containerRef} className="flex-1 overflow-y-auto px-6 py-6 flex flex-col-reverse">
+      <div ref={containerRef} className="flex-1 overflow-y-auto px-6 py-6">
         <div className="space-y-6 flex flex-col">
         <AnimatePresence initial={false}>
           {messages.map((message) => (
