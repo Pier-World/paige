@@ -212,6 +212,64 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
                 >
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
 
+                  {message.metadata?.flight_results && message.metadata.flight_results.results && (
+                    <div className="mt-4 space-y-3">
+                      {message.metadata.flight_results.results.slice(0, 3).map((flight: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="bg-white border border-neutral-200 rounded-xl p-4 hover:border-neutral-300 hover:shadow-sm transition-all"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <div className="font-medium text-neutral-900">{flight.airline}</div>
+                              <div className="text-xs text-neutral-500">{flight.flight_number} • {flight.product}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-semibold text-neutral-900">{flight.price}</div>
+                              {flight.currency && <div className="text-xs text-neutral-500">{flight.currency}</div>}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4 mb-3">
+                            <div>
+                              <div className="text-lg font-medium text-neutral-900">{flight.departure_time}</div>
+                              <div className="text-xs text-neutral-500">Departure</div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="border-t border-neutral-300 relative">
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-neutral-50 px-2">
+                                  <span className="text-xs text-neutral-500">{flight.duration}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-medium text-neutral-900">{flight.arrival_time}</div>
+                              <div className="text-xs text-neutral-500">Arrival</div>
+                            </div>
+                          </div>
+
+                          {flight.features && flight.features.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-3 border-t border-neutral-100">
+                              {flight.features.map((feature: string, fIdx: number) => (
+                                <span
+                                  key={fIdx}
+                                  className="text-xs px-2 py-1 bg-neutral-50 text-neutral-600 rounded-md"
+                                >
+                                  {feature}
+                                </span>
+                              ))}
+                              {flight.stops === 0 && (
+                                <span className="text-xs px-2 py-1 bg-green-50 text-green-700 rounded-md font-medium">
+                                  Non-stop
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {message.metadata?.checklist && (
                     <div className="mt-3 pt-3 border-t border-neutral-200 space-y-1">
                       {message.metadata.checklist.map((item: string, idx: number) => (

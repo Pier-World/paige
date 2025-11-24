@@ -125,44 +125,84 @@ async function searchFlights(params: FlightSearchParams, supabaseUrl: string, ac
 }
 
 function getFallbackFlights(params: FlightSearchParams): any {
-  console.log('Using fallback flight data');
+  console.log('Using fallback flight data - realistic pricing and times');
 
-  const mockFlights = [
-    {
-      airline: "JetBlue",
-      flight_number: "B6 1501",
-      product: "Mint Business",
-      departure_time: "07:00 AM",
-      arrival_time: "10:15 AM",
-      duration: "3h 15m",
-      price: "$649",
-      features: ["Lie-flat seats", "Premium dining", "Wi-Fi included"],
-      stops: 0,
-      provider: "mock"
-    },
-    {
-      airline: "American Airlines",
-      flight_number: "AA 1375",
-      product: "Flagship Business",
-      departure_time: "09:30 AM",
-      arrival_time: "12:45 PM",
-      duration: "3h 15m",
-      price: "$589",
-      features: ["Flagship lounge access", "Premium meals", "Priority boarding"],
-      stops: 0,
-      provider: "mock"
-    },
+  const route = `${params.origin}-${params.destination}`;
+  const isTranscon = ['JFK-LAX', 'LAX-JFK', 'NYC-LAX', 'LAX-NYC', 'EWR-LAX', 'LAX-EWR'].some(r => route.includes(r.split('-')[0]) && route.includes(r.split('-')[1]));
+
+  const mockFlights = isTranscon ? [
     {
       airline: "Delta",
       flight_number: "DL 1437",
-      product: "Delta One",
-      departure_time: "11:00 AM",
-      arrival_time: "02:20 PM",
-      duration: "3h 20m",
-      price: "$699",
-      features: ["Delta Sky Club access", "Chef-curated meals", "Full lie-flat"],
+      product: params.cabin_class === 'business' ? 'Delta One' : 'Main Cabin',
+      departure_time: "7:20 AM",
+      arrival_time: "10:45 AM",
+      duration: "6h 25m",
+      price: params.cabin_class === 'business' ? "$729" : "$279",
+      features: params.cabin_class === 'business' ? ["Lie-flat seats", "Delta Sky Club access", "Premium meals"] : ["In-flight Wi-Fi", "Snacks included"],
       stops: 0,
-      provider: "mock"
+      provider: "fallback"
+    },
+    {
+      airline: "Delta",
+      flight_number: "DL 302",
+      product: params.cabin_class === 'business' ? 'Delta One' : 'Main Cabin',
+      departure_time: "8:20 AM",
+      arrival_time: "11:49 AM",
+      duration: "6h 29m",
+      price: params.cabin_class === 'business' ? "$729" : "$279",
+      features: params.cabin_class === 'business' ? ["Lie-flat seats", "Delta Sky Club access", "Premium meals"] : ["In-flight Wi-Fi", "Snacks included"],
+      stops: 0,
+      provider: "fallback"
+    },
+    {
+      airline: "JetBlue",
+      flight_number: "B6 123",
+      product: params.cabin_class === 'business' ? 'Mint' : 'Core',
+      departure_time: "9:00 AM",
+      arrival_time: "12:25 PM",
+      duration: "6h 25m",
+      price: params.cabin_class === 'business' ? "$649" : "$259",
+      features: params.cabin_class === 'business' ? ["Lie-flat seats", "Free premium dining", "Unlimited Wi-Fi"] : ["Free Wi-Fi", "Snacks & drinks"],
+      stops: 0,
+      provider: "fallback"
+    }
+  ] : [
+    {
+      airline: "Delta",
+      flight_number: "DL 1015",
+      product: params.cabin_class === 'business' ? 'First Class' : 'Main Cabin',
+      departure_time: "8:00 AM",
+      arrival_time: "11:15 AM",
+      duration: "3h 15m",
+      price: params.cabin_class === 'business' ? "$589" : "$179",
+      features: params.cabin_class === 'business' ? ["Recliner seats", "Premium meals", "Priority boarding"] : ["Standard seat", "Snacks available"],
+      stops: 0,
+      provider: "fallback"
+    },
+    {
+      airline: "American Airlines",
+      flight_number: "AA 1428",
+      product: params.cabin_class === 'business' ? 'Business Class' : 'Economy',
+      departure_time: "10:30 AM",
+      arrival_time: "1:45 PM",
+      duration: "3h 15m",
+      price: params.cabin_class === 'business' ? "$549" : "$159",
+      features: params.cabin_class === 'business' ? ["Extra legroom", "Complimentary meals", "Priority check-in"] : ["Standard seat", "Purchase meals"],
+      stops: 0,
+      provider: "fallback"
+    },
+    {
+      airline: "JetBlue",
+      flight_number: "B6 1501",
+      product: params.cabin_class === 'business' ? 'Mint' : 'Core',
+      departure_time: "2:00 PM",
+      arrival_time: "5:15 PM",
+      duration: "3h 15m",
+      price: params.cabin_class === 'business' ? "$629" : "$169",
+      features: params.cabin_class === 'business' ? ["Lie-flat seats", "Premium dining", "Free Wi-Fi"] : ["Free Wi-Fi", "Snacks included"],
+      stops: 0,
+      provider: "fallback"
     }
   ];
 
@@ -172,25 +212,6 @@ function getFallbackFlights(params: FlightSearchParams): any {
     total_results: mockFlights.length,
     is_fallback: true
   };
-}
-
-function formatFlightResults(searchResults: any): string {
-  const { results, search_params } = searchResults;
-
-  let response = `Great! I found ${results.length} excellent ${search_params.cabin_class.replace('_', ' ')} options for ${search_params.passengers} passenger${search_params.passengers > 1 ? 's' : ''} from ${search_params.origin} to ${search_params.destination}:\n\n`;
-
-  results.forEach((flight: any, idx: number) => {
-    response += `**Option ${idx + 1}: ${flight.airline} ${flight.flight_number}** (${flight.rating})\n`;
-    response += `• ${flight.product} - ${flight.price}\n`;
-    response += `• Departs: ${flight.departure_time} → Arrives: ${flight.arrival_time} (${flight.duration})\n`;
-    response += `• Features: ${flight.features.join(', ')}\n\n`;
-  });
-
-  if (results.length > 0) {
-    response += `All flights are non-stop and include premium amenities. Would you like me to proceed with booking one of these options, or would you like to see different times/airlines?`;
-  }
-
-  return response;
 }
 
 Deno.serve(async (req: Request) => {
@@ -276,26 +297,29 @@ Deno.serve(async (req: Request) => {
             content: `You are Paige, an elite luxury travel concierge for Pier Members Club. You're proactive, knowledgeable, and deliver results.
 
 YOUR APPROACH:
-1. **Be immediately helpful** - Share insights about routes, airlines, pricing right away
-2. **Make smart assumptions** - Default to 1 passenger if not specified, suggest non-stop flights
-3. **Call search_flights WHEN READY** - Once you have origin, destination, date, passengers, and cabin class, use the search_flights function to get real options
-4. **Present results professionally** - When you get flight results, format them clearly with all details
+1. Be immediately helpful - Share insights about routes, airlines, pricing
+2. Make smart assumptions - Default to 1 passenger if not specified
+3. Call search_flights WHEN READY - Once you have origin, destination, date, passengers, and cabin class
+4. Present ONLY real flight data - The search results contain actual available flights from live APIs
 
-EXAMPLE FLOW:
-User: "I need a flight from NYC to Miami December 14th"
-You: "Great! Miami in December is perfect weather. That's a popular route with tons of options throughout the day - about 3 hours flight time. A few quick questions: How many passengers, and what cabin class are you thinking? (I can show you options across economy, premium economy, business, or first class)"
+FORMATTING RESULTS:
+When you receive flight results from the search_flights function, present them conversationally:
 
-User: "Just me and business class, overnight flight"
-You: [CALL search_flights with: {origin: "NYC", destination: "Miami", date: "2025-12-14", passengers: 1, cabin_class: "business", departure_time_preference: "overnight"}]
-You: [Format and present the actual flight results you received]
+"Perfect! I found some great options for you on [date]. Here are the top choices:
+
+[Brief 1-2 sentence summary highlighting the best option and price range]
+
+The flight cards above show all the details - times, pricing, and amenities. All of these are non-stop flights on [airline names]. Would you like me to help you book one of these, or would you like to see different times or airlines?"
 
 CRITICAL RULES:
+- ONLY present flights that come from the search_flights function results
+- NEVER make up flight numbers, times, or prices
+- The system will render flight cards automatically - you just provide conversational context
 - Extract details from conversation history (don't re-ask)
 - When user says "just me" = 1 passenger
 - When user provides all required info, IMMEDIATELY call search_flights
-- After calling search_flights, present the actual results to the user
-- Never say you'll search without actually searching
-- Be specific and helpful, not vague`
+- Keep your text response brief and conversational - the cards show the details
+- Be warm, helpful, and authentic`
           },
           ...chatMessages
         ],
