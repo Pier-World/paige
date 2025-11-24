@@ -177,7 +177,7 @@ function getFallbackFlights(params: FlightSearchParams): any {
 function formatFlightResults(searchResults: any): string {
   const { results, search_params } = searchResults;
 
-  let response = `Great! I found ${results.length} excellent ${search_param.cabin_class.replace('_', ' ')} options for ${search_params.passengers} passenger${search_params.passengers > 1 ? 's' : ''} from ${search_params.origin} to ${search_params.destination}:\n\n`;
+  let response = `Great! I found ${results.length} excellent ${search_params.cabin_class.replace('_', ' ')} options for ${search_params.passengers} passenger${search_params.passengers > 1 ? 's' : ''} from ${search_params.origin} to ${search_params.destination}:\n\n`;
 
   results.forEach((flight: any, idx: number) => {
     response += `**Option ${idx + 1}: ${flight.airline} ${flight.flight_number}** (${flight.rating})\n`;

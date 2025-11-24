@@ -255,12 +255,48 @@ export const AIChatInterface: React.FC<AIChatInterfaceProps> = ({
 
         {isLoading && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex items-center gap-2 text-neutral-500"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-start gap-3"
           >
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm">Paige is thinking...</span>
+            <div className="w-6 h-6 rounded-full bg-neutral-800 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-3 h-3 text-white animate-pulse" />
+            </div>
+            <div className="flex flex-col gap-2 bg-neutral-50 rounded-2xl px-5 py-3 border border-neutral-200">
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{
+                    opacity: [0.4, 1, 0.4],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="text-sm text-neutral-600"
+                >
+                  Paige is crafting your perfect options...
+                </motion.div>
+              </div>
+              <div className="flex gap-1">
+                {[0, 1, 2].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="w-2 h-2 bg-neutral-400 rounded-full"
+                    animate={{
+                      y: [-3, 0, -3],
+                      opacity: [0.4, 1, 0.4]
+                    }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: i * 0.15
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           </motion.div>
         )}
         </div>

@@ -45,7 +45,7 @@ const TravelPage: React.FC = () => {
     {
       title: 'Book a last-minute weekend getaway',
       subtitle: 'to Miami with hotel and dinner reservations',
-      icon: '✈️'
+      icon: '/Take Off Plane.png'
     },
     {
       title: 'Find me a Michelin-star restaurant',
@@ -55,12 +55,12 @@ const TravelPage: React.FC = () => {
     {
       title: 'Plan a romantic anniversary trip',
       subtitle: 'to Paris with luxury hotel and experiences',
-      icon: '💝'
+      icon: '/Heart.png'
     },
     {
       title: 'Get me a private car service',
       subtitle: 'from JFK to Manhattan tomorrow at 3pm',
-      icon: '🚗'
+      icon: '/Car.png'
     }
   ];
 
@@ -228,7 +228,15 @@ const TravelPage: React.FC = () => {
                         className="group bg-white border border-neutral-200 rounded-xl p-4 text-left hover:border-neutral-300 hover:shadow-md transition-all"
                       >
                         <div className="flex items-start gap-3">
-                          <span className="text-2xl">{prompt.icon}</span>
+                          {prompt.icon.startsWith('/') ? (
+                            <img
+                              src={prompt.icon}
+                              alt={prompt.title}
+                              className="w-8 h-8 object-contain opacity-70 group-hover:opacity-100 transition-opacity"
+                            />
+                          ) : (
+                            <span className="text-2xl">{prompt.icon}</span>
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium text-neutral-900 mb-1 group-hover:text-neutral-700 transition-colors">
                               {prompt.title}
