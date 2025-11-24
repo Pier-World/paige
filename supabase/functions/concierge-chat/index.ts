@@ -62,8 +62,70 @@ const flightSearchTool = {
   }
 };
 
-async function searchFlights(params: FlightSearchParams): Promise<any> {
+async function searchFlights(params: FlightSearchParams, supabaseUrl: string, accessToken: string): Promise<any> {
   console.log('Searching flights with params:', params);
+
+  try {
+    const searchRequest = {
+      origin: params.origin.toUpperCase(),
+      destination: params.destination.toUpperCase(),
+      departure_date: params.date,
+      passengers: params.passengers,
+      cabin_class: params.cabin_class,
+      trip_type: 'one_way'
+    };
+
+    const response = await fetch(
+      `${supabaseUrl}/functions/v1/search-flights`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(searchRequest)
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Flight search API error:', response.status);
+      throw new Error('Failed to search flights');
+    }
+
+    const data = await response.json();
+
+    if (!data.success || !data.results || data.results.length === 0) {
+      console.warn('No flights found, using fallback');
+      return getFallbackFlights(params);
+    }
+
+    return {
+      results: data.results.map((flight: any) => ({
+        airline: flight.airline,
+        flight_number: flight.flight_number,
+        product: flight.product_name,
+        departure_time: flight.departure_time,
+        arrival_time: flight.arrival_time,
+        duration: flight.duration,
+        price: `$${flight.price.toFixed(0)}`,
+        currency: flight.currency,
+        features: flight.features,
+        stops: flight.stops,
+        aircraft: flight.aircraft,
+        provider: flight.provider
+      })),
+      search_params: params,
+      total_results: data.total
+    };
+
+  } catch (error) {
+    console.error('Error calling search-flights API:', error);
+    return getFallbackFlights(params);
+  }
+}
+
+function getFallbackFlights(params: FlightSearchParams): any {
+  console.log('Using fallback flight data');
 
   const mockFlights = [
     {
@@ -75,7 +137,8 @@ async function searchFlights(params: FlightSearchParams): Promise<any> {
       duration: "3h 15m",
       price: "$649",
       features: ["Lie-flat seats", "Premium dining", "Wi-Fi included"],
-      rating: "Excellent"
+      stops: 0,
+      provider: "mock"
     },
     {
       airline: "American Airlines",
@@ -86,7 +149,8 @@ async function searchFlights(params: FlightSearchParams): Promise<any> {
       duration: "3h 15m",
       price: "$589",
       features: ["Flagship lounge access", "Premium meals", "Priority boarding"],
-      rating: "Very Good"
+      stops: 0,
+      provider: "mock"
     },
     {
       airline: "Delta",
@@ -97,31 +161,16 @@ async function searchFlights(params: FlightSearchParams): Promise<any> {
       duration: "3h 20m",
       price: "$699",
       features: ["Delta Sky Club access", "Chef-curated meals", "Full lie-flat"],
-      rating: "Excellent"
-    },
-    {
-      airline: "Virgin Atlantic",
-      flight_number: "VS 4",
-      product: "Upper Class",
-      departure_time: "08:30 PM",
-      arrival_time: "08:10 AM+1",
-      duration: "7h 40m",
-      price: "$2,899",
-      features: ["Bar onboard", "Premium lounge", "Chauffeur service"],
-      rating: "Outstanding",
-      overnight: true
+      stops: 0,
+      provider: "mock"
     }
   ];
 
-  const isOvernight = params.departure_time_preference === 'overnight';
-  const relevantFlights = isOvernight
-    ? mockFlights.filter(f => f.overnight)
-    : mockFlights.filter(f => !f.overnight);
-
   return {
-    results: relevantFlights,
+    results: mockFlights,
     search_params: params,
-    total_results: relevantFlights.length
+    total_results: mockFlights.length,
+    is_fallback: true
   };
 }
 
@@ -276,7 +325,10 @@ CRITICAL RULES:
         const searchParams = JSON.parse(toolCall.function.arguments);
         console.log('AI requested flight search:', searchParams);
 
-        flightResults = await searchFlights(searchParams);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token || supabaseKey;
+
+        flightResults = await searchFlights(searchParams, supabaseUrl, accessToken);
 
         const followUpResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
