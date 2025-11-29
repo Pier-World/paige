@@ -4,17 +4,12 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
-const PerksPage = lazy(() => import('./pages/PerksPage'));
-const PerkDetailPage = lazy(() => import('./pages/PerkDetailPage'));
-const ExplorePage = lazy(() => import('./pages/ExplorePage'));
-const EventDetailPage = lazy(() => import('./pages/EventDetailPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const MembershipPage = lazy(() => import('./pages/MembershipPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const TravelPage = lazy(() => import('./pages/TravelPage'));
-const AdminPage = lazy(() => import('./pages/AdminPage'));
+const TasksPage = lazy(() => import('./pages/TasksPage'));
 
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -41,28 +36,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
-// Admin route component
-const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isLoading } = useAuth();
-  
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary-900"></div>
-      </div>
-    );
-  }
-  
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  if (user.role !== 'admin') {
-    return <Navigate to="/" replace />;
-  }
-  
-  return <>{children}</>;
-};
 
 // Public route component - redirects to home if already authenticated
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -109,70 +82,12 @@ function App() {
             />
             <Route path="/auth/callback" element={<Navigate to="/" replace />} />
 
-            {/* Admin routes */}
-            <Route
-              path="/admin"
-              element={
-                <AdminRoute>
-                  <AdminPage />
-                </AdminRoute>
-              }
-            />
-
-            {/* Protected routes */}
+            {/* MVP Protected routes */}
             <Route
               path="/"
               element={
                 <ProtectedRoute>
                   <HomePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/perks"
-              element={
-                <ProtectedRoute>
-                  <PerksPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/perks/:id"
-              element={
-                <ProtectedRoute>
-                  <PerkDetailPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/explore"
-              element={
-                <ProtectedRoute>
-                  <ExplorePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/explore/:id"
-              element={
-                <ProtectedRoute>
-                  <EventDetailPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/membership"
-              element={
-                <ProtectedRoute>
-                  <MembershipPage />
                 </ProtectedRoute>
               }
             />
@@ -184,6 +99,31 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/tasks"
+              element={
+                <ProtectedRoute>
+                  <TasksPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Redirect old routes to home for now */}
+            <Route path="/admin" element={<Navigate to="/" replace />} />
+            <Route path="/perks" element={<Navigate to="/" replace />} />
+            <Route path="/perks/:id" element={<Navigate to="/" replace />} />
+            <Route path="/explore" element={<Navigate to="/" replace />} />
+            <Route path="/explore/:id" element={<Navigate to="/" replace />} />
+            <Route path="/membership" element={<Navigate to="/" replace />} />
+            <Route path="/events" element={<Navigate to="/" replace />} />
 
             {/* Catch all route */}
             <Route path="*" element={<NotFoundPage />} />

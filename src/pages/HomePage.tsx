@@ -1,250 +1,268 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion, useAnimation } from 'framer-motion';
-import { MessageCircle, Plane, UtensilsCrossed, Building2, Ticket } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { PageLayout } from '../components/layout/PageLayout';
-import { Card } from '../components/ui/Card';
-import { mockFeaturedPerks } from '../mocks/perksData';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { SearchBar } from '../components/ui/SearchBar';
+import { TaskCard } from '../components/ui/TaskCard';
+import { CalendarEventCard } from '../components/ui/CalendarEventCard';
+import { TripCard } from '../components/ui/TripCard';
+import { NotificationCard } from '../components/ui/NotificationCard';
 
-const TypingText: React.FC<{ text: string; delay?: number; onComplete?: () => void; className?: string }> = ({
-  text,
-  delay = 0,
-  onComplete,
-  className = ''
-}) => {
-  const [displayedText, setDisplayedText] = useState('');
-  const [currentIndex, setCurrentIndex] = useState(0);
+interface CalendarEvent {
+  id: string;
+  title?: string;
+  description?: string;
+  location?: string;
+  start_time: string;
+  end_time: string;
+  all_day?: boolean;
+  time_zone?: string;
+}
 
-  useEffect(() => {
-    if (currentIndex === 0) {
-      const startTimeout = setTimeout(() => {
-        setCurrentIndex(1);
-      }, delay);
-      return () => clearTimeout(startTimeout);
-    }
+interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'pending' | 'in_progress' | 'awaiting_human' | 'completed' | 'failed';
+  assigned_agent?: string;
+  requires_human?: boolean;
+  created_at: string;
+  due_date?: string;
+  priority?: number;
+}
 
-    if (currentIndex > 0 && currentIndex <= text.length) {
-      const timeout = setTimeout(() => {
-        setDisplayedText(text.slice(0, currentIndex));
-        setCurrentIndex(currentIndex + 1);
-      }, 30);
-      return () => clearTimeout(timeout);
-    }
+interface Trip {
+  id: string;
+  data: {
+    name?: string;
+    start_date?: string;
+    end_date?: string;
+    destinations?: string[];
+    [key: string]: any;
+  };
+  created_at: string;
+}
 
-    if (currentIndex > text.length && onComplete) {
-      onComplete();
-    }
-  }, [currentIndex, text, delay, onComplete]);
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  notification_type: 'info' | 'alert' | 'success' | 'error';
+  action_url?: string;
+  action_label?: string;
+  read_at?: string;
+  created_at: string;
+}
 
-  return <span className={className}>{displayedText}</span>;
-};
+interface HomeFeed {
+  today: {
+    summary: string;
+    calendar_events: CalendarEvent[];
+    tasks: Task[];
+  };
+  tomorrow: {
+    summary: string;
+    calendar_events: CalendarEvent[];
+  };
+  upcoming_trips: Trip[];
+  notifications: Notification[];
+}
 
 const HomePage: React.FC = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const [greeting, setGreeting] = useState('Good evening');
-  const [featuredPerks, setFeaturedPerks] = useState<any[]>(mockFeaturedPerks);
-  const [greetingComplete, setGreetingComplete] = useState(false);
-  const [questionComplete, setQuestionComplete] = useState(false);
-  const sectionsControls = useAnimation();
+  const [feed, setFeed] = useState<HomeFeed | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting('Good morning');
-    else if (hour < 18) setGreeting('Good afternoon');
-    else setGreeting('Good evening');
-
-    fetchFeaturedPerks();
-  }, []);
-
-  useEffect(() => {
-    if (questionComplete) {
-      sectionsControls.start('visible');
+    if (user) {
+      loadHomeFeed();
     }
-  }, [questionComplete, sectionsControls]);
+  }, [user]);
 
-  const fetchFeaturedPerks = async () => {
+  async function loadHomeFeed() {
+    if (!user) return;
+
     try {
-      const { data, error } = await supabase
-        .from('perks')
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const nextWeek = new Date(today);
+      nextWeek.setDate(nextWeek.getDate() + 7);
+
+      // Get today's calendar events
+      const { data: todayEvents } = await supabase
+        .from('calendar_events')
         .select('*')
-        .eq('featured', true)
-        .limit(8);
+        .eq('user_id', user.id)
+        .gte('start_time', today.toISOString())
+        .lt('start_time', tomorrow.toISOString())
+        .order('start_time');
 
-      if (error) {
-        console.error('Error fetching perks:', error);
-        setFeaturedPerks(mockFeaturedPerks);
-        return;
-      }
+      // Get tomorrow's events
+      const tomorrowEnd = new Date(tomorrow);
+      tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
+      const { data: tomorrowEvents } = await supabase
+        .from('calendar_events')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('start_time', tomorrow.toISOString())
+        .lt('start_time', tomorrowEnd.toISOString())
+        .order('start_time');
 
-      if (data && data.length > 0) {
-        setFeaturedPerks(data);
-      } else {
-        setFeaturedPerks(mockFeaturedPerks);
-      }
+      // Get tasks due today
+      const { data: todayTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .lte('due_date', tomorrow.toISOString())
+        .neq('status', 'completed')
+        .order('priority', { ascending: false });
+
+      // Get upcoming trips (7 days) - query entities table
+      const { data: trips } = await supabase
+        .from('entities')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('entity_type', 'trip')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // Get unread notifications
+      const { data: notifications } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .is('read_at', null)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      setFeed({
+        today: {
+          summary: generateSummary(todayEvents || [], todayTasks || []),
+          calendar_events: todayEvents || [],
+          tasks: todayTasks || [],
+        },
+        tomorrow: {
+          summary: generateSummary(tomorrowEvents || []),
+          calendar_events: tomorrowEvents || [],
+        },
+        upcoming_trips: trips || [],
+        notifications: notifications || [],
+      });
     } catch (error) {
-      console.error('Failed to fetch perks:', error);
-      setFeaturedPerks(mockFeaturedPerks);
+      console.error('Error loading home feed:', error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
-  const handleWhatsApp = () => {
-    window.open('https://wa.me/19179354877', '_blank');
-  };
+  function generateSummary(events?: any[], tasks?: any[]): string {
+    const eventCount = events?.length || 0;
+    const taskCount = tasks?.length || 0;
 
-  const favoriteCategories = [
-    { icon: Plane, label: 'Book Travel', path: '/travel' },
-    { icon: UtensilsCrossed, label: 'Dining & Nightlife', path: '/perks?category=dining' },
-    { icon: Building2, label: 'Clubs & Lounges', path: '/perks?category=lifestyle' },
-    { icon: Ticket, label: 'Clubs & Lounges Access', path: '/explore' },
-  ];
-
-  const greetingText = `${greeting}, ${user?.first_name || 'Guest'}.`;
-  const questionText = 'What can we take care of today?';
-
-  const sectionVariants = {
-    hidden: { opacity: 0, y: 60 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.8,
-        ease: [0.22, 1, 0.36, 1]
-      }
+    if (eventCount === 0 && taskCount === 0) {
+      return 'You have a clear schedule.';
     }
+
+    return `${eventCount} event${eventCount !== 1 ? 's' : ''}, ${taskCount} task${taskCount !== 1 ? 's' : ''}.`;
+  }
+
+  const handleSendMessage = async (message: string) => {
+    // TODO: Call orchestrator endpoint
+    console.log('Sending message:', message);
   };
+
+  if (loading) {
+    return (
+      <PageLayout>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary-900"></div>
+        </div>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout>
-      {/* Hero Section */}
-      <div className="min-h-[70vh] flex items-center justify-center bg-gradient-to-b from-neutral-50 to-white">
-        <div className="container-custom py-24 text-center">
-          <div>
-            <h1 className="font-serif text-5xl md:text-7xl font-light mb-6 text-neutral-900">
-              <TypingText
-                text={greetingText}
-                delay={300}
-                onComplete={() => setGreetingComplete(true)}
-              />
-            </h1>
-
-            <p className="text-2xl md:text-3xl font-serif font-light text-neutral-800 mb-12">
-              {greetingComplete && (
-                <TypingText
-                  text={questionText}
-                  delay={200}
-                  onComplete={() => setQuestionComplete(true)}
-                />
-              )}
-            </p>
-
-            <motion.div
-              className="flex flex-col items-center space-y-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.5 }}
-            >
-              <button
-                onClick={handleWhatsApp}
-                className="px-8 py-4 bg-black text-white rounded-lg flex items-center space-x-3 hover:bg-neutral-800 transition-all text-lg font-medium"
-              >
-                <MessageCircle size={20} />
-                <span>Message Concierge</span>
-              </button>
-
-              <p className="text-sm text-neutral-600">
-                Or email us at <a href="mailto:concierge@joinpier.com" className="underline">concierge@joinpier.com</a>
-              </p>
-            </motion.div>
-          </div>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Global Search Bar */}
+        <div className="mb-8">
+          <SearchBar placeholder="Ask Pier anything... ✨" onSend={handleSendMessage} />
         </div>
+
+        {/* Today Section */}
+        <section className="mb-8">
+          <h2 className="text-2xl font-bold mb-4">Today</h2>
+          <p className="text-lg text-gray-600 italic mb-4">{feed?.today.summary}</p>
+
+          {/* Calendar Events */}
+          {feed?.today.calendar_events && feed.today.calendar_events.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {feed.today.calendar_events.map((event) => (
+                <CalendarEventCard key={event.id} event={event} />
+              ))}
+            </div>
+          )}
+
+          {/* Tasks Due */}
+          {feed?.today.tasks && feed.today.tasks.length > 0 && (
+            <div className="space-y-2">
+              {feed.today.tasks.map((task) => (
+                <TaskCard key={task.id} task={task} variant="compact" />
+              ))}
+            </div>
+          )}
+
+          {(!feed?.today.calendar_events || feed.today.calendar_events.length === 0) &&
+            (!feed?.today.tasks || feed.today.tasks.length === 0) && (
+              <p className="text-gray-500 text-sm">No events or tasks scheduled for today.</p>
+            )}
+        </section>
+
+        {/* Tomorrow Section */}
+        <section className="mb-8">
+          <h2 className="text-2xl font-bold mb-4">Tomorrow</h2>
+          <p className="text-lg text-gray-600 italic mb-4">{feed?.tomorrow.summary}</p>
+          {feed?.tomorrow.calendar_events && feed.tomorrow.calendar_events.length > 0 ? (
+            <div className="space-y-2">
+              {feed.tomorrow.calendar_events.map((event) => (
+                <CalendarEventCard key={event.id} event={event} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm">No events scheduled for tomorrow.</p>
+          )}
+        </section>
+
+        {/* Upcoming Trips */}
+        {feed?.upcoming_trips && feed.upcoming_trips.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-2xl font-bold mb-4">Upcoming Trips</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {feed.upcoming_trips.map((trip) => (
+                <TripCard key={trip.id} trip={trip} variant="compact" />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Notifications */}
+        {feed?.notifications && feed.notifications.length > 0 && (
+          <section>
+            <h2 className="text-2xl font-bold mb-4">Notifications</h2>
+            <div className="space-y-2">
+              {feed.notifications.map((notification) => (
+                <NotificationCard
+                  key={notification.id}
+                  notification={notification}
+                  onMarkRead={() => loadHomeFeed()}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
-
-      {/* Your Favorites */}
-      <motion.section
-        className="py-16 bg-white border-t border-neutral-200"
-        initial="hidden"
-        animate={sectionsControls}
-        variants={sectionVariants}
-      >
-        <div className="container-custom">
-          <h2 className="text-2xl font-semibold mb-8 text-neutral-900">Your Favorites</h2>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {favoriteCategories.map((category, index) => (
-              <button
-                key={index}
-                onClick={() => navigate(category.path)}
-                className="p-6 border border-neutral-200 rounded-lg hover:border-neutral-400 hover:shadow-md transition-all text-left group"
-              >
-                <category.icon size={24} className="mb-3 text-neutral-900 group-hover:scale-110 transition-transform" />
-                <p className="text-sm font-medium text-neutral-900">{category.label}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      {/* Featured Deals */}
-      <motion.section
-        className="py-16 bg-neutral-50"
-        initial="hidden"
-        animate={sectionsControls}
-        variants={sectionVariants}
-      >
-        <div className="container-custom">
-          <h2 className="text-2xl font-semibold mb-8 text-neutral-900">Featured Deals</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredPerks.slice(0, 4).map((perk) => (
-              <div key={perk.id}>
-                <Card
-                  image={perk.image_url}
-                  title={perk.title}
-                  description={perk.short_description}
-                  tags={perk.tags}
-                  link={`/perks/${perk.id}`}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      {/* Upcoming Experiences */}
-      <motion.section
-        className="py-16 bg-white border-t border-neutral-200"
-        initial="hidden"
-        animate={sectionsControls}
-        variants={sectionVariants}
-      >
-        <div className="container-custom">
-          <h2 className="text-2xl font-semibold mb-8 text-neutral-900">Upcoming Experiences</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {featuredPerks.slice(4, 7).map((perk) => (
-              <div
-                key={perk.id}
-                className="relative h-64 rounded-lg overflow-hidden group cursor-pointer"
-                onClick={() => navigate(`/perks/${perk.id}`)}
-              >
-                <img
-                  src={perk.image_url}
-                  alt={perk.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-6">
-                  <h3 className="text-white text-lg font-semibold">{perk.title}</h3>
-                  <p className="text-white/80 text-sm mt-1">{perk.short_description}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
     </PageLayout>
   );
 };
