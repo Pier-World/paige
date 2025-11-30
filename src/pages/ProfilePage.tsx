@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PageLayout } from '../components/layout/PageLayout';
 import { MemberCard } from '../components/features/MemberCard';
 import { Button } from '../components/ui/Button';
 import { TagSelector } from '../components/ui/TagSelector';
 import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
-import { Shield } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Shield, Mail, Calendar, CheckCircle2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const ProfilePage: React.FC = () => {
   const { user, updateProfile, updateEmail } = useAuth();
+  const [searchParams] = useSearchParams();
   const [isEditing, setIsEditing] = useState(false);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -23,6 +25,9 @@ const ProfilePage: React.FC = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [isCheckingConnections, setIsCheckingConnections] = useState(true);
 
   // Options for form selects
   const cityOptions = [
@@ -45,6 +50,78 @@ const ProfilePage: React.FC = () => {
     'Entertainment',
     'Arts & Culture',
   ];
+
+  useEffect(() => {
+    if (user) {
+      checkConnections();
+    }
+
+    // Check for OAuth callback success/error
+    const connected = searchParams.get('connected');
+    const error = searchParams.get('error');
+    if (connected) {
+      // Refresh connections after successful OAuth
+      setTimeout(() => {
+        checkConnections();
+        // Remove query params from URL
+        window.history.replaceState({}, '', '/profile');
+      }, 1000);
+    }
+    if (error) {
+      setUpdateError(`OAuth error: ${error}`);
+      // Remove query params from URL
+      window.history.replaceState({}, '', '/profile');
+    }
+  }, [user, searchParams]);
+
+  async function checkConnections() {
+    if (!user) return;
+
+    setIsCheckingConnections(true);
+    try {
+      // Check Gmail
+      const { data: gmailInt } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('provider', 'google_gmail')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      setGmailConnected(!!gmailInt);
+
+      // Check Calendar
+      const { data: calInt } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('provider', 'google_calendar')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      setCalendarConnected(!!calInt);
+    } catch (error) {
+      console.error('Error checking connections:', error);
+    } finally {
+      setIsCheckingConnections(false);
+    }
+  }
+
+  async function connectGmail() {
+    if (!user) return;
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const oauthUrl = `${supabaseUrl}/functions/v1/auth-google?user_id=${user.id}&provider=gmail`;
+    window.location.href = oauthUrl;
+  }
+
+  async function connectCalendar() {
+    if (!user) return;
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const oauthUrl = `${supabaseUrl}/functions/v1/auth-google?user_id=${user.id}&provider=calendar`;
+    window.location.href = oauthUrl;
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -327,6 +404,66 @@ const ProfilePage: React.FC = () => {
                   )}
                 </div>
                 
+                {/* Connected Services Section */}
+                <div className="pt-8 border-t border-primary-100">
+                  <h3 className="text-xl font-display font-medium mb-4">Connected Services</h3>
+                  <div className="space-y-4">
+                    {/* Gmail */}
+                    <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Mail className="w-5 h-5 text-gray-600" />
+                        <div>
+                          <h4 className="font-semibold text-gray-900">Gmail</h4>
+                          <p className="text-sm text-gray-600">
+                            {gmailConnected ? (
+                              <span className="flex items-center gap-1 text-green-600">
+                                <CheckCircle2 className="w-4 h-4" />
+                                Connected
+                              </span>
+                            ) : (
+                              'Not connected'
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant={gmailConnected ? 'outline' : 'primary'}
+                        onClick={connectGmail}
+                        disabled={isCheckingConnections}
+                      >
+                        {gmailConnected ? 'Reconnect' : 'Connect Gmail'}
+                      </Button>
+                    </div>
+
+                    {/* Google Calendar */}
+                    <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Calendar className="w-5 h-5 text-gray-600" />
+                        <div>
+                          <h4 className="font-semibold text-gray-900">Google Calendar</h4>
+                          <p className="text-sm text-gray-600">
+                            {calendarConnected ? (
+                              <span className="flex items-center gap-1 text-green-600">
+                                <CheckCircle2 className="w-4 h-4" />
+                                Connected
+                              </span>
+                            ) : (
+                              'Not connected'
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant={calendarConnected ? 'outline' : 'primary'}
+                        onClick={connectCalendar}
+                        disabled={isCheckingConnections}
+                      >
+                        {calendarConnected ? 'Reconnect' : 'Connect Calendar'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="pt-4 border-t border-primary-100 flex flex-wrap gap-4">
                   <Button 
                     variant="outline"
