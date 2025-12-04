@@ -4,16 +4,22 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
+const CalendarPage = lazy(() => import('./pages/CalendarPage'));
+const PerksPage = lazy(() => import('./pages/PerksPage'));
+const MembershipsPage = lazy(() => import('./pages/MembershipsPage'));
+const ExperiencesPage = lazy(() => import('./pages/ExperiencesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const TravelPage = lazy(() => import('./pages/TravelPage'));
 const TasksPage = lazy(() => import('./pages/TasksPage'));
+const ConversationPage = lazy(() => import('./pages/ConversationPage'));
+const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 
 const LoadingSpinner = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary-900"></div>
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent"></div>
   </div>
 );
 
@@ -23,8 +29,8 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary-900"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent"></div>
       </div>
     );
   }
@@ -43,8 +49,8 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary-900"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent"></div>
       </div>
     );
   }
@@ -81,8 +87,11 @@ function App() {
               }
             />
             <Route path="/auth/callback" element={<Navigate to="/" replace />} />
+            
+            {/* OAuth Callback Route (public - handles OAuth redirects) */}
+            <Route path="/oauth-callback" element={<OAuthCallback />} />
 
-            {/* MVP Protected routes */}
+            {/* Main Platform Routes */}
             <Route
               path="/"
               element={
@@ -92,18 +101,34 @@ function App() {
               }
             />
             <Route
-              path="/travel"
+              path="/calendar"
               element={
                 <ProtectedRoute>
-                  <TravelPage />
+                  <CalendarPage />
                 </ProtectedRoute>
               }
             />
             <Route
-              path="/tasks"
+              path="/perks"
               element={
                 <ProtectedRoute>
-                  <TasksPage />
+                  <PerksPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/memberships"
+              element={
+                <ProtectedRoute>
+                  <MembershipsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/experiences"
+              element={
+                <ProtectedRoute>
+                  <ExperiencesPage />
                 </ProtectedRoute>
               }
             />
@@ -115,15 +140,24 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/conversation/:taskId?"
+              element={
+                <ProtectedRoute>
+                  <ConversationPage />
+                </ProtectedRoute>
+              }
+            />
 
-            {/* Redirect old routes to home for now */}
+            {/* Legacy/Redirect routes */}
+            <Route path="/travel" element={<Navigate to="/" replace />} />
+            <Route path="/tasks" element={<Navigate to="/" replace />} />
             <Route path="/admin" element={<Navigate to="/" replace />} />
-            <Route path="/perks" element={<Navigate to="/" replace />} />
-            <Route path="/perks/:id" element={<Navigate to="/" replace />} />
-            <Route path="/explore" element={<Navigate to="/" replace />} />
-            <Route path="/explore/:id" element={<Navigate to="/" replace />} />
-            <Route path="/membership" element={<Navigate to="/" replace />} />
-            <Route path="/events" element={<Navigate to="/" replace />} />
+            <Route path="/perks/:id" element={<Navigate to="/perks" replace />} />
+            <Route path="/explore" element={<Navigate to="/experiences" replace />} />
+            <Route path="/explore/:id" element={<Navigate to="/experiences" replace />} />
+            <Route path="/membership" element={<Navigate to="/memberships" replace />} />
+            <Route path="/events" element={<Navigate to="/experiences" replace />} />
 
             {/* Catch all route */}
             <Route path="*" element={<NotFoundPage />} />

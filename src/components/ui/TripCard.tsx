@@ -36,21 +36,23 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, variant = 'compact' })
 
   if (variant === 'compact') {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+      <div className="bg-surface border border-border rounded-xl p-4 hover:border-[#3a3a3a] transition-all">
         <div className="flex items-start gap-3">
-          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+          <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
             <Plane className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-semibold text-gray-900 truncate">{tripName}</h4>
+            <h4 className="text-text-primary truncate" style={{ fontSize: '14px', fontWeight: 400 }}>
+              {tripName}
+            </h4>
             <div className="mt-1 space-y-1">
               {startDate && endDate && (
-                <div className="flex items-center gap-1 text-xs text-gray-600">
+                <div className="flex items-center gap-1.5 text-text-secondary" style={{ fontSize: '12px', fontWeight: 300 }}>
                   <Calendar className="w-3 h-3" />
                   <span>{startDate} - {endDate}</span>
                 </div>
               )}
-              <div className="flex items-center gap-1 text-xs text-gray-600">
+              <div className="flex items-center gap-1.5 text-text-secondary" style={{ fontSize: '12px', fontWeight: 300 }}>
                 <MapPin className="w-3 h-3" />
                 <span className="truncate">{destination}</span>
               </div>
@@ -62,21 +64,23 @@ export const TripCard: React.FC<TripCardProps> = ({ trip, variant = 'compact' })
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-shadow">
+    <div className="bg-surface border border-border rounded-xl p-6 hover:border-[#3a3a3a] transition-all">
       <div className="flex items-start gap-4">
-        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-accent/10 text-accent flex items-center justify-center">
           <Plane className="w-6 h-6" />
         </div>
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900">{tripName}</h3>
+          <h3 className="text-text-primary" style={{ fontSize: '18px', fontWeight: 400 }}>
+            {tripName}
+          </h3>
           <div className="mt-3 space-y-2">
             {startDate && endDate && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="flex items-center gap-2 text-text-secondary" style={{ fontSize: '13px', fontWeight: 300 }}>
                 <Calendar className="w-4 h-4" />
                 <span>{startDate} - {endDate}</span>
               </div>
             )}
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2 text-text-secondary" style={{ fontSize: '13px', fontWeight: 300 }}>
               <MapPin className="w-4 h-4" />
               <span>{destination}</span>
             </div>

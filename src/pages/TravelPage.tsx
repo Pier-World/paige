@@ -1,352 +1,168 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Send, Paperclip, Plus, Clock, MessageSquare, Trash2 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { PageLayout } from '../components/layout/PageLayout';
 import { useAuth } from '../context/AuthContext';
-import { AIChatInterface } from '../components/features/AIChatInterface';
-import { getConversations, deleteConversation, type Conversation } from '../lib/api/conversations';
+import { ConciergeInput } from '../components/ui/ConciergeInput';
+import { TripCard } from '../components/ui/TripCard';
+import { supabase } from '../lib/supabase';
+
+interface Trip {
+  id: string;
+  data: {
+    name?: string;
+    start_date?: string;
+    end_date?: string;
+    destinations?: string[];
+    [key: string]: any;
+  };
+  created_at: string;
+}
 
 const TravelPage: React.FC = () => {
-  const { user, profile } = useAuth();
-  const [greeting, setGreeting] = useState('Good evening');
-  const [inputValue, setInputValue] = useState('');
-  const [showChat, setShowChat] = useState(false);
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const { user } = useAuth();
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting('Good morning');
-    else if (hour < 18) setGreeting('Good afternoon');
-    else setGreeting('Good evening');
-  }, []);
-
-  useEffect(() => {
-    if (user?.id) {
-      loadConversations();
+    if (user) {
+      loadTrips();
+    } else {
+      // If no user, clear loading state immediately
+      setLoading(false);
     }
   }, [user]);
 
-  const loadConversations = async () => {
-    if (!user?.id) return;
-    setIsLoadingHistory(true);
-    try {
-      const data = await getConversations(user.id);
-      setConversations(data);
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-    } finally {
-      setIsLoadingHistory(false);
+  async function loadTrips() {
+    if (!user) {
+      setLoading(false);
+      return;
     }
-  };
-
-  const examplePrompts = [
-    {
-      title: 'Book a last-minute weekend getaway',
-      subtitle: 'to Miami with hotel and dinner reservations',
-      icon: '/Take Off Plane.png'
-    },
-    {
-      title: 'Find me a Michelin-star restaurant',
-      subtitle: 'in NYC for Saturday night, party of 4',
-      icon: '🍽️'
-    },
-    {
-      title: 'Plan a romantic anniversary trip',
-      subtitle: 'to Paris with luxury hotel and experiences',
-      icon: '/Heart.png'
-    },
-    {
-      title: 'Get me a private car service',
-      subtitle: 'from JFK to Manhattan tomorrow at 3pm',
-      icon: '/Car.png'
-    }
-  ];
-
-  const handlePromptClick = (prompt: string) => {
-    setInputValue(prompt);
-    setCurrentConversationId(null);
-    setShowChat(true);
-  };
-
-  const handleConversationClick = (conversationId: string) => {
-    setCurrentConversationId(conversationId);
-    setInputValue('');
-    setShowChat(true);
-  };
-
-  const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm('Delete this conversation?')) return;
 
     try {
-      await deleteConversation(conversationId);
-      setConversations(prev => prev.filter(c => c.id !== conversationId));
-      if (currentConversationId === conversationId) {
-        setShowChat(false);
-        setCurrentConversationId(null);
+      // Use Promise.race to handle timeout properly
+      let timeoutId: NodeJS.Timeout | null = null;
+      const timeoutPromise = new Promise<null>((resolve) => {
+        timeoutId = setTimeout(() => {
+          console.warn('Trips load timeout - queries taking too long');
+          resolve(null);
+        }, 15000); // Increased to 15 seconds
+      });
+
+      const queryPromise = supabase
+        .from('entities')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('entity_type', 'trip')
+        .order('created_at', { ascending: false });
+
+      // Race between query and timeout
+      let result: any = null;
+      let timedOut = false;
+      
+      try {
+        result = await Promise.race([
+          queryPromise,
+          timeoutPromise.then(() => {
+            timedOut = true;
+            return null;
+          })
+        ]);
+      } catch (error) {
+        console.error('Error in Promise.race:', error);
+        timedOut = true;
+      }
+      
+      // Clear timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
+      // If timeout won, result will be null
+      if (timedOut || result === null) {
+        console.error('Trips query timed out');
+        setLoading(false);
+        setTrips([]);
+        return;
+      }
+
+      const { data, error } = result;
+
+      if (error) {
+        console.error('Error loading trips:', error);
+        setTrips([]);
+      } else {
+        setTrips(data || []);
       }
     } catch (error) {
-      console.error('Failed to delete conversation:', error);
+      console.error('Error loading trips:', error);
+      setTrips([]);
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputValue.trim()) {
-      setCurrentConversationId(null);
-      setShowChat(true);
-    }
-  };
-
-  const handleNewConversation = () => {
-    setInputValue('');
-    setCurrentConversationId(null);
-    setShowChat(false);
-  };
-
-  const formatRelativeTime = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+  const handleSendMessage = async (message: string) => {
+    // TODO: Call orchestrator endpoint for travel requests
+    console.log('Travel request:', message);
+    // Reload trips after a potential booking
+    await loadTrips();
   };
 
   return (
     <PageLayout>
-      <div className="min-h-[calc(100vh-80px)]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <AnimatePresence mode="wait">
-            {!showChat ? (
-              <motion.div
-                key="welcome"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] py-12"
-              >
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.1 }}
-                  className="mb-8"
-                >
-                  <div className="w-24 h-24 flex items-center justify-center">
-                    <img
-                      src="/5458a14ae4c8f07055b7441ff0f234cf.gif"
-                      alt="AI Assistant"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                </motion.div>
+      <main className="pt-24 pb-20 bg-background min-h-screen">
+        {/* Hero Section - Concierge Input */}
+        <section className="px-6 py-16 md:py-24">
+          <ConciergeInput 
+            onSend={handleSendMessage}
+            placeholder="Find flights, book hotels, plan trips..."
+          />
+        </section>
 
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="text-center mb-12"
-                >
-                  <h1 className="text-5xl font-serif font-light mb-3 text-neutral-900">
-                    {greeting}, {user?.first_name || 'Guest'}
-                  </h1>
-                  <p className="text-2xl font-serif font-light text-neutral-900">
-                    What's on <span className="text-neutral-700">your mind?</span>
-                  </p>
-                </motion.div>
-
-                <motion.form
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  onSubmit={handleSubmit}
-                  className="w-full max-w-3xl mb-12"
-                >
-                  <div className="bg-white rounded-2xl border border-neutral-200 shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-                    <textarea
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      placeholder="Ask AI a question or make a request..."
-                      className="w-full px-6 py-5 text-base text-neutral-900 placeholder-neutral-400 resize-none focus:outline-none bg-transparent"
-                      rows={3}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSubmit(e);
-                        }
-                      }}
-                    />
-
-                    <div className="px-4 py-3 bg-neutral-50 flex items-center justify-between border-t border-neutral-100">
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          className="p-2 text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors"
-                        >
-                          <Paperclip className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={!inputValue.trim()}
-                        className="px-4 py-2 bg-neutral-900 text-white rounded-lg flex items-center gap-2 hover:bg-neutral-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-neutral-900"
-                      >
-                        <Send className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </motion.form>
-
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="w-full max-w-3xl"
-                >
-                  <p className="text-xs uppercase tracking-wider text-neutral-500 font-medium mb-4 text-center">
-                    Get started with an example below
-                  </p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {examplePrompts.map((prompt, index) => (
-                      <motion.button
-                        key={index}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.5 + index * 0.05 }}
-                        onClick={() => handlePromptClick(prompt.title + ' ' + prompt.subtitle)}
-                        className="group bg-white border border-neutral-200 rounded-xl p-4 text-left hover:border-neutral-300 hover:shadow-md transition-all"
-                      >
-                        <div className="flex items-start gap-3">
-                          {prompt.icon.startsWith('/') ? (
-                            <img
-                              src={prompt.icon}
-                              alt={prompt.title}
-                              className="w-8 h-8 object-contain opacity-70 group-hover:opacity-100 transition-opacity"
-                            />
-                          ) : (
-                            <span className="text-2xl">{prompt.icon}</span>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-neutral-900 mb-1 group-hover:text-neutral-700 transition-colors">
-                              {prompt.title}
-                            </div>
-                            <div className="text-xs text-neutral-500">
-                              {prompt.subtitle}
-                            </div>
-                          </div>
-                        </div>
-                      </motion.button>
-                    ))}
-                  </div>
-                </motion.div>
-
-                {conversations.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.7 }}
-                    className="w-full max-w-3xl mt-12"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-neutral-500" />
-                        <h3 className="text-xs uppercase tracking-wider text-neutral-500 font-medium">
-                          Recent Requests
-                        </h3>
-                      </div>
-                      <span className="text-xs text-neutral-400">
-                        Auto-deleted after 30 days
-                      </span>
-                    </div>
-
-                    <div className="space-y-2">
-                      {conversations.slice(0, 3).map((conv) => (
-                        <motion.button
-                          key={conv.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          onClick={() => handleConversationClick(conv.id)}
-                          className="group w-full bg-white border border-neutral-200 rounded-lg p-3 text-left hover:border-neutral-300 hover:shadow-sm transition-all flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <MessageSquare className="w-4 h-4 text-neutral-400 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm text-neutral-900 truncate">
-                                {conv.title}
-                              </div>
-                              <div className="text-xs text-neutral-500">
-                                {formatRelativeTime(conv.last_message_at)}
-                              </div>
-                            </div>
-                          </div>
-                          <button
-                            onClick={(e) => handleDeleteConversation(conv.id, e)}
-                            className="p-2 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </motion.button>
-                      ))}
-
-                      {conversations.length > 3 && (
-                        <button
-                          onClick={() => {}}
-                          className="w-full text-center py-2 text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
-                        >
-                          View all {conversations.length} requests →
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="chat"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="py-8"
-              >
-                <div className="mb-6 flex items-center justify-between">
-                  <button
-                    onClick={handleNewConversation}
-                    className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors"
-                  >
-                    ← Back to start
-                  </button>
-                  <button
-                    onClick={handleNewConversation}
-                    className="px-4 py-2 bg-neutral-900 text-white text-sm rounded-lg hover:bg-neutral-800 transition-colors flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    New Request
-                  </button>
-                </div>
-
-                <AIChatInterface
-                  initialMessage={inputValue}
-                  conversationId={currentConversationId}
-                  onConversationCreated={(id) => {
-                    setCurrentConversationId(id);
-                    loadConversations();
-                  }}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+        {/* Divider */}
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         </div>
-      </div>
+
+        {/* Active Trips Section */}
+        <section className="px-6 py-16 md:py-20">
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-8">
+              <h2 style={{ fontSize: '24px', fontWeight: 300, letterSpacing: '-0.01em' }} className="text-text-primary mb-2">
+                Active Trips
+              </h2>
+              <p className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                Your upcoming travel plans
+              </p>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent"></div>
+              </div>
+            ) : trips.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-text-tertiary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                  No active trips. Start planning your next adventure!
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {trips.map((trip, index) => (
+                  <motion.div
+                    key={trip.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <TripCard trip={trip} variant="detailed" />
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </main>
     </PageLayout>
   );
 };

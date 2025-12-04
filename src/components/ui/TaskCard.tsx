@@ -19,11 +19,11 @@ interface TaskCardProps {
 }
 
 const statusConfig = {
-  pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-  in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-800', icon: Clock },
-  awaiting_human: { label: 'Needs Review', color: 'bg-orange-100 text-orange-800', icon: AlertCircle },
-  completed: { label: 'Completed', color: 'bg-green-100 text-green-800', icon: CheckCircle2 },
-  failed: { label: 'Failed', color: 'bg-red-100 text-red-800', icon: AlertCircle },
+  pending: { label: 'Pending', color: 'bg-accent/10 text-accent border border-accent/20', icon: Clock },
+  in_progress: { label: 'In Progress', color: 'bg-accent/10 text-accent border border-accent/20', icon: Clock },
+  awaiting_human: { label: 'Needs Review', color: 'bg-accent/10 text-accent border border-accent/20', icon: AlertCircle },
+  completed: { label: 'Completed', color: 'bg-accent/10 text-accent border border-accent/20', icon: CheckCircle2 },
+  failed: { label: 'Failed', color: 'bg-red-500/10 text-red-400 border border-red-500/20', icon: AlertCircle },
 };
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task, variant = 'detailed' }) => {
@@ -58,12 +58,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, variant = 'detailed' }
 
   if (variant === 'compact') {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+      <div className="bg-surface border border-border rounded-xl p-4 hover:border-[#3a3a3a] transition-all">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium text-gray-900 truncate">{task.title}</h4>
+            <h4 className="text-sm font-medium text-text-primary truncate" style={{ fontSize: '14px', fontWeight: 400 }}>
+              {task.title}
+            </h4>
             {task.description && (
-              <p className="text-xs text-gray-500 mt-1 line-clamp-1">{task.description}</p>
+              <p className="text-xs text-text-tertiary mt-1 line-clamp-1" style={{ fontSize: '12px', fontWeight: 300 }}>
+                {task.description}
+              </p>
             )}
           </div>
           <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${statusColor} flex items-center gap-1`}>
@@ -76,12 +80,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, variant = 'detailed' }
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-2">
+    <div className="bg-surface border border-border rounded-xl p-5 hover:border-[#3a3a3a] transition-all">
+      <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
+          <h3 className="text-text-primary" style={{ fontSize: '16px', fontWeight: 400 }}>
+            {task.title}
+          </h3>
           {task.description && (
-            <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+            <p className="text-text-secondary mt-1" style={{ fontSize: '13px', fontWeight: 300 }}>
+              {task.description}
+            </p>
           )}
         </div>
         <span className={`ml-4 px-3 py-1 rounded-full text-xs font-medium ${statusColor} flex items-center gap-1`}>
@@ -90,16 +98,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, variant = 'detailed' }
         </span>
       </div>
 
-      <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+      <div className="flex items-center gap-4 mt-3 text-text-secondary" style={{ fontSize: '12px', fontWeight: 300 }}>
         {task.assigned_agent && (
-          <div className="flex items-center gap-1">
-            <User className="w-4 h-4" />
+          <div className="flex items-center gap-1.5">
+            <User className="w-3 h-3" />
             <span className="capitalize">{task.assigned_agent}</span>
           </div>
         )}
         {task.due_date && (
-          <div className="flex items-center gap-1">
-            <Clock className="w-4 h-4" />
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-3 h-3" />
             <span>Due {formatDate(task.due_date)}</span>
           </div>
         )}
@@ -107,10 +115,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, variant = 'detailed' }
       </div>
 
       {task.requires_human && (
-        <div className="mt-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded-md">
-          <div className="flex items-center gap-2 text-orange-800">
+        <div className="mt-3 px-3 py-2 bg-accent/10 border border-accent/20 rounded-lg">
+          <div className="flex items-center gap-2 text-accent">
             <AlertCircle className="w-4 h-4" />
-            <span className="text-sm font-medium">Needs Review</span>
+            <span style={{ fontSize: '12px', fontWeight: 400 }}>Needs Review</span>
           </div>
         </div>
       )}

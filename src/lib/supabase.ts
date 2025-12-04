@@ -15,8 +15,8 @@ if (!supabaseAnonKey) {
 // Remove trailing slashes from URL if present
 const cleanSupabaseUrl = supabaseUrl.replace(/\/$/, '');
 
-// Get the site URL for redirects
-const siteUrl = window.location.origin;
+// Get the site URL for redirects (unused for now, but may be needed for OAuth redirects)
+// const siteUrl = window.location.origin;
 
 export const supabase = createClient<Database>(
   cleanSupabaseUrl,

@@ -17,6 +17,7 @@ const REDIRECT_URI = `${SUPABASE_URL}/functions/v1/auth-google/callback`;
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Expose-Headers': 'Location',
 };
 
 Deno.serve(async (req) => {
@@ -26,14 +27,14 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
-
+  
   try {
     // Route 1: Initiate OAuth flow
     if (path.includes('/auth-google') && !path.includes('/callback')) {
       return initiateOAuth(url, corsHeaders);
     }
 
-    // Route 2: OAuth callback
+    // Route 2: OAuth callback (from Google - no auth required)
     if (path.includes('/callback')) {
       return await handleCallback(url, corsHeaders);
     }
@@ -106,103 +107,131 @@ async function handleCallback(url: URL, corsHeaders: any) {
   const state = url.searchParams.get('state');
   const error = url.searchParams.get('error');
 
+  // Handle OAuth errors - redirect to frontend
   if (error) {
     console.error('OAuth error from Google:', error);
+    const errorRedirectUrl = `${FRONTEND_URL}/oauth-callback?error=${error}&type=oauth`;
     return new Response(null, {
       status: 302,
       headers: {
-        ...corsHeaders,
-        'Location': `${FRONTEND_URL}/profile?error=${error}`,
+        'Location': errorRedirectUrl,
       },
     });
   }
 
   if (!code || !state) {
-    return new Response(
-      JSON.stringify({ error: 'Missing code or state' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    const errorRedirectUrl = `${FRONTEND_URL}/oauth-callback?error=missing_params&type=oauth`;
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': errorRedirectUrl,
+      },
+    });
   }
 
   const { userId, provider } = JSON.parse(state);
 
-  // Exchange code for tokens
-  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
-      redirect_uri: REDIRECT_URI,
-      grant_type: 'authorization_code',
-    }),
-  });
-
-  const tokens = await tokenResponse.json();
-
-  if (tokens.error) {
-    console.error('Token exchange error:', tokens);
-    throw new Error(tokens.error_description || tokens.error);
-  }
-
-  // Store tokens in integrations table
-  const providerName = provider === 'gmail' ? 'google_gmail' : 'google_calendar';
-
-  const encryptedAccessToken = await encrypt(tokens.access_token);
-  const encryptedRefreshToken = tokens.refresh_token ? await encrypt(tokens.refresh_token) : null;
-
-  const { error: upsertError } = await supabase.from('integrations').upsert({
-    user_id: userId,
-    provider: providerName,
-    access_token: encryptedAccessToken,
-    refresh_token: encryptedRefreshToken,
-    expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-    scopes: tokens.scope ? tokens.scope.split(' ') : [],
-    is_active: true,
-    updated_at: new Date().toISOString(),
-  }, {
-    onConflict: 'user_id,provider',
-  });
-
-  if (upsertError) {
-    console.error('Database error:', upsertError);
-    throw new Error(`Failed to store integration: ${upsertError.message}`);
-  }
-
-  // Trigger initial sync
   try {
-    if (provider === 'gmail') {
-      await fetch(`${SUPABASE_URL}/functions/v1/gmail-sync`, {
-        method: 'POST',
+    // Exchange code for tokens
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: GOOGLE_CLIENT_ID,
+        client_secret: GOOGLE_CLIENT_SECRET,
+        redirect_uri: REDIRECT_URI,
+        grant_type: 'authorization_code',
+      }),
+    });
+
+    const tokens = await tokenResponse.json();
+
+    if (tokens.error) {
+      console.error('Token exchange error:', tokens);
+      const errorRedirectUrl = `${FRONTEND_URL}/oauth-callback?error=token_exchange&type=oauth&provider=${provider}`;
+      return new Response(null, {
+        status: 302,
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+          'Location': errorRedirectUrl,
         },
-        body: JSON.stringify({ userId, action: 'init' }),
-      });
-    } else if (provider === 'calendar') {
-      await fetch(`${SUPABASE_URL}/functions/v1/calendar-sync`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
-        },
-        body: JSON.stringify({ userId, action: 'init' }),
       });
     }
-  } catch (syncError) {
-    console.error('Sync trigger error:', syncError);
-    // Don't fail the OAuth flow if sync fails - we can retry later
-  }
 
-  // Redirect back to app with success
-  return new Response(null, {
-    status: 302,
-    headers: {
-      ...corsHeaders,
-      'Location': `${FRONTEND_URL}/profile?connected=${provider}`,
-    },
-  });
+    // Store tokens in integrations table
+    const providerNameForDb = provider === 'gmail' ? 'google_gmail' : 'google_calendar';
+
+    const encryptedAccessToken = await encrypt(tokens.access_token);
+    const encryptedRefreshToken = tokens.refresh_token ? await encrypt(tokens.refresh_token) : null;
+
+    const { error: upsertError } = await supabase.from('integrations').upsert({
+      user_id: userId,
+      provider: providerNameForDb,
+      access_token: encryptedAccessToken,
+      refresh_token: encryptedRefreshToken,
+      expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+      scopes: tokens.scope ? tokens.scope.split(' ') : [],
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'user_id,provider',
+    });
+
+    if (upsertError) {
+      console.error('Database error:', upsertError);
+      const errorRedirectUrl = `${FRONTEND_URL}/oauth-callback?error=database&type=oauth&provider=${provider}`;
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Location': errorRedirectUrl,
+        },
+      });
+    }
+
+    // Trigger initial sync (don't wait for it)
+    triggerInitialSync(provider, userId).catch(err => {
+      console.error('Sync trigger error:', err);
+    });
+
+    // Redirect to frontend with success
+    const successRedirectUrl = `${FRONTEND_URL}/oauth-callback?success=true&provider=${provider}`;
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': successRedirectUrl,
+      },
+    });
+
+  } catch (error) {
+    console.error('Callback handler error:', error);
+    const errorRedirectUrl = `${FRONTEND_URL}/oauth-callback?error=unknown&type=oauth&provider=${provider}`;
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': errorRedirectUrl,
+      },
+    });
+  }
 }
 
+async function triggerInitialSync(provider: string, userId: string) {
+  if (provider === 'gmail') {
+    await fetch(`${SUPABASE_URL}/functions/v1/gmail-sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+      },
+      body: JSON.stringify({ userId, action: 'init' }),
+    });
+  } else if (provider === 'calendar') {
+    await fetch(`${SUPABASE_URL}/functions/v1/calendar-sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+      },
+      body: JSON.stringify({ userId, action: 'init' }),
+    });
+  }
+}

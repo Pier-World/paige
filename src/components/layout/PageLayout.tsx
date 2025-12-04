@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Navbar } from './Navbar';
+import { Header } from './Header';
 
 interface PageLayoutProps {
   children: React.ReactNode;
@@ -29,10 +29,10 @@ const pageTransition = {
 
 export const PageLayout: React.FC<PageLayoutProps> = ({ children }) => {
   return (
-    <div className="flex flex-col min-h-screen">
-      <Navbar />
+    <div className="flex flex-col min-h-screen bg-background">
+      <Header />
       <motion.main
-        className="flex-grow pt-20"
+        className="flex-grow"
         initial="initial"
         animate="in"
         exit="exit"

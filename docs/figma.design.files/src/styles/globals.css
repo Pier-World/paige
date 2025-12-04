@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  /* Quiet Luxury Color Palette - Muted, Sophisticated */
+  --color-background: #0a0a0a;
+  --color-surface: #141414;
+  --color-surface-elevated: #1a1a1a;
+  --color-border: #2a2a2a;
+  --color-border-subtle: #1f1f1f;
+  
+  --color-text-primary: #e8e8e8;
+  --color-text-secondary: #a0a0a0;
+  --color-text-tertiary: #6a6a6a;
+  
+  --color-accent: #c9b896;
+  --color-accent-muted: #8a7a66;
+  
+  /* Refined shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.6);
+}
+
+/* Quiet Luxury Typography - Light weights, refined hierarchy */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', system-ui, sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  background-color: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1 {
+  font-weight: 300;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-weight: 300;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  font-weight: 300;
+  line-height: 1.4;
+}
+
+h4, h5, h6 {
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+p {
+  font-weight: 300;
+  line-height: 1.7;
+}
+
+button {
+  font-weight: 400;
+}
+
+/* Smooth transitions for refined micro-interactions */
+* {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}

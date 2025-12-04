@@ -19,10 +19,10 @@ interface NotificationCardProps {
 }
 
 const typeConfig = {
-  info: { icon: Info, color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  alert: { icon: AlertCircle, color: 'bg-orange-100 text-orange-800 border-orange-200' },
-  success: { icon: CheckCircle, color: 'bg-green-100 text-green-800 border-green-200' },
-  error: { icon: XCircle, color: 'bg-red-100 text-red-800 border-red-200' },
+  info: { icon: Info, color: 'bg-accent/10 text-accent border-accent/20' },
+  alert: { icon: AlertCircle, color: 'bg-accent/10 text-accent border-accent/20' },
+  success: { icon: CheckCircle, color: 'bg-accent/10 text-accent border-accent/20' },
+  error: { icon: XCircle, color: 'bg-red-500/10 text-red-400 border-red-500/20' },
 };
 
 export const NotificationCard: React.FC<NotificationCardProps> = ({ notification, onMarkRead }) => {
@@ -46,23 +46,27 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({ notification
   };
 
   return (
-    <div className={`bg-white border rounded-lg p-4 transition-all ${
-      isUnread ? `${typeColor} border-2` : 'border-gray-200'
+    <div className={`bg-surface border rounded-xl p-4 transition-all ${
+      isUnread ? `border-accent/40` : 'border-border'
     }`}>
       <div className="flex items-start gap-3">
-        <div className={`flex-shrink-0 w-8 h-8 rounded-full ${typeColor} flex items-center justify-center`}>
+        <div className={`flex-shrink-0 w-8 h-8 rounded-full ${typeColor} flex items-center justify-center border`}>
           <TypeIcon className="w-4 h-4" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <h4 className="text-sm font-semibold text-gray-900">{notification.title}</h4>
-              <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
+              <h4 className="text-text-primary" style={{ fontSize: '14px', fontWeight: 400 }}>
+                {notification.title}
+              </h4>
+              <p className="text-text-secondary mt-1" style={{ fontSize: '13px', fontWeight: 300 }}>
+                {notification.message}
+              </p>
             </div>
             {isUnread && (
               <button
                 onClick={handleMarkRead}
-                className="ml-2 text-gray-400 hover:text-gray-600 transition-colors"
+                className="ml-2 text-text-tertiary hover:text-text-primary transition-colors"
                 aria-label="Mark as read"
               >
                 <X className="w-4 h-4" />
@@ -72,12 +76,13 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({ notification
           {notification.action_url && notification.action_label && (
             <a
               href={notification.action_url}
-              className="mt-2 inline-block text-sm font-medium text-blue-600 hover:text-blue-800"
+              className="mt-2 inline-block text-sm font-medium text-accent hover:text-[#d4c4a6] transition-colors"
+              style={{ fontSize: '13px', fontWeight: 400 }}
             >
               {notification.action_label} →
             </a>
           )}
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-text-tertiary mt-2" style={{ fontSize: '11px', fontWeight: 300 }}>
             {new Date(notification.created_at).toLocaleString()}
           </p>
         </div>

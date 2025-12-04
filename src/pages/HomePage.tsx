@@ -1,12 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import { PageLayout } from '../components/layout/PageLayout';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { SearchBar } from '../components/ui/SearchBar';
-import { TaskCard } from '../components/ui/TaskCard';
-import { CalendarEventCard } from '../components/ui/CalendarEventCard';
+import { ConciergeInput } from '../components/ui/ConciergeInput';
+import { CompactTaskCard } from '../components/ui/CompactTaskCard';
+import { AIProcessingSteps } from '../components/ui/AIProcessingSteps';
+import { CompactHotelCard } from '../components/ui/CompactHotelCard';
+import { HotelRecommendation } from '../components/ui/HotelRecommendationCard';
+import { MessageSquare, User as UserIcon } from 'lucide-react';
+import { HumanConcierge } from '../components/ui/HumanConcierge';
+import { Link } from 'react-router-dom';
+import { UpcomingEvents } from '../components/ui/UpcomingEvents';
+import { PerksSection } from '../components/ui/PerksSection';
+import { ExclusiveExperiences } from '../components/ui/ExclusiveExperiences';
 import { TripCard } from '../components/ui/TripCard';
 import { NotificationCard } from '../components/ui/NotificationCard';
+import { MembershipDetail, MembershipDetailData } from '../components/ui/MembershipDetail';
+import { PerkDetail, PerkDetailData } from '../components/ui/PerkDetail';
+import { membershipDetails } from '../data/memberships';
+import { perkDetailsData } from '../data/perks';
+import { motion } from 'framer-motion';
 
 interface CalendarEvent {
   id: string;
@@ -17,18 +30,6 @@ interface CalendarEvent {
   end_time: string;
   all_day?: boolean;
   time_zone?: string;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  status: 'pending' | 'in_progress' | 'awaiting_human' | 'completed' | 'failed';
-  assigned_agent?: string;
-  requires_human?: boolean;
-  created_at: string;
-  due_date?: string;
-  priority?: number;
 }
 
 interface Trip {
@@ -54,102 +55,303 @@ interface Notification {
   created_at: string;
 }
 
-interface HomeFeed {
-  today: {
-    summary: string;
-    calendar_events: CalendarEvent[];
-    tasks: Task[];
-  };
-  tomorrow: {
-    summary: string;
-    calendar_events: CalendarEvent[];
-  };
-  upcoming_trips: Trip[];
-  notifications: Notification[];
-}
-
 const HomePage: React.FC = () => {
   const { user } = useAuth();
-  const [feed, setFeed] = useState<HomeFeed | null>(null);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [upcomingTrips, setUpcomingTrips] = useState<Trip[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Prevent scroll restoration IMMEDIATELY on mount (before any rendering)
+  useLayoutEffect(() => {
+    // Disable browser scroll restoration FIRST
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    
+    // Force scroll to top immediately - multiple methods to ensure it works
+    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    
+    // Also set scroll position via CSS if needed
+    if (document.documentElement) {
+      document.documentElement.style.scrollBehavior = 'auto';
+    }
+    if (document.body) {
+      document.body.style.scrollBehavior = 'auto';
+    }
+  }, []);
+
+  // Also prevent scroll after user loads (in case of async content)
   useEffect(() => {
     if (user) {
       loadHomeFeed();
+      
+      // Ensure we stay at top after content loads
+      // Use multiple timeouts to catch different render phases
+      const timeouts = [
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+        }, 0),
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+        }, 100),
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+        }, 500),
+      ];
+      
+      return () => {
+        timeouts.forEach(clearTimeout);
+      };
     }
   }, [user]);
+  
+  // Remove any hash from URL that might cause scroll
+  useEffect(() => {
+    if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  }, []);
 
   async function loadHomeFeed() {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    // Quick connection test before loading data
+    try {
+      const { error: testError } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1);
+      
+      if (testError) {
+        console.error('Supabase connection test failed:', testError);
+        setLoading(false);
+        return;
+      }
+    } catch (testErr) {
+      console.error('Supabase connection error:', testErr);
+      setLoading(false);
+      return;
+    }
 
     try {
+      // Add timeout to prevent infinite loading - but make it longer and only as fallback
+      let timeoutId: NodeJS.Timeout | null = null;
+      const timeoutPromise = new Promise<void>((resolve) => {
+        timeoutId = setTimeout(() => {
+          console.warn('Home feed load timeout - queries taking too long, clearing loading state');
+          resolve();
+        }, 15000); // Increased to 15 seconds
+      });
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
       const nextWeek = new Date(today);
       nextWeek.setDate(nextWeek.getDate() + 7);
 
-      // Get today's calendar events
-      const { data: todayEvents } = await supabase
-        .from('calendar_events')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('start_time', today.toISOString())
-        .lt('start_time', tomorrow.toISOString())
-        .order('start_time');
+      // Race between actual queries and timeout
+      const queriesPromise = Promise.all([
+        // Load recent tasks
+        supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10)
+          .then(({ data: allTasks, error: tasksError }) => {
+            if (tasksError) {
+              console.error('Error loading tasks:', tasksError);
+              return { tasks: [], error: tasksError };
+            }
+            return { tasks: allTasks || [], error: null };
+          }),
+        
+        // Get upcoming calendar events
+        supabase
+          .from('calendar_events')
+          .select('*, metadata')
+          .eq('user_id', user.id)
+          .gte('start_time', today.toISOString())
+          .lte('start_time', nextWeek.toISOString())
+          .order('start_time')
+          .limit(10)
+          .then(({ data: events, error: eventsError }) => {
+            if (eventsError) {
+              console.error('Error loading events:', eventsError);
+              return { events: [], error: eventsError };
+            }
+            return { events: events || [], error: null };
+          }),
+        
+        // Get upcoming trips
+        supabase
+          .from('entities')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('entity_type', 'trip')
+          .order('created_at', { ascending: false })
+          .limit(5)
+          .then(({ data: trips, error: tripsError }) => {
+            if (tripsError) {
+              console.error('Error loading trips:', tripsError);
+              return { trips: [], error: tripsError };
+            }
+            return { trips: trips || [], error: null };
+          }),
+        
+        // Get unread notifications
+        supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .is('read_at', null)
+          .order('created_at', { ascending: false })
+          .limit(5)
+          .then(({ data: notifs, error: notifsError }) => {
+            if (notifsError) {
+              console.error('Error loading notifications:', notifsError);
+              return { notifications: [], error: notifsError };
+            }
+            return { notifications: notifs || [], error: null };
+          }),
+      ]);
 
-      // Get tomorrow's events
-      const tomorrowEnd = new Date(tomorrow);
-      tomorrowEnd.setDate(tomorrowEnd.getDate() + 1);
-      const { data: tomorrowEvents } = await supabase
-        .from('calendar_events')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('start_time', tomorrow.toISOString())
-        .lt('start_time', tomorrowEnd.toISOString())
-        .order('start_time');
+      // Race: either queries complete or timeout fires
+      let result: any = null;
+      let timedOut = false;
+      
+      try {
+        result = await Promise.race([
+          queriesPromise,
+          timeoutPromise.then(() => {
+            timedOut = true;
+            return null;
+          })
+        ]);
+      } catch (error) {
+        console.error('Error in Promise.race:', error);
+        timedOut = true;
+      }
+      
+      // Clear timeout if queries completed first
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
 
-      // Get tasks due today
-      const { data: todayTasks } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .lte('due_date', tomorrow.toISOString())
-        .neq('status', 'completed')
-        .order('priority', { ascending: false });
+      // If timeout won, result will be null
+      if (timedOut || result === null) {
+        console.error('Home feed queries timed out');
+        setLoading(false);
+        setUpcomingEvents([]);
+        setUpcomingTrips([]);
+        setNotifications([]);
+        setRecentTasks([]);
+        return;
+      }
 
-      // Get upcoming trips (7 days) - query entities table
-      const { data: trips } = await supabase
-        .from('entities')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('entity_type', 'trip')
-        .order('created_at', { ascending: false })
-        .limit(10);
+      const [{ tasks: allTasks, error: tasksError }, { events, error: eventsError }, { trips, error: tripsError }, { notifications: notifs, error: notifsError }] = result;
 
-      // Get unread notifications
-      const { data: notifications } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .is('read_at', null)
-        .order('created_at', { ascending: false })
-        .limit(5);
+      // Process tasks
+      if (!tasksError && allTasks && allTasks.length > 0) {
+        // Show the most recent task (in progress OR just completed) as active
+        // This allows users to see processing steps and then results
+        const mostRecentTask = allTasks[0]; // Already sorted by created_at desc
+        if (mostRecentTask && (mostRecentTask.status === 'pending' || mostRecentTask.status === 'in_progress' || mostRecentTask.status === 'completed')) {
+          setRecentTaskId(mostRecentTask.id);
+        } else {
+          setRecentTaskId(null);
+        }
+        setRecentTasks(allTasks);
+      }
 
-      setFeed({
-        today: {
-          summary: generateSummary(todayEvents || [], todayTasks || []),
-          calendar_events: todayEvents || [],
-          tasks: todayTasks || [],
-        },
-        tomorrow: {
-          summary: generateSummary(tomorrowEvents || []),
-          calendar_events: tomorrowEvents || [],
-        },
-        upcoming_trips: trips || [],
-        notifications: notifications || [],
-      });
+      // Transform and set events
+      if (!eventsError) {
+        const transformedEvents = (events || []).map((event: any) => {
+          const eventDate = new Date(event.start_time);
+          const now = new Date();
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+
+          let dateLabel = '';
+          if (eventDate.toDateString() === now.toDateString()) {
+            dateLabel = 'Today';
+          } else if (eventDate.toDateString() === tomorrow.toDateString()) {
+            dateLabel = 'Tomorrow';
+          } else {
+            dateLabel = eventDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }
+
+          let eventType: 'dinner' | 'flight' | 'meeting' | 'experience' = 'meeting';
+          const title = (event.title || '').toLowerCase();
+          if (title.includes('flight') || title.includes('airport')) {
+            eventType = 'flight';
+          } else if (title.includes('dinner') || title.includes('restaurant') || title.includes('lunch')) {
+            eventType = 'dinner';
+          } else if (title.includes('tasting') || title.includes('experience') || title.includes('wine')) {
+            eventType = 'experience';
+          }
+
+          let attendees: string[] = [];
+          if (event.metadata) {
+            try {
+              const metadata = typeof event.metadata === 'string' 
+                ? JSON.parse(event.metadata) 
+                : event.metadata;
+              
+              if (metadata && typeof metadata === 'object' && metadata !== null) {
+                if (metadata.attendees && Array.isArray(metadata.attendees)) {
+                  attendees = metadata.attendees.map((a: any) => {
+                    if (typeof a === 'string') return a;
+                    if (a && typeof a === 'object') {
+                      if (a.displayName && typeof a.displayName === 'string') {
+                        return a.displayName;
+                      }
+                      if (a.email && typeof a.email === 'string') {
+                        return a.email;
+                      }
+                    }
+                    return '';
+                  }).filter((name: string) => name && name.trim().length > 0);
+                }
+              }
+            } catch (e) {
+              console.warn('Error parsing attendees for home page event:', event.id, e);
+            }
+          }
+
+          return {
+            id: event.id,
+            type: eventType,
+            title: event.title || 'Untitled Event',
+            date: dateLabel,
+            time: event.all_day ? 'All Day' : new Date(event.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+            location: event.location,
+            attendees: attendees.length > 0 ? attendees.length : undefined,
+          };
+        });
+        setUpcomingEvents(transformedEvents);
+      }
+
+      // Set trips and notifications
+      if (!tripsError) {
+        setUpcomingTrips(trips || []);
+      }
+      if (!notifsError) {
+        setNotifications(notifs || []);
+      }
     } catch (error) {
       console.error('Error loading home feed:', error);
     } finally {
@@ -157,27 +359,409 @@ const HomePage: React.FC = () => {
     }
   }
 
-  function generateSummary(events?: any[], tasks?: any[]): string {
-    const eventCount = events?.length || 0;
-    const taskCount = tasks?.length || 0;
-
-    if (eventCount === 0 && taskCount === 0) {
-      return 'You have a clear schedule.';
-    }
-
-    return `${eventCount} event${eventCount !== 1 ? 's' : ''}, ${taskCount} task${taskCount !== 1 ? 's' : ''}.`;
-  }
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [recentTaskId, setRecentTaskId] = useState<string | null>(null);
+  const [recentTasks, setRecentTasks] = useState<any[]>([]);
+  const [selectedMembership, setSelectedMembership] = useState<MembershipDetailData | null>(null);
+  const [selectedPerk, setSelectedPerk] = useState<PerkDetailData | null>(null);
+  
+  // Chat messages state
+  const [chatMessages, setChatMessages] = useState<Array<{
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
+    taskId?: string;
+    recommendations?: HotelRecommendation[];
+    isProcessing?: boolean;
+  }>>([]);
+  
+  // Current task state for processing
+  const [currentTask, setCurrentTask] = useState<any>(null);
 
   const handleSendMessage = async (message: string) => {
-    // TODO: Call orchestrator endpoint
-    console.log('Sending message:', message);
+    if (!user) {
+      setErrorMessage('You must be logged in to send messages');
+      return;
+    }
+
+    setSendingMessage(true);
+    setErrorMessage(null);
+    
+    // Add user message to chat
+    const userMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user' as const,
+      content: message,
+      timestamp: new Date().toISOString(),
+    };
+    setChatMessages(prev => [...prev, userMessage]);
+    
+    // Clear previous task and recommendations
+    setRecentTaskId(null);
+    setCurrentTask(null);
+
+    try {
+      // Call orchestrator to create task
+      const { callOrchestrator } = await import('../lib/orchestrator');
+      const result = await callOrchestrator(user.id, message);
+      
+      if (result.success && result.task) {
+        const taskId = result.task.id;
+        setRecentTaskId(taskId);
+        setCurrentTask(result.task);
+        
+        // Add processing message
+        const processingMessage = {
+          id: `processing-${Date.now()}`,
+          role: 'assistant' as const,
+          content: '',
+          timestamp: new Date().toISOString(),
+          taskId,
+          isProcessing: true,
+        };
+        setChatMessages(prev => [...prev, processingMessage]);
+        
+        // Also poll for updates as a fallback (real-time can be unreliable)
+        const pollInterval = setInterval(async () => {
+          try {
+            const { data: polledTask } = await supabase
+              .from('tasks')
+              .select('*')
+              .eq('id', taskId)
+              .single();
+            
+            if (polledTask) {
+              setCurrentTask(polledTask);
+              
+              // Update processing message with current progress
+              const processingMsgId = processingMessage.id;
+              setChatMessages(prev => prev.map(msg => {
+                if (msg.id === processingMsgId && msg.isProcessing) {
+                  return {
+                    ...msg,
+                    isProcessing: polledTask.status !== 'completed' && polledTask.status !== 'failed',
+                  };
+                }
+                return msg;
+              }));
+              
+              // If completed, process results
+              if (polledTask.status === 'completed' && polledTask.output_data) {
+                clearInterval(pollInterval);
+                const outputData = polledTask.output_data;
+                const recommendations = outputData.recommendations || outputData.hotels || [];
+                
+                if (recommendations.length > 0) {
+                  // Fetch hotel data for images
+                  const hotelIds = recommendations.map((r: any) => r.hotel_id || r.id).filter(Boolean);
+                  let enrichedRecommendations = recommendations;
+                  
+                  if (hotelIds.length > 0) {
+                    try {
+                      const { data: hotelData } = await supabase
+                        .from('hotels')
+                        .select('id, star_rating, notes_curated, amenities, address, neighborhood, primary_city')
+                        .in('id', hotelIds);
+                      
+                      if (hotelData) {
+                        enrichedRecommendations = recommendations.map((rec: any) => {
+                          const hotel = hotelData.find((h: any) => h.id === (rec.hotel_id || rec.id));
+                          return {
+                            ...rec,
+                            star_rating: hotel?.star_rating || rec.star_rating || rec.rating,
+                            description: hotel?.notes_curated || rec.description,
+                            amenities: hotel?.amenities || rec.amenities || [],
+                            address: hotel?.address || rec.address,
+                            neighborhood: hotel?.neighborhood || rec.neighborhood,
+                            primary_city: hotel?.primary_city || rec.city,
+                          };
+                        });
+                      }
+                    } catch (error) {
+                      console.error('Error fetching hotel data:', error);
+                    }
+                  }
+                  
+                  // Transform to HotelRecommendation format
+                  const transformed: HotelRecommendation[] = enrichedRecommendations.map((rec: any) => {
+                    const city = outputData.parsed_request?.city || rec.city || '';
+                    const location = rec.location || `${rec.neighborhood || ''}, ${city}`.trim();
+                    
+                    let averageRate = 'Rate on request';
+                    if (rec.rate_estimate) {
+                      averageRate = `$${rec.rate_estimate.mid}`;
+                    } else if (rec.rate_mid) {
+                      averageRate = `$${rec.rate_mid}`;
+                    }
+                    
+                    const matchReasons: string[] = [];
+                    if (rec.reason) {
+                      matchReasons.push(rec.reason);
+                    }
+                    if (rec.score_breakdown) {
+                      const breakdown = rec.score_breakdown;
+                      if (breakdown.budget_fit > 20) {
+                        matchReasons.push('Excellent value for your budget');
+                      }
+                      if (breakdown.neighborhood_match > 10) {
+                        matchReasons.push(`Perfect location in ${rec.neighborhood || city}`);
+                      }
+                    }
+                    
+                    return {
+                      id: rec.id || rec.hotel_id,
+                      hotel_id: rec.hotel_id || rec.id,
+                      name: rec.name,
+                      location,
+                      city: rec.city || city,
+                      neighborhood: rec.neighborhood,
+                      rating: rec.star_rating || rec.rating || 0,
+                      reviewCount: rec.review_count || 0,
+                      averageRate,
+                      imageUrl: rec.image_hero || rec.image_url || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400',
+                      image_hero: rec.image_hero || rec.image_url,
+                      pierBenefits: rec.pier_benefits || rec.pierBenefits || [],
+                      matchReasons: matchReasons.length > 0 ? matchReasons : ['Great option based on your preferences'],
+                      reason: rec.reason,
+                      description: rec.description || rec.notes_curated,
+                      amenities: rec.amenities || [],
+                      rate_estimate: rec.rate_estimate,
+                    };
+                  });
+                  
+                  // Update the processing message with results
+                  const processingMsgId = processingMessage.id;
+                  setChatMessages(prev => prev.map(msg => 
+                    msg.id === processingMsgId
+                      ? {
+                          ...msg,
+                          content: `I've found ${transformed.length} perfect match${transformed.length !== 1 ? 'es' : ''} for you.`,
+                          recommendations: transformed,
+                          isProcessing: false,
+                        }
+                      : msg
+                  ));
+                } else {
+                  // No recommendations found
+                  const processingMsgId = processingMessage.id;
+                  setChatMessages(prev => prev.map(msg => 
+                    msg.id === processingMsgId
+                      ? {
+                          ...msg,
+                          content: 'I couldn\'t find any matches for your request. Would you like to adjust your search criteria?',
+                          isProcessing: false,
+                        }
+                      : msg
+                  ));
+                }
+              } else if (polledTask.status === 'failed') {
+                clearInterval(pollInterval);
+                const processingMsgId = processingMessage.id;
+                setChatMessages(prev => prev.map(msg => 
+                  msg.id === processingMsgId
+                    ? {
+                        ...msg,
+                        content: 'I encountered an error processing your request. Please try again.',
+                        isProcessing: false,
+                      }
+                    : msg
+                ));
+              }
+            }
+          } catch (error) {
+            console.error('Error polling task:', error);
+          }
+        }, 1000); // Poll every second
+        
+        // Subscribe to task updates
+        const channel = supabase
+          .channel(`task-${taskId}`)
+          .on('postgres_changes', {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'tasks',
+            filter: `id=eq.${taskId}`,
+          }, async (payload) => {
+            const updatedTask = payload.new as any;
+            setCurrentTask(updatedTask);
+            
+            // Update processing message progress
+            const processingMsgId = processingMessage.id;
+            setChatMessages(prev => prev.map(msg => {
+              if (msg.id === processingMsgId && msg.isProcessing) {
+                return {
+                  ...msg,
+                  isProcessing: updatedTask.status !== 'completed' && updatedTask.status !== 'failed',
+                };
+              }
+              return msg;
+            }));
+            
+            // If task is completed, update the processing message with results
+            if (updatedTask.status === 'completed' && updatedTask.output_data) {
+              clearInterval(pollInterval);
+              const outputData = updatedTask.output_data;
+              const recommendations = outputData.recommendations || outputData.hotels || [];
+              
+              if (recommendations.length > 0) {
+                // Fetch hotel data for images
+                const hotelIds = recommendations.map((r: any) => r.hotel_id || r.id).filter(Boolean);
+                let enrichedRecommendations = recommendations;
+                
+                if (hotelIds.length > 0) {
+                  try {
+                    const { data: hotelData } = await supabase
+                      .from('hotels')
+                      .select('id, star_rating, notes_curated, amenities, address, neighborhood, primary_city')
+                      .in('id', hotelIds);
+                    
+                    if (hotelData) {
+                      enrichedRecommendations = recommendations.map((rec: any) => {
+                        const hotel = hotelData.find((h: any) => h.id === (rec.hotel_id || rec.id));
+                        return {
+                          ...rec,
+                          star_rating: hotel?.star_rating || rec.star_rating || rec.rating,
+                          description: hotel?.notes_curated || rec.description,
+                          amenities: hotel?.amenities || rec.amenities || [],
+                          address: hotel?.address || rec.address,
+                          neighborhood: hotel?.neighborhood || rec.neighborhood,
+                          primary_city: hotel?.primary_city || rec.city,
+                        };
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Error fetching hotel data:', error);
+                  }
+                }
+                
+                // Transform to HotelRecommendation format
+                const transformed: HotelRecommendation[] = enrichedRecommendations.map((rec: any) => {
+                  const city = outputData.parsed_request?.city || rec.city || '';
+                  const location = rec.location || `${rec.neighborhood || ''}, ${city}`.trim();
+                  
+                  let averageRate = 'Rate on request';
+                  if (rec.rate_estimate) {
+                    averageRate = `$${rec.rate_estimate.mid}`;
+                  } else if (rec.rate_mid) {
+                    averageRate = `$${rec.rate_mid}`;
+                  }
+                  
+                  const matchReasons: string[] = [];
+                  if (rec.reason) {
+                    matchReasons.push(rec.reason);
+                  }
+                  if (rec.score_breakdown) {
+                    const breakdown = rec.score_breakdown;
+                    if (breakdown.budget_fit > 20) {
+                      matchReasons.push('Excellent value for your budget');
+                    }
+                    if (breakdown.neighborhood_match > 10) {
+                      matchReasons.push(`Perfect location in ${rec.neighborhood || city}`);
+                    }
+                  }
+                  
+                  return {
+                    id: rec.id || rec.hotel_id,
+                    hotel_id: rec.hotel_id || rec.id,
+                    name: rec.name,
+                    location,
+                    city: rec.city || city,
+                    neighborhood: rec.neighborhood,
+                    rating: rec.star_rating || rec.rating || 0,
+                    reviewCount: rec.review_count || 0,
+                    averageRate,
+                    imageUrl: rec.image_hero || rec.image_url || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400',
+                    image_hero: rec.image_hero || rec.image_url,
+                    pierBenefits: rec.pier_benefits || rec.pierBenefits || [],
+                    matchReasons: matchReasons.length > 0 ? matchReasons : ['Great option based on your preferences'],
+                    reason: rec.reason,
+                    description: rec.description || rec.notes_curated,
+                    amenities: rec.amenities || [],
+                    rate_estimate: rec.rate_estimate,
+                  };
+                });
+                
+                // Update the processing message with results
+                setChatMessages(prev => prev.map(msg => 
+                  msg.id === processingMessage.id
+                    ? {
+                        ...msg,
+                        content: `I've found ${transformed.length} perfect match${transformed.length !== 1 ? 'es' : ''} for you.`,
+                        recommendations: transformed,
+                        isProcessing: false,
+                      }
+                    : msg
+                ));
+              } else {
+                // No recommendations found
+                const processingMsgId = processingMessage.id;
+                setChatMessages(prev => prev.map(msg => 
+                  msg.id === processingMsgId
+                    ? {
+                        ...msg,
+                        content: 'I couldn\'t find any matches for your request. Would you like to adjust your search criteria?',
+                        isProcessing: false,
+                      }
+                    : msg
+                ));
+              }
+            } else if (updatedTask.status === 'failed') {
+              const processingMsgId = processingMessage.id;
+              setChatMessages(prev => prev.map(msg => 
+                msg.id === processingMsgId
+                  ? {
+                      ...msg,
+                      content: 'I encountered an error processing your request. Please try again.',
+                      isProcessing: false,
+                    }
+                  : msg
+              ));
+            }
+          })
+          .subscribe();
+        
+        // Cleanup subscription and polling on unmount or new message
+        return () => {
+          clearInterval(pollInterval);
+          supabase.removeChannel(channel);
+        };
+      } else {
+        const error = result.error || 'Failed to process your request';
+        setErrorMessage(error);
+        
+        // Add error message
+        const errorMessage = {
+          id: `error-${Date.now()}`,
+          role: 'assistant' as const,
+          content: error,
+          timestamp: new Date().toISOString(),
+        };
+        setChatMessages(prev => [...prev, errorMessage]);
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setErrorMessage(errorMsg);
+      
+      // Add error message
+      const errorMessage = {
+        id: `error-${Date.now()}`,
+        role: 'assistant' as const,
+        content: errorMsg,
+        timestamp: new Date().toISOString(),
+      };
+      setChatMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setSendingMessage(false);
+    }
   };
 
   if (loading) {
     return (
       <PageLayout>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary-900"></div>
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent"></div>
         </div>
       </PageLayout>
     );
@@ -185,84 +769,315 @@ const HomePage: React.FC = () => {
 
   return (
     <PageLayout>
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Global Search Bar */}
-        <div className="mb-8">
-          <SearchBar placeholder="Ask Pier anything... ✨" onSend={handleSendMessage} />
+      <main className="pt-24 pb-20 bg-background min-h-screen">
+        {/* Hero Section - Concierge Input */}
+        <section className="px-6 py-16 md:py-24">
+          <ConciergeInput 
+            onSend={handleSendMessage} 
+            disabled={sendingMessage}
+            hideSuggestions={sendingMessage || chatMessages.length > 0}
+            membershipLevel={user?.membership_level}
+            firstName={user?.first_name}
+          />
+          
+          {/* Chat Messages - Conversational Interface */}
+          {chatMessages.length > 0 && (
+            <div className="max-w-4xl mx-auto mt-8">
+              <div className="bg-surface border border-border rounded-2xl overflow-hidden">
+                <div className="max-h-[600px] overflow-y-auto p-6 space-y-4">
+                  {chatMessages.map((msg) => (
+                    <motion.div
+                      key={msg.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+                    >
+                      {/* Avatar */}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        msg.role === 'user'
+                          ? 'bg-surface-elevated'
+                          : 'bg-accent/20'
+                      }`}>
+                        {msg.role === 'user' ? (
+                          <UserIcon className="w-4 h-4 text-text-secondary" />
+                        ) : (
+                          <MessageSquare className="w-4 h-4 text-accent" />
+                        )}
+                      </div>
+
+                      {/* Message Content */}
+                      <div className={`flex flex-col gap-2 max-w-[80%] ${msg.role === 'user' ? 'items-end' : ''}`}>
+                        {msg.content && (
+                          <div
+                            className={`rounded-2xl px-4 py-3 ${
+                              msg.role === 'user'
+                                ? 'bg-accent text-background rounded-tr-sm'
+                                : 'bg-surface-elevated border border-border rounded-tl-sm'
+                            }`}
+                            style={{ fontSize: '15px', fontWeight: 300, lineHeight: '1.6' }}
+                          >
+                            <p className="whitespace-pre-wrap">{msg.content}</p>
+                          </div>
+                        )}
+                        
+                        {/* Processing Steps */}
+                        {msg.isProcessing && currentTask && (
+                          <div className="mt-2">
+                            <AIProcessingSteps
+                              currentStep={currentTask.ui_state?.current_step || 'understand'}
+                              progress={currentTask.ui_state?.progress || 0}
+                              isComplete={false}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Recommendations */}
+                        {msg.recommendations && msg.recommendations.length > 0 && (
+                          <div className="mt-2 space-y-3">
+                            {msg.recommendations.map((hotel) => (
+                              <CompactHotelCard
+                                key={hotel.id}
+                                hotel={hotel}
+                                onOpenConcierge={() => {
+                                  // Navigate to conversation page with task
+                                  if (msg.taskId) {
+                                    window.location.href = `/conversation/${msg.taskId}`;
+                                  }
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Show Recent Requests (completed OR awaiting review) */}
+          {recentTasks.filter(task => 
+            task.id !== recentTaskId && 
+            (task.status === 'completed' || task.status === 'awaiting_human')
+          ).length > 0 && (
+            <div className="max-w-4xl mx-auto mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-text-secondary" style={{ fontSize: '13px', fontWeight: 400 }}>
+                  Recent Requests
+                </h3>
+                <Link 
+                  to="/conversation" 
+                  className="text-accent hover:text-[#d4c4a6] transition-colors"
+                  style={{ fontSize: '12px', fontWeight: 300 }}
+                >
+                  View all →
+                </Link>
+              </div>
+              <div className="space-y-2">
+                {recentTasks
+                  .filter(task => 
+                    task.id !== recentTaskId && 
+                    (task.status === 'completed' || task.status === 'awaiting_human')
+                  )
+                  .slice(0, 3) // Show max 3 past tasks
+                  .map((task) => (
+                    <CompactTaskCard key={task.id} task={task} />
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="max-w-4xl mx-auto mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-red-400 text-sm">{errorMessage}</p>
+            </div>
+          )}
+        </section>
+
+        {/* Divider */}
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         </div>
 
-        {/* Today Section */}
-        <section className="mb-8">
-          <h2 className="text-2xl font-bold mb-4">Today</h2>
-          <p className="text-lg text-gray-600 italic mb-4">{feed?.today.summary}</p>
-
-          {/* Calendar Events */}
-          {feed?.today.calendar_events && feed.today.calendar_events.length > 0 && (
-            <div className="space-y-2 mb-4">
-              {feed.today.calendar_events.map((event) => (
-                <CalendarEventCard key={event.id} event={event} />
-              ))}
-            </div>
-          )}
-
-          {/* Tasks Due */}
-          {feed?.today.tasks && feed.today.tasks.length > 0 && (
-            <div className="space-y-2">
-              {feed.today.tasks.map((task) => (
-                <TaskCard key={task.id} task={task} variant="compact" />
-              ))}
-            </div>
-          )}
-
-          {(!feed?.today.calendar_events || feed.today.calendar_events.length === 0) &&
-            (!feed?.today.tasks || feed.today.tasks.length === 0) && (
-              <p className="text-gray-500 text-sm">No events or tasks scheduled for today.</p>
-            )}
+        {/* Upcoming Events Section */}
+        <section className="px-6 py-16 md:py-20">
+          <div className="max-w-7xl mx-auto">
+            <UpcomingEvents events={upcomingEvents} />
+          </div>
         </section>
 
-        {/* Tomorrow Section */}
-        <section className="mb-8">
-          <h2 className="text-2xl font-bold mb-4">Tomorrow</h2>
-          <p className="text-lg text-gray-600 italic mb-4">{feed?.tomorrow.summary}</p>
-          {feed?.tomorrow.calendar_events && feed.tomorrow.calendar_events.length > 0 ? (
-            <div className="space-y-2">
-              {feed.tomorrow.calendar_events.map((event) => (
-                <CalendarEventCard key={event.id} event={event} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm">No events scheduled for tomorrow.</p>
-          )}
+        {/* Divider */}
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+        </div>
+
+        {/* Perks & Memberships Section */}
+        <section className="px-6 py-16 md:py-20">
+          <div className="max-w-7xl mx-auto">
+            <PerksSection 
+              onMembershipClick={(id) => {
+                const details = membershipDetails[id];
+                if (details) {
+                  setSelectedMembership(details);
+                }
+              }}
+              onPerkClick={(id) => {
+                const details = perkDetailsData[id];
+                if (details) {
+                  setSelectedPerk(details);
+                }
+              }}
+            />
+          </div>
         </section>
 
-        {/* Upcoming Trips */}
-        {feed?.upcoming_trips && feed.upcoming_trips.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Upcoming Trips</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {feed.upcoming_trips.map((trip) => (
-                <TripCard key={trip.id} trip={trip} variant="compact" />
-              ))}
+        {/* Divider */}
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+        </div>
+
+        {/* Exclusive Experiences Section */}
+        <section className="px-6 py-16 md:py-20">
+          <div className="max-w-7xl mx-auto">
+            <ExclusiveExperiences />
+          </div>
+        </section>
+
+        {/* Divider */}
+        {upcomingTrips.length > 0 && (
+          <>
+            <div className="max-w-7xl mx-auto px-6">
+              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
             </div>
-          </section>
+
+            {/* Upcoming Trips Section */}
+            <section className="px-6 py-16 md:py-20">
+              <div className="max-w-7xl mx-auto">
+                <div className="mb-8">
+                  <h3 style={{ fontSize: '24px', fontWeight: 300, letterSpacing: '-0.01em' }} className="text-text-primary mb-2">
+                    Upcoming Trips
+                  </h3>
+                  <p className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                    Your next adventures
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {upcomingTrips.map((trip) => (
+                    <TripCard key={trip.id} trip={trip} variant="compact" />
+                  ))}
+                </div>
+              </div>
+            </section>
+          </>
         )}
 
-        {/* Notifications */}
-        {feed?.notifications && feed.notifications.length > 0 && (
-          <section>
-            <h2 className="text-2xl font-bold mb-4">Notifications</h2>
-            <div className="space-y-2">
-              {feed.notifications.map((notification) => (
-                <NotificationCard
-                  key={notification.id}
-                  notification={notification}
-                  onMarkRead={() => loadHomeFeed()}
-                />
-              ))}
+        {/* Divider */}
+        {notifications.length > 0 && (
+          <>
+            <div className="max-w-7xl mx-auto px-6">
+              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
             </div>
-          </section>
+
+            {/* Notifications Section */}
+            <section className="px-6 py-16 md:py-20">
+              <div className="max-w-7xl mx-auto">
+                <div className="mb-8">
+                  <h3 style={{ fontSize: '24px', fontWeight: 300, letterSpacing: '-0.01em' }} className="text-text-primary mb-2">
+                    Notifications
+                  </h3>
+                  <p className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                    Recent updates and alerts
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  {notifications.map((notification) => (
+                    <NotificationCard
+                      key={notification.id}
+                      notification={notification}
+                      onMarkRead={() => loadHomeFeed()}
+                    />
+                  ))}
+                </div>
+              </div>
+            </section>
+          </>
         )}
-      </div>
+
+        {/* Footer Section */}
+        <footer className="px-6 py-12 mt-20">
+          <div className="max-w-7xl mx-auto">
+            <div className="h-px bg-gradient-to-r from-transparent via-border-subtle to-transparent mb-12" />
+            
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+              <div>
+                <h2 className="mb-2" style={{ fontSize: '20px', fontWeight: 300 }}>
+                  Pier
+                </h2>
+                <p className="text-text-tertiary" style={{ fontSize: '13px', fontWeight: 300 }}>
+                  Your personal operating system
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-12">
+                <div>
+                  <h4 className="text-text-secondary mb-3" style={{ fontSize: '12px', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Product
+                  </h4>
+                  <div className="space-y-2">
+                    <a href="#" className="block text-text-tertiary hover:text-text-primary transition-colors" style={{ fontSize: '13px', fontWeight: 300 }}>
+                      Features
+                    </a>
+                    <a href="#" className="block text-text-tertiary hover:text-text-primary transition-colors" style={{ fontSize: '13px', fontWeight: 300 }}>
+                      Integrations
+                    </a>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-text-secondary mb-3" style={{ fontSize: '12px', fontWeight: 400, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Support
+                  </h4>
+                  <div className="space-y-2">
+                    <a href="#" className="block text-text-tertiary hover:text-text-primary transition-colors" style={{ fontSize: '13px', fontWeight: 300 }}>
+                      Help Center
+                    </a>
+                    <a href="#" className="block text-text-tertiary hover:text-text-primary transition-colors" style={{ fontSize: '13px', fontWeight: 300 }}>
+                      Contact
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-12 pt-8 border-t border-border-subtle">
+              <p className="text-text-tertiary text-center" style={{ fontSize: '12px', fontWeight: 300 }}>
+                © 2025 Pier. Designed for leaders who value their time.
+              </p>
+            </div>
+          </div>
+        </footer>
+
+        {/* Human Concierge Floating Button - Only for Premium+ members */}
+        {user && (
+          <HumanConcierge membershipLevel={user.membership_level || 'Standard'} />
+        )}
+
+        {/* Membership Detail Modal */}
+        <MembershipDetail
+          membership={selectedMembership}
+          isOpen={!!selectedMembership}
+          onClose={() => setSelectedMembership(null)}
+        />
+
+        {/* Perk Detail Modal */}
+        <PerkDetail
+          perk={selectedPerk}
+          isOpen={!!selectedPerk}
+          onClose={() => setSelectedPerk(null)}
+        />
+      </main>
     </PageLayout>
   );
 };
