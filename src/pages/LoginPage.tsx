@@ -37,7 +37,7 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-primary-50 p-8">
+    <div className="min-h-screen flex items-center justify-center bg-background p-8">
       <motion.div
         className="w-full max-w-md"
         initial={{ opacity: 0, y: 20 }}
@@ -45,22 +45,47 @@ const LoginPage: React.FC = () => {
         transition={{ duration: 0.5 }}
       >
         <div className="text-center mb-10">
-          <h1 className="font-display text-4xl font-medium mb-2">PIER</h1>
-          <p className="text-primary-600">Member Portal</p>
+          <h1 
+            className="text-5xl font-light mb-2 text-text-primary"
+            style={{ 
+              fontSize: '48px', 
+              fontWeight: 300, 
+              letterSpacing: '-0.02em' 
+            }}
+          >
+            PIER
+          </h1>
+          <p className="text-text-secondary" style={{ fontSize: '16px', fontWeight: 300 }}>
+            Member Portal
+          </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-card p-8">
-          <h2 className="text-2xl font-medium mb-6">Sign In</h2>
+        <div className="bg-surface rounded-xl border border-border shadow-lg p-8">
+          <h2 
+            className="text-2xl font-light mb-6 text-text-primary"
+            style={{ fontSize: '24px', fontWeight: 300 }}
+          >
+            Sign In
+          </h2>
 
           {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-md mb-6">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-red-900/20 border border-red-800/50 text-red-400 p-4 rounded-lg mb-6"
+              style={{ fontSize: '14px', fontWeight: 300 }}
+            >
               {error}
-            </div>
+            </motion.div>
           )}
 
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
-              <label htmlFor="email" className="block text-sm font-medium text-primary-700 mb-1">
+              <label 
+                htmlFor="email" 
+                className="block text-sm font-normal text-text-secondary mb-2"
+                style={{ fontSize: '14px', fontWeight: 400 }}
+              >
                 Email
               </label>
               <input
@@ -75,7 +100,11 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div className="mb-6">
-              <label htmlFor="password" className="block text-sm font-medium text-primary-700 mb-1">
+              <label 
+                htmlFor="password" 
+                className="block text-sm font-normal text-text-secondary mb-2"
+                style={{ fontSize: '14px', fontWeight: 400 }}
+              >
                 Password
               </label>
               <input
@@ -99,16 +128,23 @@ const LoginPage: React.FC = () => {
           </form>
 
           <div className="mt-6 text-center">
-            <Link to="/forgot-password" className="text-sm text-primary-600 hover:text-primary-900">
+            <Link 
+              to="/forgot-password" 
+              className="text-sm text-text-secondary hover:text-accent transition-colors"
+              style={{ fontSize: '14px', fontWeight: 300 }}
+            >
               Forgot your password?
             </Link>
           </div>
         </div>
 
-        <div className="text-center mt-8 text-sm text-primary-600">
-          <p>
+        <div className="text-center mt-8 text-sm text-text-tertiary">
+          <p style={{ fontSize: '14px', fontWeight: 300 }}>
             Need assistance? Contact{' '}
-            <a href="mailto:concierge@joinpier.com" className="text-primary-800 hover:underline">
+            <a 
+              href="mailto:concierge@joinpier.com" 
+              className="text-text-secondary hover:text-accent transition-colors"
+            >
               concierge@joinpier.com
             </a>
           </p>
