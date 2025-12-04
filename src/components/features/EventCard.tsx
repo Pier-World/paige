@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
 import { Calendar, MapPin } from 'lucide-react';
 import { Button } from '../ui/Button';
 import type { Event } from '../../types';
@@ -8,11 +7,13 @@ import type { Event } from '../../types';
 interface EventCardProps {
   event: Event;
   className?: string;
+  onClick?: () => void;
 }
 
 export const EventCard: React.FC<EventCardProps> = ({
   event,
   className = '',
+  onClick,
 }) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -25,9 +26,15 @@ export const EventCard: React.FC<EventCardProps> = ({
 
   return (
     <motion.div
-      className={`card overflow-hidden h-full ${className}`}
+      className={`card overflow-hidden h-full ${onClick ? 'cursor-pointer' : ''} ${className}`}
       whileHover={{ y: -5 }}
       transition={{ duration: 0.3 }}
+      onClick={(e) => {
+        // Only trigger onClick if not clicking on a button or link
+        if (onClick && !(e.target as HTMLElement).closest('a, button')) {
+          onClick();
+        }
+      }}
     >
       <div className="relative">
         <img 
@@ -68,11 +75,18 @@ export const EventCard: React.FC<EventCardProps> = ({
             ))}
           </div>
           
-          <Link to={`/explore/${event.id}`}>
-            <Button variant="outline" size="sm">
-              RSVP
-            </Button>
-          </Link>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onClick) {
+                onClick();
+              }
+            }}
+          >
+            View Details
+          </Button>
         </div>
       </div>
     </motion.div>

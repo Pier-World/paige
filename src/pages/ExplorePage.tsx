@@ -3,6 +3,7 @@ import { PageLayout } from '../components/layout/PageLayout';
 import { FilterBar } from '../components/features/FilterBar';
 import { EventCard } from '../components/features/EventCard';
 import { Carousel } from '../components/ui/Carousel';
+import { EventDetail } from '../components/ui/EventDetail';
 import { mockEvents } from '../mocks/eventsData';
 import { supabase } from '../lib/supabase';
 import type { Event } from '../types';
@@ -11,6 +12,7 @@ const ExplorePage: React.FC = () => {
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [featuredEvents, setFeaturedEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
 
   // Cities
   const cities = [
@@ -155,7 +157,11 @@ const ExplorePage: React.FC = () => {
             <h2 className="text-3xl font-display font-medium mb-8 text-white">Featured Events</h2>
             <Carousel
               items={featuredEvents.map((event) => (
-                <EventCard key={event.id} event={event} />
+                <EventCard 
+                  key={event.id} 
+                  event={event}
+                  onClick={() => setSelectedEvent(event)}
+                />
               ))}
               slidesToShow={3}
               autoplay={true}
@@ -189,7 +195,11 @@ const ExplorePage: React.FC = () => {
                 <h2 className="text-2xl font-display font-medium mb-6">{city}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {events.map(event => (
-                    <EventCard key={event.id} event={event} />
+                    <EventCard 
+                      key={event.id} 
+                      event={event}
+                      onClick={() => setSelectedEvent(event)}
+                    />
                   ))}
                 </div>
               </div>
@@ -202,6 +212,13 @@ const ExplorePage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Event Detail Modal */}
+      <EventDetail
+        event={selectedEvent}
+        isOpen={selectedEvent !== null}
+        onClose={() => setSelectedEvent(null)}
+      />
     </PageLayout>
   );
 };
