@@ -19,7 +19,7 @@ import { MembershipDetail, MembershipDetailData } from '../components/ui/Members
 import { PerkDetail, PerkDetailData } from '../components/ui/PerkDetail';
 import { membershipDetails } from '../data/memberships';
 import { perkDetailsData } from '../data/perks';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface CalendarEvent {
   id: string;
@@ -61,6 +61,7 @@ const HomePage: React.FC = () => {
   const [upcomingTrips, setUpcomingTrips] = useState<Trip[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedHotel, setSelectedHotel] = useState<HotelRecommendation | null>(null);
 
   // Prevent scroll restoration IMMEDIATELY on mount (before any rendering)
   useLayoutEffect(() => {
@@ -490,10 +491,15 @@ const HomePage: React.FC = () => {
                     const location = rec.location || `${rec.neighborhood || ''}, ${city}`.trim();
                     
                     let averageRate = 'Rate on request';
-                    if (rec.rate_estimate) {
-                      averageRate = `$${rec.rate_estimate.mid}`;
+                    if (rec.rate_estimate && rec.rate_estimate.low) {
+                      // Use low rate for "starting at" pricing
+                      averageRate = `Starting at $${rec.rate_estimate.low}`;
+                    } else if (rec.rate_low) {
+                      averageRate = `Starting at $${rec.rate_low}`;
+                    } else if (rec.rate_estimate && rec.rate_estimate.mid) {
+                      averageRate = `Starting at $${rec.rate_estimate.mid}`;
                     } else if (rec.rate_mid) {
-                      averageRate = `$${rec.rate_mid}`;
+                      averageRate = `Starting at $${rec.rate_mid}`;
                     }
                     
                     const matchReasons: string[] = [];
@@ -510,6 +516,57 @@ const HomePage: React.FC = () => {
                       }
                     }
                     
+                    // Extract dates from parsed request for booking message
+                    // Check multiple possible locations for dates
+                    const datesObj = outputData.parsed_request?.dates;
+                    const checkIn = datesObj?.check_in || outputData.parsed_request?.check_in;
+                    const checkOut = datesObj?.check_out || outputData.parsed_request?.check_out;
+                    
+                    let dateString: string | null = null;
+                    if (checkIn && checkOut) {
+                      // Format dates as "Dec 19th-21st"
+                      const checkInDate = new Date(checkIn);
+                      const checkOutDate = new Date(checkOut);
+                      
+                      const formatDayWithSuffix = (day: number): string => {
+                        if (day >= 11 && day <= 13) return `${day}th`;
+                        switch (day % 10) {
+                          case 1: return `${day}st`;
+                          case 2: return `${day}nd`;
+                          case 3: return `${day}rd`;
+                          default: return `${day}th`;
+                        }
+                      };
+                      
+                      const checkInMonth = checkInDate.toLocaleDateString('en-US', { month: 'short' });
+                      const checkInDay = formatDayWithSuffix(checkInDate.getDate());
+                      const checkOutMonth = checkOutDate.toLocaleDateString('en-US', { month: 'short' });
+                      const checkOutDay = formatDayWithSuffix(checkOutDate.getDate());
+                      
+                      // If same month, format as "Dec 19th-21st", otherwise "Dec 19th - Jan 5th"
+                      if (checkInMonth === checkOutMonth) {
+                        dateString = `${checkInMonth} ${checkInDay}-${checkOutDay}`;
+                      } else {
+                        dateString = `${checkInMonth} ${checkInDay} - ${checkOutMonth} ${checkOutDay}`;
+                      }
+                    } else if (checkIn) {
+                      // Single date
+                      const checkInDate = new Date(checkIn);
+                      const formatDayWithSuffix = (day: number): string => {
+                        if (day >= 11 && day <= 13) return `${day}th`;
+                        switch (day % 10) {
+                          case 1: return `${day}st`;
+                          case 2: return `${day}nd`;
+                          case 3: return `${day}rd`;
+                          default: return `${day}th`;
+                        }
+                      };
+                      const month = checkInDate.toLocaleDateString('en-US', { month: 'short' });
+                      const day = formatDayWithSuffix(checkInDate.getDate());
+                      const year = checkInDate.getFullYear();
+                      dateString = `${month} ${day}, ${year}`;
+                    }
+
                     return {
                       id: rec.id || rec.hotel_id,
                       hotel_id: rec.hotel_id || rec.id,
@@ -528,6 +585,11 @@ const HomePage: React.FC = () => {
                       description: rec.description || rec.notes_curated,
                       amenities: rec.amenities || [],
                       rate_estimate: rec.rate_estimate,
+                      parsedDates: dateString,
+                      // Store raw dates for fallback formatting
+                      check_in: checkIn,
+                      check_out: checkOut,
+                      dates: checkIn && checkOut ? { check_in: checkIn, check_out: checkOut } : undefined,
                     };
                   });
                   
@@ -662,6 +724,26 @@ const HomePage: React.FC = () => {
                     }
                   }
                   
+                  // Extract dates from parsed request for booking message
+                  const parsedDates = outputData.parsed_request?.dates || 
+                                    outputData.parsed_request?.check_in || 
+                                    outputData.parsed_request?.date_range ||
+                                    null;
+                  let dateString: string | null = null;
+                  if (parsedDates) {
+                    if (typeof parsedDates === 'string') {
+                      dateString = parsedDates;
+                    } else if (parsedDates.check_in && parsedDates.check_out) {
+                      // Format dates nicely
+                      const checkIn = new Date(parsedDates.check_in);
+                      const checkOut = new Date(parsedDates.check_out);
+                      dateString = `${checkIn.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${checkOut.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                    } else if (parsedDates.check_in) {
+                      const checkIn = new Date(parsedDates.check_in);
+                      dateString = checkIn.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    }
+                  }
+
                   return {
                     id: rec.id || rec.hotel_id,
                     hotel_id: rec.hotel_id || rec.id,
@@ -680,6 +762,7 @@ const HomePage: React.FC = () => {
                     description: rec.description || rec.notes_curated,
                     amenities: rec.amenities || [],
                     rate_estimate: rec.rate_estimate,
+                    parsedDates: dateString,
                   };
                 });
                 
@@ -782,9 +865,9 @@ const HomePage: React.FC = () => {
           
           {/* Chat Messages - Conversational Interface */}
           {chatMessages.length > 0 && (
-            <div className="max-w-4xl mx-auto mt-8">
-              <div className="bg-surface border border-border rounded-2xl overflow-hidden">
-                <div className="max-h-[600px] overflow-y-auto p-6 space-y-4">
+            <div className="max-w-4xl mx-auto mt-6 md:mt-8">
+              <div className="bg-surface/50 border border-border rounded-2xl overflow-hidden">
+                <div className="max-h-[600px] overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6">
                   {chatMessages.map((msg) => (
                     <motion.div
                       key={msg.id}
@@ -833,19 +916,47 @@ const HomePage: React.FC = () => {
                         
                         {/* Recommendations */}
                         {msg.recommendations && msg.recommendations.length > 0 && (
-                          <div className="mt-2 space-y-3">
-                            {msg.recommendations.map((hotel) => (
+                          <div className="mt-3 space-y-4">
+                            {msg.recommendations.map((hotel, idx) => (
                               <CompactHotelCard
                                 key={hotel.id}
                                 hotel={hotel}
-                                onOpenConcierge={() => {
-                                  // Navigate to conversation page with task
-                                  if (msg.taskId) {
-                                    window.location.href = `/conversation/${msg.taskId}`;
-                                  }
-                                }}
+                                index={idx}
+                                isNew={idx === msg.recommendations!.length - 1 && msg.isProcessing === false}
+                                onViewDetails={() => setSelectedHotel(hotel)}
+                                onOpenConcierge={() => setSelectedHotel(hotel)}
                               />
                             ))}
+                            {/* Streaming indicator when still processing */}
+                            {msg.isProcessing && (
+                              <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex items-center justify-center gap-2 py-4"
+                              >
+                                <div className="flex gap-1.5">
+                                  {[0, 1, 2].map((i) => (
+                                    <motion.div
+                                      key={i}
+                                      className="w-1.5 h-1.5 rounded-full bg-accent"
+                                      animate={{
+                                        opacity: [0.3, 1, 0.3],
+                                        scale: [0.8, 1, 0.8],
+                                      }}
+                                      transition={{
+                                        duration: 1.2,
+                                        repeat: Infinity,
+                                        delay: i * 0.2,
+                                        ease: 'easeInOut',
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-text-tertiary" style={{ fontSize: '13px', fontWeight: 300 }}>
+                                  Loading more options...
+                                </span>
+                              </motion.div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1077,6 +1188,37 @@ const HomePage: React.FC = () => {
           isOpen={!!selectedPerk}
           onClose={() => setSelectedPerk(null)}
         />
+
+        {/* Hotel Detail Modal */}
+        <AnimatePresence>
+          {selectedHotel && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100]"
+              onClick={() => setSelectedHotel(null)}
+            >
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+              <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none" onClick={(e) => e.stopPropagation()}>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                  className="pointer-events-auto w-full max-w-4xl"
+                >
+                  <HotelRecommendationCard
+                    hotel={{ ...selectedHotel, __isModal: true } as any}
+                    index={0}
+                    onOpenConcierge={{
+                      close: () => setSelectedHotel(null)
+                    } as any}
+                  />
+                </motion.div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </PageLayout>
   );

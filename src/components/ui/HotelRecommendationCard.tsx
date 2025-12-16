@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Star, Sparkles, Check, ChevronDown, ChevronUp, Heart, X, Calendar } from 'lucide-react';
 import { ImageWithFallback } from './ImageWithFallback';
+import { useAuth } from '../../context/AuthContext';
 
 export interface HotelRecommendation {
   id: string;
@@ -42,17 +43,119 @@ interface HotelRecommendationCardProps {
 }
 
 export function HotelRecommendationCard({ hotel, index, onOpenConcierge }: HotelRecommendationCardProps) {
+  const { user } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showFullDetail, setShowFullDetail] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
+  // Check if this is being rendered as a modal (from HomePage)
+  const isModal = (hotel as any).__isModal;
+  
+  // If modal, show detail immediately
+  useEffect(() => {
+    if (isModal) {
+      setShowFullDetail(true);
+    }
+  }, [isModal]);
+
+  // Check if user has concierge access (Premium, Executive, Founding Member)
+  const hasConciergeAccess = user?.membership_level && 
+    ['Premium', 'Executive', 'Founding Member'].includes(user.membership_level);
+
+  // WhatsApp booking function
+  const handleBookWithConcierge = () => {
+    if (!hasConciergeAccess) {
+      // If no access, show upgrade message or use onOpenConcierge callback
+      if (onOpenConcierge) {
+        onOpenConcierge();
+      }
+      return;
+    }
+
+    // Extract dates from hotel data
+    const hotelName = hotel.name;
+    let dates = (hotel as any).parsedDates;
+    
+    // If parsedDates is not available, try to format from raw date data
+    if (!dates) {
+      const hotelData = hotel as any;
+      const checkIn = hotelData.check_in || hotelData.dates?.check_in;
+      const checkOut = hotelData.check_out || hotelData.dates?.check_out;
+      
+      if (checkIn && checkOut) {
+        // Format dates as "Dec 19th-21st"
+        const formatDayWithSuffix = (day: number): string => {
+          if (day >= 11 && day <= 13) return `${day}th`;
+          switch (day % 10) {
+            case 1: return `${day}st`;
+            case 2: return `${day}nd`;
+            case 3: return `${day}rd`;
+            default: return `${day}th`;
+          }
+        };
+        
+        try {
+          const checkInDate = new Date(checkIn);
+          const checkOutDate = new Date(checkOut);
+          
+          const checkInMonth = checkInDate.toLocaleDateString('en-US', { month: 'short' });
+          const checkInDay = formatDayWithSuffix(checkInDate.getDate());
+          const checkOutMonth = checkOutDate.toLocaleDateString('en-US', { month: 'short' });
+          const checkOutDay = formatDayWithSuffix(checkOutDate.getDate());
+          
+          // If same month, format as "Dec 19th-21st", otherwise "Dec 19th - Jan 5th"
+          if (checkInMonth === checkOutMonth) {
+            dates = `${checkInMonth} ${checkInDay}-${checkOutDay}`;
+          } else {
+            dates = `${checkInMonth} ${checkInDay} - ${checkOutMonth} ${checkOutDay}`;
+          }
+        } catch (e) {
+          console.error('Error formatting dates:', e);
+        }
+      }
+    }
+    
+    // Fallback if still no dates
+    if (!dates) {
+      dates = 'your requested dates';
+    }
+    
+    // Create WhatsApp message
+    const message = encodeURIComponent(`I'd like to book ${hotelName} for ${dates}`);
+    const WHATSAPP_PHONE = '19179354877';
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const whatsappLink = isMobile 
+      ? `https://wa.me/${WHATSAPP_PHONE}?text=${message}`
+      : `https://api.whatsapp.com/send/?phone=${WHATSAPP_PHONE}&text=${message}&type=phone_number&app_absent=0`;
+    
+    window.open(whatsappLink, '_blank', 'noopener,noreferrer');
+  };
+
   const imageUrl = hotel.imageUrl || hotel.image_hero || 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800';
-  const averageRate = hotel.averageRate || (hotel.rate_estimate ? `$${hotel.rate_estimate.mid}` : 'Rate on request');
+  
+  // Calculate average rate with "starting at" format using low rate
+  let averageRate = hotel.averageRate || 'Rate on request';
+  if (!hotel.averageRate && hotel.rate_estimate && hotel.rate_estimate.low) {
+    averageRate = `Starting at $${hotel.rate_estimate.low}`;
+  } else if (!hotel.averageRate && (hotel as any).rate_low) {
+    averageRate = `Starting at $${(hotel as any).rate_low}`;
+  } else if (!hotel.averageRate && hotel.rate_estimate && hotel.rate_estimate.mid) {
+    averageRate = `Starting at $${hotel.rate_estimate.mid}`;
+  }
+  
   const matchReasons = hotel.matchReasons.length > 0 ? hotel.matchReasons : (hotel.reason ? [hotel.reason] : []);
+
+  const handleCloseModal = () => {
+    setShowFullDetail(false);
+    if (isModal && onOpenConcierge && typeof onOpenConcierge === 'object' && (onOpenConcierge as any).close) {
+      (onOpenConcierge as any).close();
+    }
+  };
 
   return (
     <>
-      <motion.div
+      {!isModal && (
+        <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.15 }}
@@ -242,29 +345,30 @@ export function HotelRecommendationCard({ hotel, index, onOpenConcierge }: Hotel
           </div>
         </div>
       </motion.div>
+      )}
 
       {/* Full Detail Modal */}
       <AnimatePresence>
-        {showFullDetail && (
+        {(showFullDetail || isModal) && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowFullDetail(false)}
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+              onClick={handleCloseModal}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
             />
-            <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="fixed inset-0 z-[100] overflow-y-auto pointer-events-none">
               <div className="min-h-screen px-4 py-8 flex items-start justify-center">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 20 }}
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full max-w-4xl rounded-2xl bg-background border border-border shadow-2xl overflow-hidden my-8"
+                  className="w-full max-w-4xl rounded-2xl bg-background border border-border shadow-2xl overflow-hidden my-8 pointer-events-auto"
                 >
                   <button
-                    onClick={() => setShowFullDetail(false)}
+                    onClick={handleCloseModal}
                     className="absolute top-6 right-6 z-10 p-2 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-surface transition-colors"
                   >
                     <X size={20} className="text-text-primary" />
@@ -387,14 +491,17 @@ export function HotelRecommendationCard({ hotel, index, onOpenConcierge }: Hotel
                             </p>
                           </div>
                           <button
-                            onClick={onOpenConcierge}
+                            onClick={handleBookWithConcierge}
                             className="w-full px-6 py-3 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-all mb-2"
                             style={{ fontSize: '14px', fontWeight: 400 }}
                           >
                             Book with Concierge
                           </button>
                           <p className="text-text-tertiary text-center" style={{ fontSize: '11px', fontWeight: 300 }}>
-                            We'll secure the best rate + benefits
+                            {hasConciergeAccess 
+                              ? "We'll secure the best rate + benefits"
+                              : "Upgrade to Premium+ for concierge booking"
+                            }
                           </p>
                         </div>
 

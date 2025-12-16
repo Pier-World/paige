@@ -1,18 +1,19 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Search, Filter, Sparkles, Check, Loader2 } from 'lucide-react';
+import { MessageSquare, Search, Filter, Sparkles, Check } from 'lucide-react';
 
 interface ProcessingStep {
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string; size?: number }>;
+  mobileLabel: string;
 }
 
 const steps: ProcessingStep[] = [
-  { id: 'understand', label: 'Understanding request', icon: MessageSquare },
-  { id: 'filter', label: 'Filtering options', icon: Filter },
-  { id: 'match', label: 'Matching preferences', icon: Sparkles },
-  { id: 'present', label: 'Presenting results', icon: Check },
+  { id: 'understand', label: 'Understanding your preferences', mobileLabel: 'Understanding preferences', icon: MessageSquare },
+  { id: 'filter', label: 'Searching partner properties', mobileLabel: 'Searching properties', icon: Search },
+  { id: 'match', label: 'Checking Pier Benefits availability', mobileLabel: 'Checking benefits', icon: Filter },
+  { id: 'present', label: 'Curating recommendations', mobileLabel: 'Curating results', icon: Sparkles },
 ];
 
 interface AIProcessingStepsProps {
@@ -50,145 +51,141 @@ export const AIProcessingSteps: React.FC<AIProcessingStepsProps> = ({
     return 'inactive';
   };
 
+  // Calculate progress percentage based on step
+  const calculateProgress = () => {
+    if (isComplete) return 100;
+    if (!currentStep) return 0;
+    
+    const stepMapping: Record<string, string> = {
+      'parsing': 'understand',
+      'understanding': 'understand',
+      'filtering': 'filter',
+      'matching': 'match',
+      'ranking': 'match',
+      'results_ready': 'present',
+      'presenting': 'present',
+    };
+    
+    const mappedStep = stepMapping[currentStep] || currentStep;
+    const currentIndex = steps.findIndex(s => s.id === mappedStep);
+    
+    if (currentIndex === -1) return progress || 0;
+    return ((currentIndex + 1) / steps.length) * 100;
+  };
+
+  const progressPercent = progress > 0 ? progress : calculateProgress();
+
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      <div className="bg-surface border border-border rounded-2xl p-6 md:p-8">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-text-primary" style={{ fontSize: '16px', fontWeight: 400 }}>
-            Processing your request
-          </h3>
-          {!isComplete && progress > 0 && (
-            <span className="text-accent" style={{ fontSize: '14px', fontWeight: 400 }}>
-              {progress}%
-            </span>
-          )}
+    <div className="w-full">
+      <div className="bg-surface/50 border border-border rounded-2xl p-4 md:p-6">
+        {/* Header with AI indicator */}
+        <div className="flex items-center gap-2.5 mb-4 md:mb-6">
+          <motion.div
+            animate={{ opacity: [1, 0.4, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="w-2 h-2 rounded-full bg-accent"
+          />
+          <span className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 400, letterSpacing: '0.02em' }}>
+            Pier is thinking
+          </span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 relative">
+        {/* Steps - Mobile optimized vertical layout */}
+        <div className="space-y-3 md:space-y-4 mb-4 md:mb-6">
           {steps.map((step, index) => {
             const status = getStepStatus(step.id);
             const Icon = step.icon;
-            const isLast = index === steps.length - 1;
 
             return (
-              <React.Fragment key={step.id}>
-                <div className="flex flex-col items-center relative">
-                  {/* Icon Container */}
-                  <div className="relative mb-3">
-                    <motion.div
-                      initial={false}
-                      animate={{
-                        scale: status === 'active' ? [1, 1.1, 1] : 1,
-                      }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: status === 'active' ? Infinity : 0,
-                        ease: 'easeInOut',
-                      }}
-                      className={`
-                        w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center
-                        transition-all duration-500
-                        ${
-                          status === 'complete'
-                            ? 'bg-accent/20 border-2 border-accent'
-                            : status === 'active'
-                            ? 'bg-accent/10 border-2 border-accent/50'
-                            : 'bg-surface-elevated border-2 border-border'
-                        }
-                      `}
-                    >
-                      {status === 'complete' ? (
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-                        >
-                          <Check className="w-6 h-6 md:w-7 md:h-7 text-accent" />
-                        </motion.div>
-                      ) : status === 'active' ? (
-                        <div className="relative">
-                          <Icon className="w-6 h-6 md:w-7 md:h-7 text-accent" />
-                          {/* Animated dots */}
-                          <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 flex gap-1">
-                            {[0, 1, 2].map((i) => (
-                              <motion.div
-                                key={i}
-                                className="w-1 h-1 rounded-full bg-accent"
-                                animate={{
-                                  opacity: [0.3, 1, 0.3],
-                                  scale: [0.8, 1, 0.8],
-                                }}
-                                transition={{
-                                  duration: 1.2,
-                                  repeat: Infinity,
-                                  delay: i * 0.2,
-                                  ease: 'easeInOut',
-                                }}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <Icon className="w-6 h-6 md:w-7 md:h-7 text-text-tertiary" />
-                      )}
-                    </motion.div>
-                  </div>
-
-                  {/* Label */}
-                  <p
+              <motion.div
+                key={step.id}
+                initial={{ opacity: 0.3, x: -8 }}
+                animate={{
+                  opacity: status === 'inactive' ? 0.3 : 1,
+                  x: 0,
+                }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="flex items-center gap-3"
+              >
+                {/* Icon */}
+                <div className="relative flex-shrink-0">
+                  <motion.div
+                    animate={{
+                      scale: status === 'active' ? [1, 1.1, 1] : 1,
+                    }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: status === 'active' ? Infinity : 0,
+                      ease: 'easeInOut',
+                    }}
                     className={`
-                      text-center text-xs md:text-sm font-light
-                      transition-colors duration-300
+                      w-6 h-6 rounded-lg flex items-center justify-center
+                      transition-all duration-300
                       ${
-                        status === 'complete' || status === 'active'
-                          ? 'text-text-primary'
-                          : 'text-text-tertiary'
+                        status === 'complete'
+                          ? 'bg-accent/20'
+                          : status === 'active'
+                          ? 'bg-accent/10'
+                          : 'bg-transparent'
                       }
                     `}
-                    style={{ fontWeight: 300 }}
                   >
-                    {step.label}
-                  </p>
+                    {status === 'complete' ? (
+                      <Check className="w-4 h-4 text-accent" />
+                    ) : status === 'active' ? (
+                      <>
+                        <Icon className="w-4 h-4 text-accent" />
+                        {/* Spinner for active state */}
+                        <motion.div
+                          className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2"
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                        >
+                          <div className="w-1 h-1 rounded-full bg-accent" />
+                        </motion.div>
+                      </>
+                    ) : (
+                      <Icon className="w-4 h-4 text-text-tertiary" />
+                    )}
+                  </motion.div>
                 </div>
 
-                {/* Connector Line - only on desktop */}
-                {!isLast && (
-                  <div className="hidden md:block absolute top-7 left-[calc(50%+28px)] w-[calc(100%-56px)] h-0.5 z-0">
-                    <div className="relative h-full">
-                      <div className="absolute top-0 left-0 w-full h-full bg-border" />
-                      <motion.div
-                        className="absolute top-0 left-0 h-full bg-accent"
-                        initial={{ width: 0 }}
-                        animate={{
-                          width: status === 'complete' ? '100%' : status === 'active' ? '50%' : '0%',
-                        }}
-                        transition={{ duration: 0.5, ease: 'easeOut' }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </React.Fragment>
+                {/* Label */}
+                <span
+                  className={`
+                    flex-1
+                    transition-colors duration-300
+                    ${
+                      status === 'complete'
+                        ? 'text-text-secondary'
+                        : status === 'active'
+                        ? 'text-text-primary'
+                        : 'text-text-tertiary'
+                    }
+                  `}
+                  style={{ 
+                    fontSize: '14px', 
+                    fontWeight: status === 'active' ? 400 : 300,
+                    lineHeight: '1.4'
+                  }}
+                >
+                  <span className="hidden md:inline">{step.label}</span>
+                  <span className="md:hidden">{step.mobileLabel}</span>
+                </span>
+              </motion.div>
             );
           })}
         </div>
 
         {/* Progress Bar */}
-        {!isComplete && progress > 0 && (
+        <div className="h-0.5 bg-surface-elevated rounded-full overflow-hidden">
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-6 pt-6 border-t border-border"
-          >
-            <div className="h-1 bg-surface-elevated rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.5, ease: 'easeOut' }}
-                className="h-full bg-gradient-to-r from-accent/60 to-accent rounded-full"
-              />
-            </div>
-          </motion.div>
-        )}
+            initial={{ width: 0 }}
+            animate={{ width: `${progressPercent}%` }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="h-full bg-gradient-to-r from-accent/60 to-accent rounded-full"
+          />
+        </div>
       </div>
     </div>
   );
