@@ -1,7 +1,7 @@
 import { Wine, Car, Sparkles, UtensilsCrossed, Plane, Gift, Clock, TrendingDown, Filter } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ImageWithFallback } from '../components/ui/ImageWithFallback';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { PerkDetail, PerkDetailData } from '../components/ui/PerkDetail';
 import { HotelProfile } from '../components/ui/HotelProfile';
 import { PageLayout } from '../components/layout/PageLayout';
@@ -45,19 +45,67 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
       try {
         setLoading(true);
         
-        // Fetch all perks from perks table (includes restaurants with category='dining')
-        const { data: perksData, error: perksError } = await supabase
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise<null>((resolve) => {
+          setTimeout(() => {
+            console.warn('Perks fetch timeout - queries taking too long');
+            resolve(null);
+          }, 15000); // 15 second timeout
+        });
+
+        // Fetch perks and hotels in parallel with timeout
+        const perksPromise = supabase
           .from('perks')
           .select('*')
           .order('created_at', { ascending: false });
 
-        // Fetch random hotels (limit to 20 for variety)
-        const { data: hotelsData } = await supabase
+        const hotelsPromise = supabase
           .from('hotels')
           .select('*')
           .eq('is_active', true)
           .order('quality_score_internal', { ascending: false })
           .limit(20);
+
+        // Race between queries and timeout
+        let perksResult: any = null;
+        let hotelsResult: any = null;
+        let timedOut = false;
+
+        try {
+          const results = await Promise.race([
+            Promise.all([perksPromise, hotelsPromise]),
+            timeoutPromise.then(() => {
+              timedOut = true;
+              return null;
+            })
+          ]);
+
+          if (timedOut || results === null) {
+            console.error('Perks fetch timed out');
+            setPerks(mockPerks);
+            setLoading(false);
+            return;
+          }
+
+          perksResult = results[0];
+          hotelsResult = results[1];
+        } catch (error) {
+          console.error('Error in Promise.race for perks:', error);
+          setPerks(mockPerks);
+          setLoading(false);
+          return;
+        }
+
+        const { data: perksData, error: perksError } = perksResult;
+        const { data: hotelsData, error: hotelsError } = hotelsResult;
+
+        // If there's an error, log it but continue with available data
+        if (perksError) {
+          console.error('Error fetching perks:', perksError);
+        }
+        if (hotelsError) {
+          console.error('Error fetching hotels:', hotelsError);
+        }
 
         const allPerks: Perk[] = [];
 
@@ -178,17 +226,35 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
       }
     };
 
-    fetchAllPerks();
+    // Add abort controller for cleanup
+    let isMounted = true;
+    fetchAllPerks().then(() => {
+      if (!isMounted) {
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const filteredPerks = selectedCategory === 'all' 
-    ? perks 
-    : perks.filter(perk => perk.category === selectedCategory);
+  // Memoize filtered perks to avoid recalculating on every render
+  const filteredPerks = useMemo(() => {
+    return selectedCategory === 'all' 
+      ? perks 
+      : perks.filter(perk => perk.category === selectedCategory);
+  }, [perks, selectedCategory]);
 
-  const featuredPerks = perks.filter(perk => perk.featured);
+  // Memoize featured perks
+  const featuredPerks = useMemo(() => {
+    return perks.filter(perk => perk.featured);
+  }, [perks]);
+
   const totalValue = perks.length;
 
-  const handlePerkClick = async (perk: Perk) => {
+  // Memoize handlePerkClick to prevent unnecessary re-renders
+  const handlePerkClick = useCallback(async (perk: Perk) => {
     // Check if this is a hotel perk
     if ((perk as any).__isHotel && (perk as any).__hotelId) {
       const hotelId = (perk as any).__hotelId;
@@ -289,13 +355,18 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
       featured: perk.featured,
     };
     setSelectedPerk(convertedDetail);
-  };
+  }, [hotelsMap]);
 
   if (loading) {
     return (
       <PageLayout>
         <div className="min-h-screen bg-background pt-24 pb-20 flex items-center justify-center">
-          <div className="text-text-secondary">Loading perks...</div>
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
+            <p className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300 }}>
+              Loading perks...
+            </p>
+          </div>
         </div>
       </PageLayout>
     );
@@ -417,7 +488,7 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
                       key={perk.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
+                      transition={{ delay: Math.min(index * 0.05, 0.5) }}
                       whileHover={{ y: -8 }}
                       onClick={() => handlePerkClick(perk)}
                       className="group rounded-2xl bg-surface border border-border hover:border-accent/40 overflow-hidden transition-all text-left w-full"
@@ -491,7 +562,7 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
                   key={perk.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
+                  transition={{ delay: Math.min(index * 0.03, 0.5) }}
                   whileHover={{ y: -8 }}
                   onClick={() => handlePerkClick(perk)}
                   className="group rounded-2xl bg-surface border border-border hover:border-accent/40 overflow-hidden transition-all text-left w-full"

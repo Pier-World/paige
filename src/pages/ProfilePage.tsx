@@ -6,7 +6,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
   User, Edit2, Check, X, MapPin, CreditCard, Link2, 
   Mail, Calendar, LogOut, HelpCircle, ChevronRight, Plus, 
-  Camera, Trash2
+  Camera, Trash2, Building, Plane, Star, Globe, Award
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { ImageWithFallback } from '../components/ui/ImageWithFallback';
@@ -31,13 +31,29 @@ const ProfilePage: React.FC = () => {
   });
   
   // Connections state
-  const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailIntegrations, setGmailIntegrations] = useState<any[]>([]);
   const [calendarIntegrations, setCalendarIntegrations] = useState<any[]>([]);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [disconnectModal, setDisconnectModal] = useState<{
+    isOpen: boolean;
+    type: 'gmail' | 'calendar' | 'membership' | null;
+    name: string;
+    email?: string;
+    provider?: 'google_gmail' | 'google_calendar';
+    integrationId?: string;
+    membershipId?: string;
+  }>({
+    isOpen: false,
+    type: null,
+    name: '',
+  });
+  const [disconnectConfirmed, setDisconnectConfirmed] = useState(false);
   
   // Memberships - using mock data for now
   const [connectedMemberships, setConnectedMemberships] = useState<any[]>([]);
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [selectedMembership, setSelectedMembership] = useState<typeof memberships[0] | null>(null);
+  const [showMembershipForm, setShowMembershipForm] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -104,27 +120,94 @@ const ProfilePage: React.FC = () => {
     if (!user) return;
 
     try {
-      const { data: gmailInt } = await supabase
+      // Get ALL Gmail integrations (not just one)
+      const { data: gmailInts, error: gmailError } = await supabase
         .from('integrations')
         .select('*')
         .eq('user_id', user.id)
         .eq('provider', 'google_gmail')
         .eq('is_active', true)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
 
-      setGmailConnected(!!gmailInt);
+      if (gmailError) {
+        console.error('Error fetching Gmail integrations:', gmailError);
+        setGmailIntegrations([]);
+      } else {
+        // Transform Gmail integrations to include email from metadata
+        const gmailAccounts = (gmailInts || []).map((int: any) => ({
+          ...int,
+          email: int.metadata?.email || user.email,
+          display_name: int.metadata?.email || 'Gmail',
+        }));
+        setGmailIntegrations(gmailAccounts);
+      }
 
-      const { data: calInts } = await supabase
+      // Get calendar integration
+      const { data: calInt } = await supabase
         .from('integrations')
         .select('*')
         .eq('user_id', user.id)
         .eq('provider', 'google_calendar')
         .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .maybeSingle();
 
-      setCalendarIntegrations(calInts || []);
+      if (calInt) {
+        // Get all unique calendar IDs from calendar_events
+        const { data: calendarEvents } = await supabase
+          .from('calendar_events')
+          .select('gcal_calendar_id')
+          .eq('user_id', user.id);
+
+        // Get unique calendar IDs
+        const uniqueCalendarIds = Array.from(
+          new Set((calendarEvents || []).map((e: any) => e.gcal_calendar_id).filter(Boolean))
+        );
+
+        // Create calendar objects for each unique calendar
+        const calendars = uniqueCalendarIds.map((calendarId: string, index: number) => {
+          // Try to get calendar name from metadata or use a readable name
+          let calendarName = calendarId;
+          if (calendarId === 'primary') {
+            calendarName = calInt.metadata?.calendar_name || calInt.metadata?.email || 'Primary Calendar';
+          } else if (calendarId.includes('@')) {
+            // If it's an email, use it as the name
+            calendarName = calendarId;
+          } else {
+            // Try to extract a readable name
+            calendarName = calInt.metadata?.calendar_name || `Calendar ${index + 1}`;
+          }
+
+          return {
+            id: `${calInt.id}-${calendarId}`,
+            integration_id: calInt.id,
+            calendar_id: calendarId,
+            calendar_name: calendarName,
+            email: calInt.metadata?.email || user.email,
+            metadata: calInt.metadata,
+            ...calInt,
+          };
+        });
+
+        // If no calendar events found, still show the integration
+        if (calendars.length === 0 && calInt) {
+          calendars.push({
+            id: calInt.id,
+            integration_id: calInt.id,
+            calendar_id: 'primary',
+            calendar_name: calInt.metadata?.calendar_name || calInt.metadata?.email || 'Google Calendar',
+            email: calInt.metadata?.email || user.email,
+            metadata: calInt.metadata,
+            ...calInt,
+          });
+        }
+
+        setCalendarIntegrations(calendars);
+      } else {
+        setCalendarIntegrations([]);
+      }
     } catch (error) {
       console.error('Error checking connections:', error);
+      setCalendarIntegrations([]);
     }
   }
 
@@ -164,7 +247,9 @@ const ProfilePage: React.FC = () => {
         }
       }
 
-      setOpenDropdown(null);
+      // Close modal and reset confirmation
+      setDisconnectModal({ isOpen: false, type: null, name: '' });
+      setDisconnectConfirmed(false);
       await checkConnections();
     } catch (error) {
       console.error('Error disconnecting service:', error);
@@ -172,19 +257,49 @@ const ProfilePage: React.FC = () => {
     }
   }
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setOpenDropdown(null);
+  async function disconnectMembership(membershipId: string) {
+    // TODO: Implement membership disconnection
+    console.log('Disconnect membership:', membershipId);
+    setDisconnectModal({ isOpen: false, type: null, name: '' });
+    setDisconnectConfirmed(false);
+  }
+
+  const handleDisconnectClick = (
+    type: 'gmail' | 'calendar' | 'membership',
+    name: string,
+    email?: string,
+    provider?: 'google_gmail' | 'google_calendar',
+    integrationId?: string,
+    membershipId?: string
+  ) => {
+    setDisconnectModal({
+      isOpen: true,
+      type,
+      name,
+      email,
+      provider,
+      integrationId,
+      membershipId,
+    });
+    setDisconnectConfirmed(false);
+  };
+
+  const handleConfirmDisconnect = () => {
+    if (!disconnectConfirmed) return;
+
+    const { type, provider, integrationId, membershipId } = disconnectModal;
+    
+    if (type === 'gmail' || type === 'calendar') {
+      if (provider) {
+        disconnectService(provider, integrationId);
+      }
+    } else if (type === 'membership') {
+      if (membershipId) {
+        disconnectMembership(membershipId);
       }
     }
+  };
 
-    if (openDropdown) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [openDropdown]);
 
   async function connectGmail() {
     if (!user) return;
@@ -902,7 +1017,7 @@ const ProfilePage: React.FC = () => {
                     </h3>
                   </div>
                   <button
-                    onClick={() => navigate('/memberships')}
+                    onClick={() => setShowMembershipModal(true)}
                     className="text-accent hover:text-[#d4c4a6] transition-colors"
                     style={{ fontSize: '13px', fontWeight: 400 }}
                   >
@@ -941,7 +1056,10 @@ const ProfilePage: React.FC = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-green-500 rounded-full" />
-                            <button className="p-2 hover:bg-border rounded-lg transition-colors">
+                            <button 
+                              onClick={() => handleDisconnectClick('membership', membership.name, undefined, undefined, undefined, membership.id)}
+                              className="p-2 hover:bg-border rounded-lg transition-colors"
+                            >
                               <Trash2 size={14} className="text-text-tertiary hover:text-red-400" />
                             </button>
                           </div>
@@ -957,141 +1075,120 @@ const ProfilePage: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="rounded-2xl bg-surface border border-border p-8"
+                className="rounded-2xl bg-surface border border-border p-4 md:p-8"
               >
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 md:mb-6">
                   <div className="flex items-center gap-2">
-                    <Link2 size={20} className="text-accent" />
-                    <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary">
+                    <Link2 size={18} className="text-accent md:w-5 md:h-5" />
+                    <h3 style={{ fontSize: '18px', fontWeight: 400 }} className="text-text-primary md:text-xl">
                       Connected Accounts
                     </h3>
                   </div>
                   <button
-                    onClick={connectCalendar}
-                    className="text-accent hover:text-[#d4c4a6] transition-colors"
-                    style={{ fontSize: '13px', fontWeight: 400 }}
+                    onClick={() => setShowConnectModal(true)}
+                    className="text-accent hover:text-[#d4c4a6] transition-colors text-left sm:text-right text-xs md:text-sm"
+                    style={{ fontSize: '12px', fontWeight: 400 }}
                   >
                     + Connect Account
                   </button>
                 </div>
 
                 <div className="space-y-3">
-                  {/* Gmail */}
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-surface-elevated border border-border hover:border-accent/20 transition-all">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#EA4335' }}>
-                        <Mail size={18} className="text-white" />
-                      </div>
-                      <div>
-                        <p className="text-text-primary mb-1" style={{ fontSize: '14px', fontWeight: 400 }}>
-                          Gmail
-                        </p>
-                        <p className="text-text-tertiary" style={{ fontSize: '12px', fontWeight: 300 }}>
-                          {user.email}
-                        </p>
-                      </div>
-                    </div>
-                    {gmailConnected ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full" />
-                        <div className="relative" ref={dropdownRef}>
-                          <button
-                            onClick={() => setOpenDropdown(openDropdown === 'gmail' ? null : 'gmail')}
-                            className="px-3 py-1.5 rounded-lg bg-surface hover:bg-border text-text-primary transition-all"
-                            style={{ fontSize: '12px', fontWeight: 400 }}
-                          >
-                            Disconnect
-                          </button>
-                          <AnimatePresence>
-                            {openDropdown === 'gmail' && (
-                              <motion.div
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                className="absolute right-0 top-full mt-2 w-48 rounded-lg bg-surface border border-border shadow-xl z-10"
-                              >
-                                <button
-                                  onClick={() => disconnectService('google_gmail')}
-                                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-surface-elevated transition-colors text-red-400"
-                                  style={{ fontSize: '13px', fontWeight: 400 }}
-                                >
-                                  <LogOut size={14} />
-                                  Disconnect
-                                </button>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                  {/* Gmail - Show all connected Gmail accounts */}
+                  {gmailIntegrations.map((gmailInt) => (
+                    <div key={gmailInt.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 p-3 md:p-4 rounded-xl bg-surface-elevated border border-border hover:border-accent/20 transition-all">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#EA4335' }}>
+                          <Mail size={18} className="text-white" />
                         </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={connectGmail}
-                        className="px-3 py-1.5 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-all"
-                        style={{ fontSize: '12px', fontWeight: 400 }}
-                      >
-                        Connect
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Google Calendar */}
-                  {calendarIntegrations.map((integration, idx) => (
-                    <div key={integration.id} className="flex items-center justify-between p-4 rounded-xl bg-surface-elevated border border-border hover:border-accent/20 transition-all">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#4285F4' }}>
-                          <Calendar size={18} className="text-white" />
-                        </div>
-                        <div>
-                          <p className="text-text-primary mb-1" style={{ fontSize: '14px', fontWeight: 400 }}>
-                            {integration.metadata?.calendar_name || `Google Calendar ${idx + 1}`}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-text-primary mb-1 truncate" style={{ fontSize: '14px', fontWeight: 400 }}>
+                            Gmail
                           </p>
-                          <p className="text-text-tertiary" style={{ fontSize: '12px', fontWeight: 300 }}>
-                            {user.email}
+                          <p className="text-text-tertiary truncate" style={{ fontSize: '12px', fontWeight: 300 }}>
+                            {gmailInt.email}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center sm:justify-end gap-2 flex-shrink-0 sm:ml-2 w-full sm:w-auto">
                         <div className="w-2 h-2 bg-green-500 rounded-full" />
-                        <div className="relative" ref={dropdownRef}>
-                          <button
-                            onClick={() => setOpenDropdown(openDropdown === integration.id ? null : integration.id)}
-                            className="px-3 py-1.5 rounded-lg bg-surface hover:bg-border text-text-primary transition-all"
-                            style={{ fontSize: '12px', fontWeight: 400 }}
-                          >
-                            Disconnect
-                          </button>
-                          <AnimatePresence>
-                            {openDropdown === integration.id && (
-                              <motion.div
-                                initial={{ opacity: 0, y: -10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -10 }}
-                                className="absolute right-0 top-full mt-2 w-48 rounded-lg bg-surface border border-border shadow-xl z-10"
-                              >
-                                <button
-                                  onClick={() => disconnectService('google_calendar', integration.id)}
-                                  className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-surface-elevated transition-colors text-red-400"
-                                  style={{ fontSize: '13px', fontWeight: 400 }}
-                                >
-                                  <LogOut size={14} />
-                                  Disconnect
-                                </button>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
+                        <button
+                          onClick={() => handleDisconnectClick('gmail', 'Gmail', gmailInt.email, 'google_gmail', gmailInt.id)}
+                          className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 hover:border-red-500/50 text-red-400 transition-all whitespace-nowrap"
+                          style={{ fontSize: '13px', fontWeight: 400 }}
+                        >
+                          Disconnect
+                        </button>
                       </div>
                     </div>
                   ))}
                   
-                  {/* Add Calendar Button */}
-                  {calendarIntegrations.length === 0 && (
-                    <div className="flex items-center justify-between p-4 rounded-xl bg-surface-elevated border border-border border-dashed">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#4285F4' }}>
+                  {/* Show "Connect Gmail" if no Gmail accounts connected */}
+                  {gmailIntegrations.length === 0 && (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 p-3 md:p-4 rounded-xl bg-surface-elevated border border-border border-dashed">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#EA4335' }}>
+                          <Mail size={18} className="text-white" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-text-primary mb-1" style={{ fontSize: '14px', fontWeight: 400 }}>
+                            Gmail
+                          </p>
+                          <p className="text-text-tertiary" style={{ fontSize: '12px', fontWeight: 300 }}>
+                            Not connected
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setShowConnectModal(false);
+                          connectGmail();
+                        }}
+                        className="px-4 py-2 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-all whitespace-nowrap flex-shrink-0 border border-accent/20"
+                        style={{ fontSize: '13px', fontWeight: 500 }}
+                      >
+                        Connect
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Google Calendar - Show each connected calendar individually */}
+                  {calendarIntegrations.map((calendar) => (
+                    <div key={calendar.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 p-3 md:p-4 rounded-xl bg-surface-elevated border border-border hover:border-accent/20 transition-all">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#4285F4' }}>
                           <Calendar size={18} className="text-white" />
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-text-primary mb-1 truncate" style={{ fontSize: '14px', fontWeight: 400 }}>
+                            {calendar.calendar_name || calendar.calendar_id}
+                          </p>
+                          <p className="text-text-tertiary truncate" style={{ fontSize: '12px', fontWeight: 300 }}>
+                            {calendar.email || user.email}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center sm:justify-end gap-2 flex-shrink-0 sm:ml-2 w-full sm:w-auto">
+                        <div className="w-2 h-2 bg-green-500 rounded-full" />
+                        <button
+                          onClick={() => handleDisconnectClick('calendar', calendar.calendar_name || calendar.calendar_id, calendar.email, 'google_calendar', calendar.integration_id)}
+                          className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 hover:border-red-500/50 text-red-400 transition-all whitespace-nowrap"
+                          style={{ fontSize: '13px', fontWeight: 400 }}
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Show "Connect Calendar" if no calendar accounts connected */}
+                  {calendarIntegrations.length === 0 && (
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 p-3 md:p-4 rounded-xl bg-surface-elevated border border-border border-dashed">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#4285F4' }}>
+                          <Calendar size={18} className="text-white" />
+                        </div>
+                        <div className="min-w-0 flex-1">
                           <p className="text-text-primary mb-1" style={{ fontSize: '14px', fontWeight: 400 }}>
                             Google Calendar
                           </p>
@@ -1101,9 +1198,12 @@ const ProfilePage: React.FC = () => {
                         </div>
                       </div>
                       <button
-                        onClick={connectCalendar}
-                        className="px-3 py-1.5 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-all"
-                        style={{ fontSize: '12px', fontWeight: 400 }}
+                        onClick={() => {
+                          setShowConnectModal(false);
+                          connectCalendar();
+                        }}
+                        className="px-4 py-2 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-all whitespace-nowrap flex-shrink-0 border border-accent/20"
+                        style={{ fontSize: '13px', fontWeight: 500 }}
                       >
                         Connect
                       </button>
@@ -1111,10 +1211,438 @@ const ProfilePage: React.FC = () => {
                   )}
                 </div>
               </motion.div>
+
+              {/* Connect Account Modal */}
+              <AnimatePresence>
+                {showConnectModal && (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setShowConnectModal(false)}
+                      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+                    />
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full max-w-md rounded-2xl bg-background border border-border shadow-2xl overflow-hidden"
+                      >
+                        <div className="p-6 border-b border-border-subtle">
+                          <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary mb-2">
+                            Connect Account
+                          </h3>
+                          <p className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                            Choose an account to connect
+                          </p>
+                        </div>
+                        <div className="p-4 space-y-2">
+                          <button
+                            onClick={() => {
+                              setShowConnectModal(false);
+                              connectGmail();
+                            }}
+                            className="w-full flex items-center gap-3 p-4 rounded-xl bg-surface-elevated border border-border hover:border-accent/40 transition-all text-left"
+                          >
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#EA4335' }}>
+                              <Mail size={18} className="text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-text-primary mb-1" style={{ fontSize: '15px', fontWeight: 400 }}>
+                                Gmail
+                              </p>
+                              <p className="text-text-tertiary" style={{ fontSize: '12px', fontWeight: 300 }}>
+                                Connect your Gmail account
+                              </p>
+                            </div>
+                            <ChevronRight size={18} className="text-text-tertiary flex-shrink-0" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowConnectModal(false);
+                              connectCalendar();
+                            }}
+                            className="w-full flex items-center gap-3 p-4 rounded-xl bg-surface-elevated border border-border hover:border-accent/40 transition-all text-left"
+                          >
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#4285F4' }}>
+                              <Calendar size={18} className="text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-text-primary mb-1" style={{ fontSize: '15px', fontWeight: 400 }}>
+                                Google Calendar
+                              </p>
+                              <p className="text-text-tertiary" style={{ fontSize: '12px', fontWeight: 300 }}>
+                                Connect your Google Calendar
+                              </p>
+                            </div>
+                            <ChevronRight size={18} className="text-text-tertiary flex-shrink-0" />
+                          </button>
+                        </div>
+                        <div className="p-4 border-t border-border-subtle">
+                          <button
+                            onClick={() => setShowConnectModal(false)}
+                            className="w-full px-4 py-2.5 rounded-lg bg-surface hover:bg-surface-elevated text-text-primary transition-colors"
+                            style={{ fontSize: '14px', fontWeight: 400 }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </motion.div>
+                    </div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
       </main>
+
+      {/* Disconnect Confirmation Modal */}
+      <AnimatePresence>
+        {disconnectModal.isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setDisconnectModal({ isOpen: false, type: null, name: '' });
+                setDisconnectConfirmed(false);
+              }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md rounded-2xl bg-background border border-border shadow-2xl overflow-hidden"
+              >
+                <div className="p-6 border-b border-border-subtle">
+                  <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary mb-2">
+                    Disconnect Account
+                  </h3>
+                  <p className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                    Are you sure you want to disconnect <span className="text-text-primary font-medium">{disconnectModal.name}</span>?
+                  </p>
+                  {disconnectModal.email && (
+                    <p className="text-text-tertiary mt-1" style={{ fontSize: '13px', fontWeight: 300 }}>
+                      {disconnectModal.email}
+                    </p>
+                  )}
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="p-4 rounded-xl bg-surface-elevated border border-border">
+                    <p className="text-text-secondary mb-3" style={{ fontSize: '13px', fontWeight: 300 }}>
+                      This will:
+                    </p>
+                    <ul className="space-y-2 text-text-secondary" style={{ fontSize: '13px', fontWeight: 300 }}>
+                      {disconnectModal.type === 'calendar' && (
+                        <>
+                          <li className="flex items-start gap-2">
+                            <span className="text-red-400 mt-0.5">•</span>
+                            <span>Remove all synced calendar events</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-red-400 mt-0.5">•</span>
+                            <span>Stop future calendar syncing</span>
+                          </li>
+                        </>
+                      )}
+                      {disconnectModal.type === 'gmail' && (
+                        <>
+                          <li className="flex items-start gap-2">
+                            <span className="text-red-400 mt-0.5">•</span>
+                            <span>Stop Gmail syncing</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-red-400 mt-0.5">•</span>
+                            <span>Remove Gmail integration access</span>
+                          </li>
+                        </>
+                      )}
+                      {disconnectModal.type === 'membership' && (
+                        <>
+                          <li className="flex items-start gap-2">
+                            <span className="text-red-400 mt-0.5">•</span>
+                            <span>Remove membership connection</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-red-400 mt-0.5">•</span>
+                            <span>Stop membership benefits syncing</span>
+                          </li>
+                        </>
+                      )}
+                    </ul>
+                  </div>
+                  <label className="flex items-start gap-3 p-4 rounded-xl bg-surface-elevated border border-border cursor-pointer hover:border-accent/20 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={disconnectConfirmed}
+                      onChange={(e) => setDisconnectConfirmed(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded border-border bg-surface text-accent focus:ring-accent focus:ring-offset-0 focus:ring-2"
+                    />
+                    <span className="text-text-primary" style={{ fontSize: '14px', fontWeight: 400 }}>
+                      I understand and want to disconnect this account
+                    </span>
+                  </label>
+                </div>
+                <div className="p-6 border-t border-border-subtle flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => {
+                      setDisconnectModal({ isOpen: false, type: null, name: '' });
+                      setDisconnectConfirmed(false);
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-surface hover:bg-surface-elevated text-text-primary transition-colors"
+                    style={{ fontSize: '14px', fontWeight: 400 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDisconnect}
+                    disabled={!disconnectConfirmed}
+                    className={`flex-1 px-4 py-2.5 rounded-lg transition-colors ${
+                      disconnectConfirmed
+                        ? 'bg-red-500 hover:bg-red-600 text-white'
+                        : 'bg-surface-elevated text-text-tertiary cursor-not-allowed'
+                    }`}
+                    style={{ fontSize: '14px', fontWeight: 400 }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Membership Selection Modal */}
+      <AnimatePresence>
+        {showMembershipModal && !showMembershipForm && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMembershipModal(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-2xl max-h-[90vh] rounded-2xl bg-background border border-border shadow-2xl overflow-hidden flex flex-col"
+              >
+                <div className="p-6 border-b border-border-subtle flex-shrink-0">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary">
+                      Connect Membership
+                    </h3>
+                    <button
+                      onClick={() => setShowMembershipModal(false)}
+                      className="p-2 hover:bg-surface-elevated rounded-lg transition-colors"
+                    >
+                      <X size={20} className="text-text-tertiary" />
+                    </button>
+                  </div>
+                  <p className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                    Select a membership partner to connect
+                  </p>
+                </div>
+                <div className="flex-1 overflow-y-auto p-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {memberships.map((membership) => {
+                      const Icon = membership.icon;
+                      const isConnected = connectedMemberships.some(m => m.id === membership.id);
+                      return (
+                        <button
+                          key={membership.id}
+                          onClick={() => {
+                            setSelectedMembership(membership);
+                            setShowMembershipForm(true);
+                          }}
+                          disabled={isConnected}
+                          className={`relative p-5 rounded-xl border transition-all text-left ${
+                            isConnected
+                              ? 'bg-surface-elevated/50 border-border/50 opacity-60 cursor-not-allowed'
+                              : 'bg-surface-elevated border-border hover:border-accent/40 hover:bg-surface'
+                          }`}
+                        >
+                          {isConnected && (
+                            <div className="absolute top-3 right-3">
+                              <div className="w-2 h-2 bg-green-500 rounded-full" />
+                            </div>
+                          )}
+                          <div className="flex items-start gap-4">
+                            <div
+                              className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: membership.logoColor }}
+                            >
+                              <Icon size={24} className="text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-text-primary mb-1 truncate" style={{ fontSize: '16px', fontWeight: 400 }}>
+                                {membership.title}
+                              </h4>
+                              <p className="text-text-tertiary mb-2" style={{ fontSize: '12px', fontWeight: 300 }}>
+                                {membership.provider}
+                              </p>
+                              <p className="text-text-secondary line-clamp-2" style={{ fontSize: '13px', fontWeight: 300 }}>
+                                {membership.description}
+                              </p>
+                              {isConnected && (
+                                <p className="text-green-400 mt-2" style={{ fontSize: '12px', fontWeight: 400 }}>
+                                  Already connected
+                                </p>
+                              )}
+                            </div>
+                            {!isConnected && (
+                              <ChevronRight size={18} className="text-text-tertiary flex-shrink-0 mt-1" />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Membership Connection Form Modal */}
+      <AnimatePresence>
+        {showMembershipForm && selectedMembership && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setShowMembershipForm(false);
+                setSelectedMembership(null);
+              }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md rounded-2xl bg-background border border-border shadow-2xl overflow-hidden"
+              >
+                <div className="p-6 border-b border-border-subtle">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: selectedMembership.logoColor }}
+                      >
+                        {React.createElement(selectedMembership.icon, { size: 20, className: 'text-white' })}
+                      </div>
+                      <div>
+                        <h3 style={{ fontSize: '18px', fontWeight: 400 }} className="text-text-primary">
+                          {selectedMembership.title}
+                        </h3>
+                        <p className="text-text-tertiary" style={{ fontSize: '12px', fontWeight: 300 }}>
+                          {selectedMembership.provider}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowMembershipForm(false);
+                        setSelectedMembership(null);
+                      }}
+                      className="p-2 hover:bg-surface-elevated rounded-lg transition-colors"
+                    >
+                      <X size={20} className="text-text-tertiary" />
+                    </button>
+                  </div>
+                  <p className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                    Connect your membership account to track benefits and usage
+                  </p>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-text-primary mb-2" style={{ fontSize: '14px', fontWeight: 400 }}>
+                      Account Email
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="your.email@example.com"
+                      className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border focus:border-accent focus:outline-none text-text-primary placeholder-text-tertiary"
+                      style={{ fontSize: '14px', fontWeight: 300 }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-text-primary mb-2" style={{ fontSize: '14px', fontWeight: 400 }}>
+                      Membership Number / Account ID
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter your membership number"
+                      className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border focus:border-accent focus:outline-none text-text-primary placeholder-text-tertiary"
+                      style={{ fontSize: '14px', fontWeight: 300 }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-text-primary mb-2" style={{ fontSize: '14px', fontWeight: 400 }}>
+                      Tier / Status Level
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={selectedMembership.tier || "e.g., Platinum, Gold, Elite"}
+                      className="w-full px-4 py-2.5 rounded-lg bg-surface border border-border focus:border-accent focus:outline-none text-text-primary placeholder-text-tertiary"
+                      style={{ fontSize: '14px', fontWeight: 300 }}
+                    />
+                  </div>
+                  <div className="p-4 rounded-xl bg-surface-elevated border border-border">
+                    <p className="text-text-secondary" style={{ fontSize: '13px', fontWeight: 300 }}>
+                      <strong className="text-text-primary">Note:</strong> We're currently setting up the infrastructure to automatically sync your membership data. For now, you can manually add your membership information, and we'll notify you when automatic syncing becomes available.
+                    </p>
+                  </div>
+                </div>
+                <div className="p-6 border-t border-border-subtle flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => {
+                      setShowMembershipForm(false);
+                      setSelectedMembership(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-surface hover:bg-surface-elevated text-text-primary transition-colors"
+                    style={{ fontSize: '14px', fontWeight: 400 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      // TODO: Save membership connection
+                      // For now, just close the modal
+                      setShowMembershipForm(false);
+                      setSelectedMembership(null);
+                      setShowMembershipModal(false);
+                      // In the future, this will call an API to save the membership
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-colors"
+                    style={{ fontSize: '14px', fontWeight: 400 }}
+                  >
+                    Connect Membership
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Member Card Modal */}
       <AnimatePresence>

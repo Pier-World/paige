@@ -384,8 +384,62 @@ const CalendarPage: React.FC = () => {
       if (error) {
         console.error('Error checking connections:', error);
         setCalendarIntegrations([]);
+      } else if (calInts && calInts.length > 0) {
+        // Get the calendar integration
+        const calInt = calInts[0];
+        
+        // Get all unique calendar IDs from calendar_events
+        const { data: calendarEvents } = await supabase
+          .from('calendar_events')
+          .select('gcal_calendar_id')
+          .eq('user_id', user.id);
+
+        // Get unique calendar IDs
+        const uniqueCalendarIds = Array.from(
+          new Set((calendarEvents || []).map((e: any) => e.gcal_calendar_id).filter(Boolean))
+        );
+
+        // Create calendar objects for each unique calendar
+        const calendars = uniqueCalendarIds.map((calendarId: string, index: number) => {
+          // Try to get calendar name from metadata or use a readable name
+          let calendarName = calendarId;
+          if (calendarId === 'primary') {
+            calendarName = calInt.metadata?.calendar_name || calInt.metadata?.email || 'Primary Calendar';
+          } else if (calendarId.includes('@')) {
+            // If it's an email, use it as the name
+            calendarName = calendarId;
+          } else {
+            // Try to extract a readable name or use calendar ID
+            calendarName = calInt.metadata?.calendar_name || calendarId;
+          }
+
+          return {
+            id: `${calInt.id}-${calendarId}`,
+            integration_id: calInt.id,
+            calendar_id: calendarId,
+            calendar_name: calendarName,
+            email: calInt.metadata?.email || user.email,
+            metadata: calInt.metadata,
+            ...calInt,
+          };
+        });
+
+        // If no calendar events found, still show the integration
+        if (calendars.length === 0 && calInt) {
+          calendars.push({
+            id: calInt.id,
+            integration_id: calInt.id,
+            calendar_id: 'primary',
+            calendar_name: calInt.metadata?.calendar_name || calInt.metadata?.email || 'Google Calendar',
+            email: calInt.metadata?.email || user.email,
+            metadata: calInt.metadata,
+            ...calInt,
+          });
+        }
+
+        setCalendarIntegrations(calendars);
       } else {
-        setCalendarIntegrations(calInts || []);
+        setCalendarIntegrations([]);
       }
     } catch (error) {
       console.error('Error checking connections:', error);
@@ -492,22 +546,22 @@ const CalendarPage: React.FC = () => {
 
   return (
     <PageLayout>
-      <main className="pt-24 pb-20 bg-background min-h-screen">
-        <div className="max-w-7xl mx-auto px-6">
+      <main className="pt-20 md:pt-24 pb-20 bg-background min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 md:px-6">
           {/* Header */}
-          <div className="mb-12">
-            <div className="flex items-center justify-between mb-6">
+          <div className="mb-8 md:mb-12">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>
-                <h1 style={{ fontSize: '36px', fontWeight: 300, letterSpacing: '-0.02em' }} className="text-text-primary mb-2">
+                <h1 style={{ fontSize: '28px', fontWeight: 300, letterSpacing: '-0.02em' }} className="text-text-primary mb-2 md:text-[36px]">
                   Your Calendar
                 </h1>
-                <p className="text-text-secondary" style={{ fontSize: '16px', fontWeight: 300 }}>
+                <p className="text-text-secondary md:text-base" style={{ fontSize: '14px', fontWeight: 300 }}>
                   Unified view across all calendars and commitments
                 </p>
               </div>
               <button
                 onClick={handleAddEvent}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-accent hover:bg-[#d4c4a6] text-background transition-all"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 md:px-5 md:py-3 rounded-xl bg-accent hover:bg-[#d4c4a6] text-background transition-all w-full sm:w-auto"
                 style={{ fontSize: '14px', fontWeight: 400 }}
               >
                 <Plus size={18} />
@@ -516,30 +570,30 @@ const CalendarPage: React.FC = () => {
             </div>
 
             {/* Calendar Navigation - 7 Day View */}
-            <div className="flex items-center justify-between p-4 rounded-xl bg-surface border border-border">
+            <div className="flex items-center justify-between p-3 md:p-4 rounded-xl bg-surface border border-border">
               <button
                 onClick={handlePreviousWeek}
-                className="p-2 rounded-lg hover:bg-surface-elevated transition-colors"
+                className="p-2 rounded-lg hover:bg-surface-elevated transition-colors flex-shrink-0"
               >
-                <ChevronLeft size={20} className="text-text-secondary" />
+                <ChevronLeft size={18} className="text-text-secondary md:w-5 md:h-5" />
               </button>
-              <div className="flex items-center gap-4">
-                <h2 style={{ fontSize: '18px', fontWeight: 400 }} className="text-text-primary">
+              <div className="flex items-center gap-2 md:gap-4 flex-1 justify-center min-w-0">
+                <h2 style={{ fontSize: '14px', fontWeight: 400 }} className="text-text-primary md:text-lg truncate">
                   {weekRange}
                 </h2>
                 <button
                   onClick={handleToday}
-                  className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-secondary hover:text-text-primary transition-colors"
-                  style={{ fontSize: '13px', fontWeight: 400 }}
+                  className="px-2.5 py-1 md:px-3 md:py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-secondary hover:text-text-primary transition-colors flex-shrink-0 text-xs md:text-sm"
+                  style={{ fontSize: '12px', fontWeight: 400 }}
                 >
                   Today
                 </button>
               </div>
               <button
                 onClick={handleNextWeek}
-                className="p-2 rounded-lg hover:bg-surface-elevated transition-colors"
+                className="p-2 rounded-lg hover:bg-surface-elevated transition-colors flex-shrink-0"
               >
-                <ChevronRight size={20} className="text-text-secondary" />
+                <ChevronRight size={18} className="text-text-secondary md:w-5 md:h-5" />
               </button>
             </div>
           </div>
@@ -570,33 +624,35 @@ const CalendarPage: React.FC = () => {
                     id={`date-${date}`}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-6"
+                    className="flex flex-col md:flex-row gap-4 md:gap-6"
                   >
-                    {/* Date Sidebar */}
-                    <div className="w-32 flex-shrink-0 pt-1">
-                      <div className="sticky top-28">
-                        <p className="text-text-tertiary mb-1" style={{ fontSize: '13px', fontWeight: 300 }}>
+                    {/* Date Sidebar - Mobile: Horizontal, Desktop: Vertical */}
+                    <div className="flex md:flex-col md:w-32 md:flex-shrink-0 pt-1 md:pt-1 items-center md:items-start gap-3 md:gap-0 pb-2 md:pb-0 border-b md:border-b-0 border-border-subtle md:border-0">
+                      <div className="md:sticky md:top-28">
+                        <p className="text-text-tertiary mb-0 md:mb-1 text-xs md:text-sm" style={{ fontSize: '12px', fontWeight: 300 }}>
                           {dayName}
                         </p>
-                        <p 
-                          style={{ 
-                            fontSize: '32px', 
-                            fontWeight: 300, 
-                            letterSpacing: '-0.02em',
-                            color: isToday ? '#d4c4a6' : undefined
-                          }} 
-                          className={isToday ? 'text-accent' : 'text-text-primary'}
-                        >
-                          {dayNumber}
-                        </p>
-                        <p className="text-text-secondary" style={{ fontSize: '13px', fontWeight: 300 }}>
-                          {monthName}
-                        </p>
+                        <div className="flex items-baseline gap-2 md:block">
+                          <p 
+                            style={{ 
+                              fontSize: '24px', 
+                              fontWeight: 300, 
+                              letterSpacing: '-0.02em',
+                              color: isToday ? '#d4c4a6' : undefined
+                            }} 
+                            className={`${isToday ? 'text-accent' : 'text-text-primary'} md:text-[32px]`}
+                          >
+                            {dayNumber}
+                          </p>
+                          <p className="text-text-secondary md:mt-0 text-xs md:text-sm" style={{ fontSize: '12px', fontWeight: 300 }}>
+                            {monthName}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
                     {/* Events for this date */}
-                    <div className="flex-1 space-y-3">
+                    <div className="flex-1 space-y-3 md:space-y-3">
                       {eventsByDate[date].map((event, index) => {
                         const Icon = iconMap[event.type];
                         return (
@@ -606,33 +662,34 @@ const CalendarPage: React.FC = () => {
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: index * 0.1 }}
                             whileHover={{ scale: 1.01 }}
-                            className={`group rounded-xl border p-6 transition-all cursor-pointer ${
+                            onClick={() => handleViewDetails(event)}
+                            className={`group rounded-xl border p-4 md:p-6 transition-all cursor-pointer ${
                               event.isPast
                                 ? 'bg-surface/50 border-border/50 opacity-60'
                                 : 'bg-surface border-border hover:border-[#3a3a3a]'
                             }`}
                           >
-                            <div className="flex items-start gap-4">
-                              <div className={`p-3 rounded-lg transition-colors ${
+                            <div className="flex items-start gap-3 md:gap-4">
+                              <div className={`p-2 md:p-3 rounded-lg transition-colors flex-shrink-0 ${
                                 event.isPast
                                   ? 'bg-surface-elevated/50'
                                   : 'bg-surface-elevated group-hover:bg-accent/10'
                               }`}>
-                                <Icon size={20} className={event.isPast ? 'text-text-tertiary' : 'text-accent'} />
+                                <Icon size={18} className={`${event.isPast ? 'text-text-tertiary' : 'text-accent'} md:w-5 md:h-5`} />
                               </div>
 
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between mb-2">
+                                <div className="flex items-start justify-between mb-2 gap-2">
                                   <h4 
-                                    style={{ fontSize: '18px', fontWeight: 400 }} 
-                                    className={event.isPast ? 'text-text-tertiary' : 'text-text-primary'}
+                                    style={{ fontSize: '16px', fontWeight: 400 }} 
+                                    className={`${event.isPast ? 'text-text-tertiary' : 'text-text-primary'} md:text-lg line-clamp-2`}
                                   >
                                     {event.title}
                                   </h4>
                                   <span 
-                                    className="ml-4" 
+                                    className="ml-2 flex-shrink-0 text-[10px] md:text-xs" 
                                     style={{ 
-                                      fontSize: '11px', 
+                                      fontSize: '10px', 
                                       fontWeight: 300, 
                                       textTransform: 'uppercase', 
                                       letterSpacing: '0.05em',
@@ -643,20 +700,20 @@ const CalendarPage: React.FC = () => {
                                   </span>
                                 </div>
 
-                                <div className={`flex flex-wrap items-center gap-4 mb-3 ${event.isPast ? 'text-text-tertiary' : 'text-text-secondary'}`} style={{ fontSize: '14px', fontWeight: 300 }}>
+                                <div className={`flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-4 mb-3 text-sm md:text-base ${event.isPast ? 'text-text-tertiary' : 'text-text-secondary'}`} style={{ fontSize: '13px', fontWeight: 300 }}>
                                   <div className="flex items-center gap-1.5">
-                                    <Clock size={14} />
-                                    <span>{event.time}{event.endTime ? ` - ${event.endTime}` : ''}</span>
+                                    <Clock size={13} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
+                                    <span className="whitespace-nowrap">{event.time}{event.endTime ? ` - ${event.endTime}` : ''}</span>
                                   </div>
                                   {event.location && (
-                                    <div className="flex items-center gap-1.5">
-                                      <MapPin size={14} />
-                                      <span>{event.location}</span>
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <MapPin size={13} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
+                                      <span className="truncate">{event.location}</span>
                                     </div>
                                   )}
                                   {event.attendees && event.attendees.length > 0 && (
                                     <div className="flex items-center gap-1.5">
-                                      <Users size={14} />
+                                      <Users size={13} className="md:w-3.5 md:h-3.5 flex-shrink-0" />
                                       <span>{event.attendees.length} {event.attendees.length === 1 ? 'attendee' : 'attendees'}</span>
                                     </div>
                                   )}
@@ -665,20 +722,20 @@ const CalendarPage: React.FC = () => {
                                 {/* Participants List */}
                                 {event.attendees && event.attendees.length > 0 && (
                                   <div className="mb-3">
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap gap-1.5 md:gap-2">
                                       {event.attendees.slice(0, 5).map((attendee, idx) => (
                                         <span
                                           key={idx}
-                                          className="px-2.5 py-1 rounded-full bg-surface-elevated border border-border text-text-secondary"
-                                          style={{ fontSize: '12px', fontWeight: 300 }}
+                                          className="px-2 py-0.5 md:px-2.5 md:py-1 rounded-full bg-surface-elevated border border-border text-text-secondary text-[11px] md:text-xs"
+                                          style={{ fontSize: '11px', fontWeight: 300 }}
                                         >
                                           {attendee.split('@')[0]} {/* Show name or email prefix */}
                                         </span>
                                       ))}
                                       {event.attendees.length > 5 && (
                                         <span
-                                          className="px-2.5 py-1 rounded-full bg-surface-elevated border border-border text-text-secondary"
-                                          style={{ fontSize: '12px', fontWeight: 300 }}
+                                          className="px-2 py-0.5 md:px-2.5 md:py-1 rounded-full bg-surface-elevated border border-border text-text-secondary text-[11px] md:text-xs"
+                                          style={{ fontSize: '11px', fontWeight: 300 }}
                                         >
                                           +{event.attendees.length - 5} more
                                         </span>
@@ -687,14 +744,14 @@ const CalendarPage: React.FC = () => {
                                   </div>
                                 )}
 
-                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex flex-wrap gap-2 opacity-0 group-hover:opacity-100 transition-opacity md:flex-nowrap">
                                   <button 
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleViewDetails(event);
                                     }}
-                                    className="px-4 py-2 rounded-lg bg-surface-elevated hover:bg-border text-text-primary transition-colors" 
-                                    style={{ fontSize: '13px', fontWeight: 400 }}
+                                    className="px-3 py-1.5 md:px-4 md:py-2 rounded-lg bg-surface-elevated hover:bg-border text-text-primary transition-colors flex-1 md:flex-none text-xs md:text-sm" 
+                                    style={{ fontSize: '12px', fontWeight: 400 }}
                                   >
                                     View Details
                                   </button>
@@ -703,8 +760,8 @@ const CalendarPage: React.FC = () => {
                                       e.stopPropagation();
                                       handleReschedule(event);
                                     }}
-                                    className="px-4 py-2 rounded-lg bg-surface-elevated hover:bg-border text-text-primary transition-colors" 
-                                    style={{ fontSize: '13px', fontWeight: 400 }}
+                                    className="px-3 py-1.5 md:px-4 md:py-2 rounded-lg bg-surface-elevated hover:bg-border text-text-primary transition-colors flex-1 md:flex-none text-xs md:text-sm" 
+                                    style={{ fontSize: '12px', fontWeight: 400 }}
                                   >
                                     Reschedule
                                   </button>
@@ -713,8 +770,8 @@ const CalendarPage: React.FC = () => {
                                       e.stopPropagation();
                                       handlePrepare(event);
                                     }}
-                                    className="px-4 py-2 rounded-lg bg-surface-elevated hover:bg-border text-text-secondary hover:text-accent transition-colors" 
-                                    style={{ fontSize: '13px', fontWeight: 400 }}
+                                    className="px-3 py-1.5 md:px-4 md:py-2 rounded-lg bg-surface-elevated hover:bg-border text-text-secondary hover:text-accent transition-colors flex-1 md:flex-none text-xs md:text-sm" 
+                                    style={{ fontSize: '12px', fontWeight: 400 }}
                                   >
                                     Prepare
                                   </button>
@@ -732,17 +789,17 @@ const CalendarPage: React.FC = () => {
           )}
 
           {/* Integration Status */}
-          <div className="mt-12 p-6 rounded-xl bg-surface border border-border">
+          <div className="mt-8 md:mt-12 p-4 md:p-6 rounded-xl bg-surface border border-border">
             <div className="flex items-center justify-between mb-4">
-              <h3 style={{ fontSize: '16px', fontWeight: 400 }} className="text-text-primary">
+              <h3 style={{ fontSize: '14px', fontWeight: 400 }} className="text-text-primary md:text-base">
                 Connected Calendars
               </h3>
               <button
                 onClick={handleManageCalendars}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-secondary hover:text-text-primary transition-colors"
-                style={{ fontSize: '13px', fontWeight: 400 }}
+                className="flex items-center gap-1.5 md:gap-2 px-2.5 py-1 md:px-3 md:py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-text-secondary hover:text-text-primary transition-colors text-xs md:text-sm"
+                style={{ fontSize: '12px', fontWeight: 400 }}
               >
-                <Settings size={14} />
+                <Settings size={13} className="md:w-3.5 md:h-3.5" />
                 <span>Manage</span>
               </button>
             </div>
@@ -760,14 +817,14 @@ const CalendarPage: React.FC = () => {
                   </span>
                 </div>
               ) : (
-                calendarIntegrations.map((integration) => (
+                calendarIntegrations.map((calendar) => (
                   <div
-                    key={integration.id}
+                    key={calendar.id}
                     className="px-4 py-2 rounded-lg bg-surface-elevated border border-border flex items-center gap-2"
                   >
                     <Calendar size={14} className="text-accent" />
                     <span className="text-text-secondary" style={{ fontSize: '13px', fontWeight: 300 }}>
-                      {integration.metadata?.calendar_name || integration.metadata?.email || 'Google Calendar'}
+                      {calendar.calendar_name || calendar.calendar_id}
                     </span>
                   </div>
                 ))
