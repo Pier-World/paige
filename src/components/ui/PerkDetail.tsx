@@ -175,12 +175,6 @@ export function PerkDetail({ perk, isOpen, onClose, onOpenConcierge }: PerkDetai
                     <h1 style={{ fontSize: '32px', fontWeight: 300, letterSpacing: '-0.02em' }} className="text-text-primary mb-2">
                       {perk.title}
                     </h1>
-                    <p className="text-text-secondary mb-4" style={{ fontSize: '16px', fontWeight: 300 }}>
-                      {perk.provider}
-                    </p>
-                    <p className="text-accent" style={{ fontSize: '18px', fontWeight: 300, lineHeight: '1.6' }}>
-                      {perk.tagline}
-                    </p>
                   </div>
 
                   {/* Location */}

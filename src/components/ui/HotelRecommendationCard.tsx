@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Star, Sparkles, Check, ChevronDown, ChevronUp, Heart, X, Calendar } from 'lucide-react';
 import { ImageWithFallback } from './ImageWithFallback';
 import { useAuth } from '../../context/AuthContext';
+import { HotelProfile } from './HotelProfile';
 
 export interface HotelRecommendation {
   id: string;
@@ -347,225 +348,28 @@ export function HotelRecommendationCard({ hotel, index, onOpenConcierge }: Hotel
       </motion.div>
       )}
 
-      {/* Full Detail Modal */}
+      {/* Full Detail Modal - Use new HotelProfile component */}
       <AnimatePresence>
         {(showFullDetail || isModal) && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleCloseModal}
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]"
-            />
-            <div className="fixed inset-0 z-[100] overflow-y-auto pointer-events-none">
-              <div className="min-h-screen px-4 py-8 flex items-start justify-center">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-full max-w-4xl rounded-2xl bg-background border border-border shadow-2xl overflow-hidden my-8 pointer-events-auto"
-                >
-                  <button
-                    onClick={handleCloseModal}
-                    className="absolute top-6 right-6 z-10 p-2 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-surface transition-colors"
-                  >
-                    <X size={20} className="text-text-primary" />
-                  </button>
-
-                  {/* Hero Image */}
-                  <div className="relative aspect-[21/9] overflow-hidden bg-surface-elevated">
-                    <ImageWithFallback
-                      src={imageUrl}
-                      alt={hotel.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-                    <div className="absolute bottom-8 left-8 right-8">
-                      <h2 style={{ fontSize: '32px', fontWeight: 300, letterSpacing: '-0.02em' }} className="text-white mb-2">
-                        {hotel.name}
-                      </h2>
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2 text-white/80" style={{ fontSize: '14px', fontWeight: 300 }}>
-                          <MapPin size={16} />
-                          <span>{hotel.location || `${hotel.neighborhood || ''}, ${hotel.city}`.trim()}</span>
-                        </div>
-                        {hotel.rating && (
-                          <div className="flex items-center gap-1">
-                            <Star size={16} className="text-accent fill-accent" />
-                            <span className="text-white" style={{ fontSize: '14px', fontWeight: 400 }}>
-                              {hotel.rating} {hotel.reviewCount && `(${hotel.reviewCount} reviews)`}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="p-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      {/* Main Content */}
-                      <div className="lg:col-span-2 space-y-6">
-                        {hotel.description && (
-                          <div>
-                            <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary mb-3">
-                              About
-                            </h3>
-                            <p className="text-text-secondary" style={{ fontSize: '15px', fontWeight: 300, lineHeight: '1.7' }}>
-                              {hotel.description}
-                            </p>
-                          </div>
-                        )}
-
-                        {matchReasons.length > 0 && (
-                          <div>
-                            <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary mb-3">
-                              Why We Recommend This Hotel
-                            </h3>
-                            <div className="space-y-2">
-                              {matchReasons.map((reason, idx) => (
-                                <div key={idx} className="flex items-start gap-2">
-                                  <Check size={16} className="text-accent mt-0.5 flex-shrink-0" />
-                                  <span className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300, lineHeight: '1.6' }}>
-                                    {reason}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {hotel.amenities && hotel.amenities.length > 0 && (
-                          <div>
-                            <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary mb-3">
-                              Amenities
-                            </h3>
-                            <div className="grid grid-cols-2 gap-3">
-                              {hotel.amenities.map((amenity, idx) => (
-                                <div key={idx} className="flex items-center gap-2">
-                                  <Check size={14} className="text-accent" />
-                                  <span className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300 }}>
-                                    {amenity}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {hotel.nearbyAttractions && hotel.nearbyAttractions.length > 0 && (
-                          <div>
-                            <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary mb-3">
-                              Nearby Attractions
-                            </h3>
-                            <div className="flex flex-wrap gap-2">
-                              {hotel.nearbyAttractions.map((attraction, idx) => (
-                                <div
-                                  key={idx}
-                                  className="px-3 py-2 rounded-lg bg-surface border border-border"
-                                >
-                                  <span className="text-text-secondary" style={{ fontSize: '13px', fontWeight: 300 }}>
-                                    {attraction}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Sidebar */}
-                      <div className="lg:col-span-1 space-y-6">
-                        <div className="rounded-xl bg-surface border border-border p-6">
-                          <div className="mb-4">
-                            <p className="text-text-tertiary mb-1" style={{ fontSize: '12px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                              Average Rate
-                            </p>
-                            <p className="text-text-primary" style={{ fontSize: '28px', fontWeight: 300 }}>
-                              {averageRate}
-                            </p>
-                            <p className="text-text-tertiary" style={{ fontSize: '13px', fontWeight: 300 }}>
-                              per night
-                            </p>
-                          </div>
-                          <button
-                            onClick={handleBookWithConcierge}
-                            className="w-full px-6 py-3 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-all mb-2"
-                            style={{ fontSize: '14px', fontWeight: 400 }}
-                          >
-                            Book with Concierge
-                          </button>
-                          <p className="text-text-tertiary text-center" style={{ fontSize: '11px', fontWeight: 300 }}>
-                            {hasConciergeAccess 
-                              ? "We'll secure the best rate + benefits"
-                              : "Upgrade to Premium+ for concierge booking"
-                            }
-                          </p>
-                        </div>
-
-                        {hotel.pierBenefits && hotel.pierBenefits.length > 0 && (
-                          <div className="rounded-xl bg-accent/5 border border-accent/20 p-6">
-                            <div className="flex items-center gap-2 mb-4">
-                              <Sparkles size={18} className="text-accent" />
-                              <h4 style={{ fontSize: '16px', fontWeight: 400 }} className="text-text-primary">
-                                Your Pier Benefits
-                              </h4>
-                            </div>
-                            <div className="space-y-2">
-                              {hotel.pierBenefits.map((benefit, idx) => (
-                                <div key={idx} className="flex items-start gap-2">
-                                  <Check size={14} className="text-accent mt-0.5 flex-shrink-0" />
-                                  <span className="text-text-primary" style={{ fontSize: '13px', fontWeight: 300, lineHeight: '1.5' }}>
-                                    {benefit}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {hotel.policies && (
-                          <div className="rounded-xl bg-surface border border-border p-6">
-                            <h4 style={{ fontSize: '16px', fontWeight: 400 }} className="text-text-primary mb-4">
-                              Policies
-                            </h4>
-                            <div className="space-y-3">
-                              <div>
-                                <p className="text-text-tertiary mb-1" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                  Check-in
-                                </p>
-                                <p className="text-text-primary" style={{ fontSize: '13px', fontWeight: 400 }}>
-                                  {hotel.policies.checkIn}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-text-tertiary mb-1" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                  Check-out
-                                </p>
-                                <p className="text-text-primary" style={{ fontSize: '13px', fontWeight: 400 }}>
-                                  {hotel.policies.checkOut}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-text-tertiary mb-1" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                  Cancellation
-                                </p>
-                                <p className="text-text-primary" style={{ fontSize: '13px', fontWeight: 300, lineHeight: '1.5' }}>
-                                  {hotel.policies.cancellation}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-            </div>
-          </>
+          <HotelProfile
+            hotelId={hotel.hotel_id || hotel.id}
+            hotelData={{
+              id: hotel.hotel_id || hotel.id,
+              name: hotel.name,
+              neighborhood: hotel.neighborhood || '',
+              primary_city: hotel.city || '',
+              address: (hotel as any).address || '',
+              star_rating: hotel.rating,
+              image_hero: hotel.image_hero || hotel.imageUrl,
+              notes_curated: hotel.description,
+              pier_benefits: hotel.pierBenefits,
+              // Add other fields from hotel object if available
+              ...(hotel as any),
+            }}
+            parsedDates={(hotel as any).parsedDates}
+            onClose={handleCloseModal}
+            onBookWithConcierge={handleBookWithConcierge}
+          />
         )}
       </AnimatePresence>
     </>
