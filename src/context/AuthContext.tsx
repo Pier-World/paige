@@ -110,22 +110,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Get session synchronously first to avoid flash of redirect
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-        if (session?.user && mounted) {
+        if (!mounted) return;
+
+        if (sessionError) {
+          console.error('Error getting session:', sessionError);
           clearTimeout(timeout);
+          setIsLoading(false);
+          return;
+        }
+
+        if (session?.user) {
+          clearTimeout(timeout);
+          // Set loading to false first to prevent redirect flash
           setIsLoading(false);
           const profile = await fetchUserProfile(session.user.id);
           if (profile && mounted) {
             setUser(profile);
-
             // Front Chat is initialized directly in index.html
+          } else if (mounted) {
+            // If profile fetch fails, user is still null but we're done loading
+            setIsLoading(false);
           }
-        } else if (mounted) {
+        } else {
+          // No session - user is not authenticated
           clearTimeout(timeout);
           setIsLoading(false);
         }
       } catch (error) {
+        console.error('Error initializing auth:', error);
         if (mounted) {
           clearTimeout(timeout);
           setIsLoading(false);
@@ -137,15 +152,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           if (!mounted) return;
 
           if (event === 'SIGNED_IN' && session?.user) {
+            setIsLoading(true);
             const profile = await fetchUserProfile(session.user.id);
             if (profile && mounted) {
               setUser(profile);
-
+              setIsLoading(false);
               // Front Chat is initialized directly in index.html
+            } else if (mounted) {
+              setIsLoading(false);
             }
           } else if (event === 'SIGNED_OUT') {
             setUser(null);
+            setIsLoading(false);
             clearAuthData();
+          } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+            // Refresh user profile on token refresh to ensure data is up to date
+            const profile = await fetchUserProfile(session.user.id);
+            if (profile && mounted) {
+              setUser(profile);
+            }
           }
         }
       );

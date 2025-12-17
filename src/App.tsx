@@ -27,6 +27,8 @@ const LoadingSpinner = () => (
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
   
+  // Always wait for auth to finish loading before making routing decisions
+  // This prevents redirect loops and flash of login page
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -35,6 +37,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     );
   }
   
+  // Only redirect if we're sure there's no user (after loading is complete)
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -47,6 +50,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
 
+  // Always wait for auth to finish loading before making routing decisions
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -55,6 +59,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     );
   }
 
+  // Only redirect if we're sure user is authenticated (after loading is complete)
   if (user) {
     return <Navigate to="/" replace />;
   }
