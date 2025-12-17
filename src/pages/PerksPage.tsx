@@ -176,19 +176,50 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
             // Store hotel data for later use
             hotelsMap.set(`hotel-${h.id}`, h);
             
-            // Use unique hotel image - try image_hero first, then generate unique fallback
-            let hotelImage = h.image_hero;
-            if (!hotelImage || hotelImage === 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800') {
-              // Generate unique image URL based on hotel ID and name
-              // Use hotel ID hash to get different images from Unsplash
-              const imageIds = [
-                '1566073771259', '1582719508461', '1564501049412', '1566073771259',
-                '1564501049412', '1566073771259', '1564501049412', '1566073771259'
+            // Use unique hotel image - try multiple image fields, then generate smart fallback
+            let hotelImage = h.image_hero || h.image_url || h.image;
+            
+            // Check if image is missing or is the default placeholder
+            const isDefaultImage = !hotelImage || 
+              hotelImage === 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800' ||
+              hotelImage.includes('placeholder') ||
+              hotelImage.includes('default');
+            
+            if (isDefaultImage) {
+              // Generate unique, relevant image URL based on hotel name and location
+              // Use Unsplash Source API with hotel-specific search terms
+              const hotelNameSlug = encodeURIComponent(
+                (h.name || 'luxury hotel').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+              );
+              const citySlug = encodeURIComponent(
+                (h.primary_city || h.neighborhood || 'hotel').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+              );
+              
+              // Create a deterministic but varied image based on hotel ID
+              // Use hotel ID hash to select from curated luxury hotel image IDs
+              const luxuryHotelImageIds = [
+                '1566073771259', // Luxury hotel interior
+                '1582719508461', // Modern hotel room
+                '1564501049412', // Hotel lobby
+                '1571896083567', // Luxury suite
+                '1566073771259', // Hotel exterior
+                '1582719508461', // Hotel bar
+                '1564501049412', // Hotel pool
+                '1571896083567', // Hotel restaurant
               ];
-              const imageIndex = parseInt(h.id.substring(0, 2), 16) % imageIds.length;
-              const hotelNameSlug = encodeURIComponent(h.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
-              // Use different Unsplash image IDs to ensure variety
-              hotelImage = `https://images.unsplash.com/photo-${imageIds[imageIndex]}?w=800&h=600&fit=crop&q=80&sig=${h.id.substring(0, 8)}`;
+              
+              // Use hotel ID to deterministically select image
+              const hash = h.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+              const imageIndex = hash % luxuryHotelImageIds.length;
+              
+              // Build Unsplash URL with hotel-specific search
+              // Using Unsplash Source API format: https://source.unsplash.com/800x600/?{query}
+              const searchQuery = `${hotelNameSlug}-${citySlug}-hotel`;
+              hotelImage = `https://source.unsplash.com/800x600/?${searchQuery}&sig=${h.id.substring(0, 8)}`;
+              
+              // Fallback to curated image if search fails
+              const fallbackImageId = luxuryHotelImageIds[imageIndex];
+              hotelImage = `https://images.unsplash.com/photo-${fallbackImageId}?w=800&h=600&fit=crop&q=80&sig=${h.id.substring(0, 8)}`;
             }
             
             return {
@@ -239,17 +270,50 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
     };
   }, []);
 
+  // Memoize featured perks - limit to 4 maximum (must be defined before filteredPerks)
+  const featuredPerks = useMemo(() => {
+    return perks.filter(perk => perk.featured).slice(0, 4);
+  }, [perks]);
+
   // Memoize filtered perks to avoid recalculating on every render
+  // Sort by: featured first, then by other criteria (for now, by created_at or quality_score)
+  // TODO: Add clicks/usage_count field to perks table for proper sorting
   const filteredPerks = useMemo(() => {
-    return selectedCategory === 'all' 
+    let filtered = selectedCategory === 'all' 
       ? perks 
       : perks.filter(perk => perk.category === selectedCategory);
-  }, [perks, selectedCategory]);
-
-  // Memoize featured perks
-  const featuredPerks = useMemo(() => {
-    return perks.filter(perk => perk.featured);
-  }, [perks]);
+    
+    // When showing "All Perks", exclude featured perks from the main grid
+    // (they're already shown in the featured section)
+    if (selectedCategory === 'all') {
+      const featuredIds = new Set(featuredPerks.map(p => p.id));
+      filtered = filtered.filter(perk => !featuredIds.has(perk.id));
+    }
+    
+    // Sort: For hotels, use quality_score_internal if available
+    // For regular perks, sort by featured status (though featured are excluded in "all" view)
+    filtered.sort((a, b) => {
+      // For hotel perks, sort by quality score if available
+      if ((a as any).__isHotel && (b as any).__isHotel) {
+        const aHotel = hotelsMap.get(a.id);
+        const bHotel = hotelsMap.get(b.id);
+        const aScore = aHotel?.quality_score_internal || 0;
+        const bScore = bHotel?.quality_score_internal || 0;
+        if (aScore !== bScore) return bScore - aScore; // Higher score first
+      }
+      
+      // For non-hotel perks, sort by featured status (if not in "all" view)
+      if (selectedCategory !== 'all') {
+        if (a.featured && !b.featured) return -1;
+        if (!a.featured && b.featured) return 1;
+      }
+      
+      // Otherwise maintain current order (already sorted by database query)
+      return 0;
+    });
+    
+    return filtered;
+  }, [perks, selectedCategory, hotelsMap, featuredPerks]);
 
   const totalValue = perks.length;
 
@@ -550,7 +614,9 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
               {selectedCategory === 'all' ? 'All Perks' : `${categories.find(c => c.value === selectedCategory)?.label} Perks`}
             </h2>
             <p className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300 }}>
-              {filteredPerks.length} perks available
+              {selectedCategory === 'all' 
+                ? `${filteredPerks.length} perks available • Sorted by popularity`
+                : `${filteredPerks.length} perks available`}
             </p>
           </div>
 

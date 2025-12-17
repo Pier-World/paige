@@ -113,6 +113,14 @@ const HomePage: React.FC = () => {
       return () => {
         timeouts.forEach(clearTimeout);
       };
+    } else {
+      // If user is not available, clear loading state after a short delay
+      // This handles the case where user is null/undefined
+      const timeout = setTimeout(() => {
+        setLoading(false);
+      }, 1000);
+      
+      return () => clearTimeout(timeout);
     }
   }, [user]);
   
@@ -129,8 +137,14 @@ const HomePage: React.FC = () => {
       return;
     }
 
-    // Quick connection test before loading data
+    // Safety timeout - ensure loading is cleared even if something goes wrong
+    const safetyTimeout = setTimeout(() => {
+      console.warn('Safety timeout: Force clearing loading state');
+      setLoading(false);
+    }, 20000); // 20 seconds absolute maximum
+
     try {
+      // Quick connection test before loading data
       const { error: testError } = await supabase
         .from('tasks')
         .select('id')
@@ -139,11 +153,13 @@ const HomePage: React.FC = () => {
       
       if (testError) {
         console.error('Supabase connection test failed:', testError);
+        clearTimeout(safetyTimeout);
         setLoading(false);
         return;
       }
     } catch (testErr) {
       console.error('Supabase connection error:', testErr);
+      clearTimeout(safetyTimeout);
       setLoading(false);
       return;
     }
@@ -255,6 +271,7 @@ const HomePage: React.FC = () => {
       // If timeout won, result will be null
       if (timedOut || result === null) {
         console.error('Home feed queries timed out');
+        clearTimeout(safetyTimeout);
         setLoading(false);
         setUpcomingEvents([]);
         setUpcomingTrips([]);
@@ -262,6 +279,9 @@ const HomePage: React.FC = () => {
         setRecentTasks([]);
         return;
       }
+
+      // Clear safety timeout since queries completed successfully
+      clearTimeout(safetyTimeout);
 
       const [{ tasks: allTasks, error: tasksError }, { events, error: eventsError }, { trips, error: tripsError }, { notifications: notifs, error: notifsError }] = result;
 
@@ -355,7 +375,10 @@ const HomePage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading home feed:', error);
+      setLoading(false);
     } finally {
+      // Ensure loading is always cleared
+      clearTimeout(safetyTimeout);
       setLoading(false);
     }
   }

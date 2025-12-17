@@ -422,8 +422,7 @@ export function HotelProfile({
                 onClick={onBookWithConcierge}
                 className="flex-1 px-5 py-3.5 bg-accent hover:bg-[#d4c4a6] text-background rounded-xl transition-all"
               >
-                <span className="text-sm font-semibold block">Book with Pier</span>
-                <span className="text-xs opacity-80">Includes $380+ in perks</span>
+                <span className="text-sm font-semibold">Book with Pier</span>
               </button>
             </div>
           </motion.div>
