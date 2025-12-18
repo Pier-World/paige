@@ -29,6 +29,8 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
   const [perks, setPerks] = useState<Perk[]>(mockPerks);
   const [hotelsMap, setHotelsMap] = useState<Map<string, any>>(new Map()); // Store hotel data for hotel perks
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const categories = [
     { value: 'all', label: 'All Perks' },
@@ -44,20 +46,22 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
     const fetchAllPerks = async () => {
       try {
         setLoading(true);
+        setError(null);
         
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise<null>((resolve) => {
           setTimeout(() => {
             console.warn('Perks fetch timeout - queries taking too long');
             resolve(null);
-          }, 30000); // Increased to 30 seconds from 15s
+          }, 30000); // 30 second timeout
         });
 
         // Fetch perks and hotels in parallel with timeout
         const perksPromise = supabase
           .from('perks')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(50); // Limit to 50 perks
 
         const hotelsPromise = supabase
           .from('hotels')
@@ -82,8 +86,7 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
 
           if (timedOut || results === null) {
             console.error('Perks fetch timed out');
-            // If it timed out, we might want to try one more time or just show mock data
-            // For now, let's show mock data but log it clearly
+            setError('Request timed out. Please try again.');
             setPerks(mockPerks);
             setLoading(false);
             return;
@@ -91,8 +94,9 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
 
           perksResult = results[0];
           hotelsResult = results[1];
-        } catch (error) {
-          console.error('Error in Promise.race for perks:', error);
+        } catch (err) {
+          console.error('Error in Promise.race for perks:', err);
+          setError('Failed to load perks. Showing offline data.');
           setPerks(mockPerks);
           setLoading(false);
           return;
@@ -104,9 +108,11 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
         // If there's an error, log it but continue with available data
         if (perksError) {
           console.error('Error fetching perks:', perksError);
+          setError('Some data failed to load.');
         }
         if (hotelsError) {
           console.error('Error fetching hotels:', hotelsError);
+          setError('Some data failed to load.');
         }
 
         const allPerks: Perk[] = [];
@@ -270,7 +276,11 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [retryCount]);
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+  };
 
   // Memoize featured perks - limit to 4 maximum (must be defined before filteredPerks)
   const featuredPerks = useMemo(() => {
@@ -533,6 +543,23 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
               </button>
             ))}
           </div>
+
+          {error && (
+            <div className="mb-8 p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                  <TrendingDown size={16} className="text-red-400" />
+                </div>
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+              <button
+                onClick={handleRetry}
+                className="px-4 py-2 rounded-lg bg-surface border border-border hover:border-red-500/40 text-text-primary transition-all text-xs"
+              >
+                Retry Connection
+              </button>
+            </div>
+          )}
 
           {/* Featured Perks */}
           {selectedCategory === 'all' && (

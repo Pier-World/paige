@@ -38,6 +38,8 @@ const CalendarPage: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [calendarIntegrations, setCalendarIntegrations] = useState<any[]>([]);
   const [isCheckingConnections, setIsCheckingConnections] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     // Start from today
     const today = new Date();
@@ -53,7 +55,11 @@ const CalendarPage: React.FC = () => {
       setLoading(false);
       setIsCheckingConnections(false);
     }
-  }, [user, currentWeekStart]);
+  }, [user, currentWeekStart, retryCount]);
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+  };
 
   // Helper function to get local date string (YYYY-MM-DD) from a Date object
   const getLocalDateString = (date: Date): string => {
@@ -91,13 +97,15 @@ const CalendarPage: React.FC = () => {
     }
 
     try {
+      setLoading(true);
+      setError(null);
       // Use Promise.race to handle timeout properly
       let timeoutId: NodeJS.Timeout | null = null;
       const timeoutPromise = new Promise<null>((resolve) => {
         timeoutId = setTimeout(() => {
           console.warn('Calendar events load timeout - queries taking too long');
           resolve(null);
-        }, 30000); // Increased to 30 seconds from 15s
+        }, 30000); // 30 second timeout
       });
 
       // Calculate 7-day window
@@ -141,6 +149,7 @@ const CalendarPage: React.FC = () => {
       // If timeout won, result will be null
       if (timedOut || result === null) {
         console.error('Calendar events query timed out');
+        setError('Calendar sync is taking longer than expected. Please retry.');
         setLoading(false);
         setEvents([]);
         return;
@@ -379,6 +388,7 @@ const CalendarPage: React.FC = () => {
       // If timeout won, results will be null
       if (timedOut || results === null) {
         console.error('Calendar connections query timed out');
+        setError('Calendar sync is taking longer than expected. Please retry.');
         setCalendarIntegrations([]);
         setIsCheckingConnections(false);
         return;
@@ -613,6 +623,26 @@ const CalendarPage: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {error && (
+            <div className="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                  <Calendar size={20} className="text-red-400" />
+                </div>
+                <div>
+                  <p className="text-red-400 text-sm font-medium">{error}</p>
+                  <p className="text-red-400/60 text-xs mt-0.5">Connection issues detected with Supabase.</p>
+                </div>
+              </div>
+              <button
+                onClick={handleRetry}
+                className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-surface border border-border hover:border-red-500/40 text-text-primary transition-all text-sm font-medium"
+              >
+                Retry Connection
+              </button>
+            </div>
+          )}
 
           {/* Timeline View */}
           {loading ? (
