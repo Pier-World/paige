@@ -141,7 +141,7 @@ const HomePage: React.FC = () => {
     const safetyTimeout = setTimeout(() => {
       console.warn('Safety timeout: Force clearing loading state');
       setLoading(false);
-    }, 20000); // 20 seconds absolute maximum
+    }, 45000); // Increased to 45 seconds absolute maximum
 
     try {
       // Quick connection test before loading data
@@ -171,7 +171,7 @@ const HomePage: React.FC = () => {
         timeoutId = setTimeout(() => {
           console.warn('Home feed load timeout - queries taking too long, clearing loading state');
           resolve();
-        }, 15000); // Increased to 15 seconds
+        }, 30000); // Increased to 30 seconds
       });
 
       const today = new Date();

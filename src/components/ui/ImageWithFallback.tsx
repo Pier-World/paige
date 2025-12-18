@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ImageWithFallbackProps {
   src: string;
@@ -10,6 +10,14 @@ interface ImageWithFallbackProps {
 export function ImageWithFallback({ src, alt, className, fallbackSrc }: ImageWithFallbackProps) {
   const [imgSrc, setImgSrc] = useState(src);
   const [hasError, setHasError] = useState(false);
+
+  // Update image source when src prop changes
+  useEffect(() => {
+    if (src && src !== imgSrc) {
+      setImgSrc(src);
+      setHasError(false); // Reset error state when src changes
+    }
+  }, [src]);
 
   const handleError = () => {
     if (!hasError) {
@@ -29,6 +37,7 @@ export function ImageWithFallback({ src, alt, className, fallbackSrc }: ImageWit
       alt={alt}
       className={className}
       onError={handleError}
+      key={src} // Force re-render when src changes
     />
   );
 }

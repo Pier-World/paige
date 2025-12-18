@@ -50,7 +50,7 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
           setTimeout(() => {
             console.warn('Perks fetch timeout - queries taking too long');
             resolve(null);
-          }, 15000); // 15 second timeout
+          }, 30000); // Increased to 30 seconds from 15s
         });
 
         // Fetch perks and hotels in parallel with timeout
@@ -82,6 +82,8 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
 
           if (timedOut || results === null) {
             console.error('Perks fetch timed out');
+            // If it timed out, we might want to try one more time or just show mock data
+            // For now, let's show mock data but log it clearly
             setPerks(mockPerks);
             setLoading(false);
             return;

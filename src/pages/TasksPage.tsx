@@ -48,7 +48,7 @@ const TasksPage: React.FC = () => {
         timeoutId = setTimeout(() => {
           console.warn('Tasks load timeout - queries taking too long');
           resolve(null);
-        }, 15000); // Increased to 15 seconds
+        }, 30000); // Increased to 30 seconds from 15s
       });
 
       let query = supabase.from('tasks').select('*').eq('user_id', user.id);

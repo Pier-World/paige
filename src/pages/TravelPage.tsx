@@ -45,7 +45,7 @@ const TravelPage: React.FC = () => {
         timeoutId = setTimeout(() => {
           console.warn('Trips load timeout - queries taking too long');
           resolve(null);
-        }, 15000); // Increased to 15 seconds
+        }, 30000); // Increased to 30 seconds from 15s
       });
 
       const queryPromise = supabase

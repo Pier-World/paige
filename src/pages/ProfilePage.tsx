@@ -6,12 +6,14 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
   User, Edit2, Check, X, MapPin, CreditCard, Link2, 
   Mail, Calendar, LogOut, HelpCircle, ChevronRight, Plus, 
-  Camera, Trash2, Building, Plane, Star, Globe, Award
+  Camera, Trash2, Building, Plane, Star, Globe, Award, Eye
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { ImageWithFallback } from '../components/ui/ImageWithFallback';
 import { MemberCard } from '../components/features/MemberCard';
 import { memberships } from '../data/memberships';
+import { CitySelectionModal } from '../components/ui/CitySelectionModal';
+import { InterestSelectionModal } from '../components/ui/InterestSelectionModal';
 
 const ProfilePage: React.FC = () => {
   const { user, updateProfile, signOut } = useAuth();
@@ -22,6 +24,13 @@ const ProfilePage: React.FC = () => {
   const [tempValue, setTempValue] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  
+  // Email update modal state
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailForm, setEmailForm] = useState({ newEmail: '', password: '' });
+  const [isUpdatingEmail, setIsUploadingEmail] = useState(false);
   
   // Profile data state
   const [profileData, setProfileData] = useState({
@@ -54,6 +63,10 @@ const ProfilePage: React.FC = () => {
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [selectedMembership, setSelectedMembership] = useState<typeof memberships[0] | null>(null);
   const [showMembershipForm, setShowMembershipForm] = useState(false);
+  
+  // Preferences modals
+  const [showCityModal, setShowCityModal] = useState(false);
+  const [showInterestModal, setShowInterestModal] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -414,54 +427,75 @@ const ProfilePage: React.FC = () => {
     if (!user) return;
     setIsSaving(true);
     setUpdateError(null);
+    setUpdateSuccess(null);
+
+    console.log(`Saving ${field}...`);
 
     try {
       if (field === 'name') {
-        const [firstName, ...lastNameParts] = tempValue.split(' ');
+        const trimmedValue = tempValue.trim();
+        if (!trimmedValue) {
+          setUpdateError('Name cannot be empty');
+          setIsSaving(false);
+          return;
+        }
+
+        const [firstName, ...lastNameParts] = trimmedValue.split(' ');
         const lastName = lastNameParts.join(' ') || '';
         
-        // Update members table
-        const { error: membersError } = await supabase
-          .from('members')
-          .update({
-            first_name: firstName,
-            last_name: lastName,
-          })
-          .eq('id', user.id);
+        console.log('Updating name to:', { firstName, lastName, full_name: trimmedValue });
         
-        if (membersError) throw membersError;
+        const result = await updateProfile({ 
+          first_name: firstName, 
+          last_name: lastName,
+          full_name: trimmedValue 
+        });
         
-        // Update profiles table
-        const { error: profilesError } = await supabase
-          .from('profiles')
-          .update({
-            full_name: tempValue,
-            first_name: firstName,
-            last_name: lastName,
-          })
-          .eq('id', user.id);
-        
-        if (profilesError) throw profilesError;
-        
-        // Refresh user data
-        window.location.reload(); // Simple refresh to get updated data
-      } else if (field === 'email') {
-        // Email updates require re-authentication via AuthContext
-        setUpdateError('Email updates require re-authentication. Please contact support.');
-        setIsSaving(false);
-        setEditingField(null);
-        return;
+        if (result.error) throw result.error;
+        setUpdateSuccess('Name updated successfully');
       } else if (field === 'phone') {
-        const { error } = await updateProfile({ phone: tempValue });
-        if (error) throw error;
+        const trimmedPhone = tempValue.trim();
+        console.log('Updating phone to:', trimmedPhone);
+        const result = await updateProfile({ phone: trimmedPhone || null });
+        if (result.error) throw result.error;
+        setUpdateSuccess('Phone number updated successfully');
       }
 
       setEditingField(null);
       setTempValue('');
+      
+      // Auto-clear success message after 3 seconds
+      setTimeout(() => setUpdateSuccess(null), 3000);
+      
     } catch (error) {
-      setUpdateError(error instanceof Error ? error.message : 'Failed to update profile');
+      console.error('Error in handleSave:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
+      setUpdateError(errorMessage);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleEmailUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    
+    setIsUploadingEmail(true);
+    setUpdateError(null);
+    setUpdateSuccess(null);
+
+    try {
+      const { error } = await updateEmail(emailForm.newEmail, emailForm.password);
+      if (error) throw error;
+      
+      setUpdateSuccess('Confirmation emails sent. Please check your new email to verify the change.');
+      setShowEmailModal(false);
+      setEmailForm({ newEmail: '', password: '' });
+    } catch (error) {
+      console.error('Error updating email:', error);
+      setUpdateError(error instanceof Error ? error.message : 'Failed to update email');
+    } finally {
+      setIsUploadingEmail(false);
     }
   };
 
@@ -472,11 +506,15 @@ const ProfilePage: React.FC = () => {
 
   const handleAddCity = () => {
     if (profileData.preferredCities.length < 3) {
-      const city = prompt('Enter city name:');
-      if (city && city.trim()) {
-        updatePreferredCities([...profileData.preferredCities, city.trim()]);
-      }
+      setShowCityModal(true);
     }
+  };
+
+  const handleCitySelect = (city: string) => {
+    if (!profileData.preferredCities.includes(city)) {
+      updatePreferredCities([...profileData.preferredCities, city]);
+    }
+    setShowCityModal(false);
   };
 
   const handleRemoveCity = (city: string) => {
@@ -484,10 +522,14 @@ const ProfilePage: React.FC = () => {
   };
 
   const handleAddInterest = () => {
-    const interest = prompt('Enter interest:');
-    if (interest && interest.trim()) {
-      updateInterests([...profileData.interests, interest.trim()]);
+    setShowInterestModal(true);
+  };
+
+  const handleInterestSelect = (interest: string) => {
+    if (!profileData.interests.includes(interest)) {
+      updateInterests([...profileData.interests, interest]);
     }
+    setShowInterestModal(false);
   };
 
   const handleRemoveInterest = (interest: string) => {
@@ -545,69 +587,172 @@ const ProfilePage: React.FC = () => {
   }
 
   const handleProfilePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !e.target.files?.[0]) return;
+    if (!user || !e.target.files?.[0]) {
+      e.target.value = '';
+      return;
+    }
     
     const file = e.target.files[0];
     
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setUpdateError('Please select an image file');
+    // Validate file type - support all common image formats
+    const validImageTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
+      'image/webp', 'image/bmp', 'image/svg+xml', 'image/tiff'
+    ];
+    
+    // Check both MIME type and file extension
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+    const validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'tiff', 'tif'];
+    
+    if (!file.type.startsWith('image/') && !validExtensions.includes(fileExt)) {
+      setUpdateError('Please select a valid image file (JPEG, PNG, GIF, WebP, etc.)');
+      e.target.value = '';
       return;
     }
     
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setUpdateError('Image must be less than 5MB');
+      e.target.value = '';
       return;
     }
 
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+    setIsUploadingPhoto(true);
+    setUpdateError(null);
+
+    // Create a preview immediately for instant feedback
+    const previewUrl = URL.createObjectURL(file);
+    setProfileData(prev => ({ ...prev, profilePhotoUrl: previewUrl }));
+
+    const timestamp = Date.now();
+    const sanitizedExt = validExtensions.includes(fileExt) ? fileExt : 'jpg';
+    const fileName = `${user.id}-${timestamp}.${sanitizedExt}`;
     const filePath = `profile-photos/${fileName}`;
 
     try {
-      // Try to upload to Supabase Storage (bucket may not exist yet)
-      const { error: uploadError } = await supabase.storage
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('profile-photos')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, { 
+          upsert: true,
+          contentType: file.type || `image/${sanitizedExt}`,
+          cacheControl: '3600',
+        });
 
       if (uploadError) {
-        // If bucket doesn't exist, use a data URL as fallback
+        console.error('Storage upload error:', uploadError);
+        
+        // If bucket doesn't exist or upload fails, use data URL fallback
         const reader = new FileReader();
         reader.onloadend = async () => {
-          const dataUrl = reader.result as string;
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({ profile_photo_url: dataUrl })
-            .eq('id', user.id);
+          try {
+            const dataUrl = reader.result as string;
+            
+            // Update database with data URL
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({ profile_photo_url: dataUrl })
+              .eq('id', user.id);
 
-          if (updateError) {
-            console.error('Error updating profile photo URL:', updateError);
-            setUpdateError('Failed to save profile photo');
-          } else {
-            setProfileData(prev => ({ ...prev, profilePhotoUrl: dataUrl }));
+            if (updateError) {
+              console.error('Error updating profile photo URL:', updateError);
+              setUpdateError('Failed to save profile photo. Please try again.');
+              // Revert to previous photo on error
+              await loadProfileData();
+            } else {
+              // Verify the update was successful
+              const { data: verifyData } = await supabase
+                .from('profiles')
+                .select('profile_photo_url')
+                .eq('id', user.id)
+                .single();
+              
+              if (verifyData) {
+                setProfileData(prev => ({ ...prev, profilePhotoUrl: verifyData.profile_photo_url || dataUrl }));
+                setUpdateError(null);
+              }
+            }
+          } catch (error) {
+            console.error('Error in data URL fallback:', error);
+            setUpdateError('Failed to save profile photo. Please try again.');
+            await loadProfileData();
+          } finally {
+            setIsUploadingPhoto(false);
+            e.target.value = '';
           }
+        };
+        reader.onerror = async () => {
+          setUpdateError('Failed to read image file. Please try again.');
+          setIsUploadingPhoto(false);
+          await loadProfileData(); // Revert to previous photo
+          e.target.value = '';
         };
         reader.readAsDataURL(file);
         return;
       }
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      // Get public URL from uploaded file with cache-busting parameter
+      const { data: urlData } = supabase.storage
         .from('profile-photos')
         .getPublicUrl(filePath);
 
-      // Update profile
+      const publicUrl = urlData?.publicUrl;
+      
+      if (!publicUrl) {
+        throw new Error('Failed to get public URL for uploaded image');
+      }
+
+      // Add cache-busting parameter to force refresh
+      const publicUrlWithCache = `${publicUrl}?t=${timestamp}`;
+
+      // Update profile with the new photo URL
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ profile_photo_url: publicUrl })
+        .update({ profile_photo_url: publicUrlWithCache })
         .eq('id', user.id);
 
-      if (updateError) throw updateError;
-      setProfileData(prev => ({ ...prev, profilePhotoUrl: publicUrl }));
+      if (updateError) {
+        console.error('Error updating profile:', updateError);
+        throw updateError;
+      }
+
+      // Verify the update was successful
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('profiles')
+        .select('profile_photo_url')
+        .eq('id', user.id)
+        .single();
+
+      if (verifyError) {
+        console.error('Error verifying profile update:', verifyError);
+        throw verifyError;
+      }
+
+      // Update local state with verified URL
+      if (verifyData?.profile_photo_url) {
+        setProfileData(prev => ({ ...prev, profilePhotoUrl: verifyData.profile_photo_url }));
+        setUpdateError(null);
+      } else {
+        // Fallback to public URL if verification didn't return it
+        setProfileData(prev => ({ ...prev, profilePhotoUrl: publicUrlWithCache }));
+      }
+
+      // Clean up preview URL
+      URL.revokeObjectURL(previewUrl);
+      
     } catch (error) {
       console.error('Error uploading profile photo:', error);
-      setUpdateError('Failed to upload profile photo');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to upload profile photo';
+      setUpdateError(errorMessage);
+      
+      // Revert to previous photo on error
+      await loadProfileData();
+      
+      // Clean up preview URL
+      URL.revokeObjectURL(previewUrl);
+    } finally {
+      setIsUploadingPhoto(false);
+      e.target.value = '';
     }
   };
 
@@ -674,23 +819,50 @@ const ProfilePage: React.FC = () => {
                 >
                   {/* Profile Photo */}
                   <div className="relative w-32 h-32 mx-auto mb-6 group">
-                    <div className="w-full h-full rounded-full overflow-hidden bg-surface-elevated border-2 border-accent/20">
+                    <div className="w-full h-full rounded-full overflow-hidden bg-surface-elevated border-2 border-accent/20 relative">
+                      {isUploadingPhoto && (
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-10">
+                          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-accent"></div>
+                        </div>
+                      )}
                       <ImageWithFallback
                         src={profileData.profilePhotoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.first_name + ' ' + user.last_name)}&background=1a1a1a&color=e5c896`}
                         alt={user.first_name + ' ' + user.last_name}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <label className="absolute inset-0 rounded-full bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                      <Camera size={24} className="text-white" />
+                    <label 
+                      className={`absolute inset-0 rounded-full bg-black/60 backdrop-blur-sm transition-opacity flex items-center justify-center cursor-pointer ${
+                        isUploadingPhoto ? 'opacity-100 cursor-wait' : 'opacity-0 group-hover:opacity-100'
+                      }`}
+                    >
+                      {!isUploadingPhoto && <Camera size={24} className="text-white" />}
                       <input
                         type="file"
                         accept="image/*"
                         onChange={handleProfilePhotoChange}
+                        disabled={isUploadingPhoto}
                         className="hidden"
+                        id="profile-photo-input"
                       />
                     </label>
+                    {/* Mobile-friendly click area - always visible on mobile */}
+                    <label 
+                      htmlFor="profile-photo-input"
+                      className="md:hidden absolute inset-0 rounded-full cursor-pointer z-20"
+                      aria-label="Change profile photo"
+                    />
                   </div>
+                  {updateError && (
+                    <p className="text-red-400 text-center text-sm mb-2" style={{ fontSize: '12px', fontWeight: 300 }}>
+                      {updateError}
+                    </p>
+                  )}
+                  {updateSuccess && (
+                    <p className="text-green-400 text-center text-sm mb-2" style={{ fontSize: '12px', fontWeight: 300 }}>
+                      {updateSuccess}
+                    </p>
+                  )}
 
                   {/* Name & Tier */}
                   <div className="text-center mb-6">
@@ -834,43 +1006,17 @@ const ProfilePage: React.FC = () => {
                     <label className="block text-text-tertiary mb-2" style={{ fontSize: '12px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Email Address
                     </label>
-                    {editingField === 'email' ? (
-                      <div className="flex gap-2">
-                        <input
-                          type="email"
-                          value={tempValue}
-                          onChange={(e) => setTempValue(e.target.value)}
-                          className="flex-1 px-4 py-3 rounded-lg bg-surface-elevated border border-accent/40 text-text-primary focus:outline-none focus:border-accent"
-                          style={{ fontSize: '14px', fontWeight: 400 }}
-                          autoFocus
-                        />
-                        <button
-                          onClick={() => handleSave('email')}
-                          disabled={isSaving}
-                          className="p-3 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-all disabled:opacity-50"
-                        >
-                          <Check size={18} />
-                        </button>
-                        <button
-                          onClick={handleCancel}
-                          className="p-3 rounded-lg bg-surface-elevated hover:bg-border text-text-primary transition-all"
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-surface-elevated border border-border">
-                        <span className="text-text-primary" style={{ fontSize: '14px', fontWeight: 400 }}>
-                          {user.email}
-                        </span>
-                        <button
-                          onClick={() => handleEdit('email', user.email)}
-                          className="p-1 hover:bg-border rounded transition-colors"
-                        >
-                          <Edit2 size={16} className="text-text-tertiary" />
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-surface-elevated border border-border">
+                      <span className="text-text-primary" style={{ fontSize: '14px', fontWeight: 400 }}>
+                        {user.email}
+                      </span>
+                      <button
+                        onClick={() => setShowEmailModal(true)}
+                        className="p-1 hover:bg-border rounded transition-colors"
+                      >
+                        <Edit2 size={16} className="text-text-tertiary" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Phone */}
@@ -926,11 +1072,21 @@ const ProfilePage: React.FC = () => {
                 transition={{ delay: 0.1 }}
                 className="rounded-2xl bg-surface border border-border p-8"
               >
-                <div className="flex items-center gap-2 mb-6">
-                  <MapPin size={20} className="text-accent" />
-                  <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary">
-                    Preferences
-                  </h3>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <MapPin size={20} className="text-accent" />
+                    <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary">
+                      Preferences
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => navigate('/preferences/all')}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-elevated border border-border hover:border-accent/40 text-accent transition-all"
+                    style={{ fontSize: '13px', fontWeight: 400 }}
+                  >
+                    <Eye size={14} />
+                    View All
+                  </button>
                 </div>
 
                 {/* Preferred Cities */}
@@ -1676,6 +1832,119 @@ const ProfilePage: React.FC = () => {
               </button>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* City Selection Modal */}
+      <CitySelectionModal
+        isOpen={showCityModal}
+        onClose={() => setShowCityModal(false)}
+        onSelect={handleCitySelect}
+        selectedCities={profileData.preferredCities}
+        maxCities={3}
+      />
+
+      {/* Interest Selection Modal */}
+      <InterestSelectionModal
+        isOpen={showInterestModal}
+        onClose={() => setShowInterestModal(false)}
+        onSelect={handleInterestSelect}
+        selectedInterests={profileData.interests}
+      />
+
+      {/* Email Update Modal */}
+      <AnimatePresence>
+        {showEmailModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowEmailModal(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]"
+            />
+            <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="w-full max-w-md rounded-2xl bg-background border border-border shadow-2xl overflow-hidden pointer-events-auto"
+              >
+                <div className="p-6 border-b border-border-subtle flex items-center justify-between">
+                  <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary">
+                    Update Email Address
+                  </h3>
+                  <button 
+                    onClick={() => setShowEmailModal(false)}
+                    className="p-2 rounded-full hover:bg-surface-elevated transition-colors text-text-tertiary hover:text-text-primary"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <form onSubmit={handleEmailUpdate} className="p-6 space-y-5">
+                  <p className="text-text-secondary" style={{ fontSize: '14px', fontWeight: 300, lineHeight: '1.6' }}>
+                    Changing your email address is a sensitive operation. Please confirm your current password to proceed.
+                  </p>
+                  
+                  <div>
+                    <label className="block text-text-tertiary mb-2" style={{ fontSize: '12px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      New Email Address
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={emailForm.newEmail}
+                      onChange={(e) => setEmailForm({ ...emailForm, newEmail: e.target.value })}
+                      placeholder="e.g., name@newemail.com"
+                      className="w-full px-4 py-3 rounded-lg bg-surface-elevated border border-border text-text-primary focus:outline-none focus:border-accent"
+                      style={{ fontSize: '14px', fontWeight: 400 }}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-text-tertiary mb-2" style={{ fontSize: '12px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Current Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={emailForm.password}
+                      onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
+                      placeholder="Confirm your password"
+                      className="w-full px-4 py-3 rounded-lg bg-surface-elevated border border-border text-text-primary focus:outline-none focus:border-accent"
+                      style={{ fontSize: '14px', fontWeight: 400 }}
+                    />
+                  </div>
+
+                  {updateError && (
+                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center">
+                      {updateError}
+                    </div>
+                  )}
+
+                  <div className="pt-2 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowEmailModal(false)}
+                      className="flex-1 px-4 py-2.5 rounded-lg bg-surface hover:bg-surface-elevated text-text-primary transition-colors"
+                      style={{ fontSize: '14px', fontWeight: 400 }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isUpdatingEmail}
+                      className="flex-1 px-4 py-2.5 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ fontSize: '14px', fontWeight: 600 }}
+                    >
+                      {isUpdatingEmail ? 'Updating...' : 'Update Email'}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          </>
         )}
       </AnimatePresence>
     </PageLayout>

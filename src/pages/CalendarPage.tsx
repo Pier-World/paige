@@ -97,7 +97,7 @@ const CalendarPage: React.FC = () => {
         timeoutId = setTimeout(() => {
           console.warn('Calendar events load timeout - queries taking too long');
           resolve(null);
-        }, 15000); // Increased to 15 seconds
+        }, 30000); // Increased to 30 seconds from 15s
       });
 
       // Calculate 7-day window
@@ -337,11 +337,11 @@ const CalendarPage: React.FC = () => {
         timeoutId = setTimeout(() => {
           console.warn('Calendar connections check timeout - query taking too long');
           resolve(null);
-        }, 10000); // 10 second timeout
+        }, 30000); // Increased to 30 seconds from 20s
       });
 
-      // Get all calendar integrations (for multiple calendars support)
-      const queryPromise = supabase
+      // Get calendar integrations AND unique calendar IDs from events in parallel
+      const integrationsPromise = supabase
         .from('integrations')
         .select('*')
         .eq('user_id', user.id)
@@ -349,13 +349,18 @@ const CalendarPage: React.FC = () => {
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      // Race between query and timeout
-      let result: any = null;
+      const eventsPromise = supabase
+        .from('calendar_events')
+        .select('gcal_calendar_id')
+        .eq('user_id', user.id);
+
+      // Race between queries and timeout
       let timedOut = false;
+      let results: any = null;
       
       try {
-        result = await Promise.race([
-          queryPromise,
+        results = await Promise.race([
+          Promise.all([integrationsPromise, eventsPromise]),
           timeoutPromise.then(() => {
             timedOut = true;
             return null;
@@ -371,29 +376,40 @@ const CalendarPage: React.FC = () => {
         clearTimeout(timeoutId);
       }
 
-      // If timeout won, result will be null
-      if (timedOut || result === null) {
+      // If timeout won, results will be null
+      if (timedOut || results === null) {
         console.error('Calendar connections query timed out');
         setCalendarIntegrations([]);
         setIsCheckingConnections(false);
         return;
       }
 
-      const { data: calInts, error } = result;
+      const [integrationsResult, eventsResult] = results;
+      const { data: calInts, error: integrationsError } = integrationsResult;
+      const { data: calendarEvents, error: eventsError } = eventsResult;
 
-      if (error) {
-        console.error('Error checking connections:', error);
+      if (integrationsError) {
+        console.error('Error checking integrations:', integrationsError);
         setCalendarIntegrations([]);
+      } else if (eventsError) {
+        console.error('Error checking calendar events:', eventsError);
+        // Still proceed with integrations if events query failed
+        if (calInts && calInts.length > 0) {
+          const calInt = calInts[0];
+          setCalendarIntegrations([{
+            id: calInt.id,
+            integration_id: calInt.id,
+            calendar_id: 'primary',
+            calendar_name: calInt.metadata?.calendar_name || calInt.metadata?.email || 'Google Calendar',
+            email: calInt.metadata?.email || user.email,
+            metadata: calInt.metadata,
+            ...calInt,
+          }]);
+        }
       } else if (calInts && calInts.length > 0) {
         // Get the calendar integration
         const calInt = calInts[0];
         
-        // Get all unique calendar IDs from calendar_events
-        const { data: calendarEvents } = await supabase
-          .from('calendar_events')
-          .select('gcal_calendar_id')
-          .eq('user_id', user.id);
-
         // Get unique calendar IDs
         const uniqueCalendarIds = Array.from(
           new Set((calendarEvents || []).map((e: any) => e.gcal_calendar_id).filter(Boolean))

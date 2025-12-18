@@ -275,15 +275,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       if (!user) throw new Error('No authenticated user');
 
-      const { error } = await supabase
+      // Update members table
+      const { error: membersError } = await supabase
         .from('members')
         .update({
+          first_name: data.first_name,
+          last_name: data.last_name,
           phone: data.phone,
           preferences: data.preferences
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (membersError) throw membersError;
+
+      // Update profiles table if full_name is present or names are updated
+      if (data.first_name || data.last_name || data.full_name) {
+        const firstName = data.first_name || (data.full_name ? data.full_name.split(' ')[0] : user.first_name);
+        const lastName = data.last_name || (data.full_name ? data.full_name.split(' ').slice(1).join(' ') : user.last_name);
+        const fullName = data.full_name || `${firstName} ${lastName}`.trim();
+
+        const { error: profilesError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: fullName,
+            first_name: firstName,
+            last_name: lastName
+          })
+          .eq('id', user.id);
+        
+        if (profilesError) {
+          console.error('Error updating profiles table:', profilesError);
+          // If profiles table update fails, we still proceed if members table update worked,
+          // but we log it. In some schemas, first_name/last_name might not exist in profiles.
+          if (profilesError.code === '42703') { // undefined_column
+            const { error: fallbackError } = await supabase
+              .from('profiles')
+              .update({
+                full_name: fullName
+              })
+              .eq('id', user.id);
+            
+            if (fallbackError) {
+              console.error('Fallback profile update also failed:', fallbackError);
+            }
+          }
+        }
+      }
+
+      // Update profiles table for phone_number if phone is updated
+      if (data.phone) {
+        const { error: phoneUpdateError } = await supabase
+          .from('profiles')
+          .update({
+            phone_number: data.phone
+          })
+          .eq('id', user.id);
+        
+        if (phoneUpdateError) {
+          console.error('Error updating phone_number in profiles:', phoneUpdateError);
+        }
+      }
 
       const updatedProfile = await fetchUserProfile(user.id);
       if (!updatedProfile) throw new Error('Failed to fetch updated profile');

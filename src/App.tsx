@@ -9,6 +9,7 @@ const PerksPage = lazy(() => import('./pages/PerksPage'));
 const MembershipsPage = lazy(() => import('./pages/MembershipsPage'));
 const ExperiencesPage = lazy(() => import('./pages/ExperiencesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const AllPreferencesPage = lazy(() => import('./pages/AllPreferencesPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
@@ -142,6 +143,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/preferences/all"
+              element={
+                <ProtectedRoute>
+                  <AllPreferencesPage />
                 </ProtectedRoute>
               }
             />
