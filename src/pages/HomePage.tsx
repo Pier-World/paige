@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useLayoutEffect } from 'react';
+import React, { useEffect, useState, useLayoutEffect, useRef } from 'react';
 import { PageLayout } from '../components/layout/PageLayout';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -6,7 +6,7 @@ import { ConciergeInput } from '../components/ui/ConciergeInput';
 import { CompactTaskCard } from '../components/ui/CompactTaskCard';
 import { AIProcessingSteps } from '../components/ui/AIProcessingSteps';
 import { CompactHotelCard } from '../components/ui/CompactHotelCard';
-import { HotelRecommendation } from '../components/ui/HotelRecommendationCard';
+import { HotelRecommendation, HotelRecommendationCard } from '../components/ui/HotelRecommendationCard';
 import { MessageSquare, User as UserIcon } from 'lucide-react';
 import { HumanConcierge } from '../components/ui/HumanConcierge';
 import { Link } from 'react-router-dom';
@@ -62,6 +62,9 @@ const HomePage: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedHotel, setSelectedHotel] = useState<HotelRecommendation | null>(null);
+  
+  // Track active subscriptions and intervals for cleanup
+  const activeSubscriptionsRef = useRef<Array<{ channel: any; interval: NodeJS.Timeout | null }>>([]);
 
   // Prevent scroll restoration IMMEDIATELY on mount (before any rendering)
   useLayoutEffect(() => {
@@ -129,6 +132,40 @@ const HomePage: React.FC = () => {
     if (window.location.hash) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
+  }, []);
+
+  // Cleanup all subscriptions and intervals on unmount
+  useEffect(() => {
+    return () => {
+      // Clean up all active subscriptions and intervals
+      activeSubscriptionsRef.current.forEach(({ channel, interval }) => {
+        if (interval) {
+          clearInterval(interval);
+        }
+        if (channel) {
+          supabase.removeChannel(channel);
+        }
+      });
+      activeSubscriptionsRef.current = [];
+    };
+  }, []);
+
+  // Pause/resume polling when tab visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab is hidden - pause polling (intervals will check document.hidden)
+        console.log('Tab hidden: Polling paused');
+      } else {
+        // Tab is visible - resume polling
+        console.log('Tab visible: Polling resumed');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   async function loadHomeFeed() {
@@ -448,32 +485,56 @@ const HomePage: React.FC = () => {
         setChatMessages(prev => [...prev, processingMessage]);
         
         // Also poll for updates as a fallback (real-time can be unreliable)
-        const pollInterval = setInterval(async () => {
-          try {
-            const { data: polledTask } = await supabase
-              .from('tasks')
-              .select('*')
-              .eq('id', taskId)
-              .single();
-            
-            if (polledTask) {
-              setCurrentTask(polledTask);
-              
-              // Update processing message with current progress
-              const processingMsgId = processingMessage.id;
-              setChatMessages(prev => prev.map(msg => {
-                if (msg.id === processingMsgId && msg.isProcessing) {
-                  return {
-                    ...msg,
-                    isProcessing: polledTask.status !== 'completed' && polledTask.status !== 'failed',
-                  };
-                }
-                return msg;
-              }));
-              
-              // If completed, process results
-              if (polledTask.status === 'completed' && polledTask.output_data) {
+        // Add maximum polling duration (5 minutes) to prevent infinite polling
+        const maxPollingDuration = 5 * 60 * 1000; // 5 minutes
+        const pollingStartTime = Date.now();
+        let pollInterval: NodeJS.Timeout | null = null;
+        
+        const startPolling = () => {
+          pollInterval = setInterval(async () => {
+            // Stop polling if max duration exceeded
+            if (Date.now() - pollingStartTime > maxPollingDuration) {
+              if (pollInterval) {
                 clearInterval(pollInterval);
+                pollInterval = null;
+              }
+              console.warn('Polling stopped: Maximum duration exceeded');
+              return;
+            }
+            
+            // Pause polling if tab is hidden (browser optimization)
+            if (document.hidden) {
+              return;
+            }
+            
+            try {
+              const { data: polledTask } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('id', taskId)
+                .single();
+              
+              if (polledTask) {
+                setCurrentTask(polledTask);
+                
+                // Update processing message with current progress
+                const processingMsgId = processingMessage.id;
+                setChatMessages(prev => prev.map(msg => {
+                  if (msg.id === processingMsgId && msg.isProcessing) {
+                    return {
+                      ...msg,
+                      isProcessing: polledTask.status !== 'completed' && polledTask.status !== 'failed',
+                    };
+                  }
+                  return msg;
+                }));
+                
+                // If completed, process results
+                if (polledTask.status === 'completed' && polledTask.output_data) {
+                  if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                  }
                 const outputData = polledTask.output_data;
                 const recommendations = outputData.recommendations || outputData.hotels || [];
                 
@@ -642,7 +703,10 @@ const HomePage: React.FC = () => {
                   ));
                 }
               } else if (polledTask.status === 'failed') {
-                clearInterval(pollInterval);
+                if (pollInterval) {
+                  clearInterval(pollInterval);
+                  pollInterval = null;
+                }
                 const processingMsgId = processingMessage.id;
                 setChatMessages(prev => prev.map(msg => 
                   msg.id === processingMsgId
@@ -655,12 +719,13 @@ const HomePage: React.FC = () => {
                 ));
               }
             }
-          } catch (error) {
-            console.error('Error polling task:', error);
-          }
-        }, 1000); // Poll every second
+            } catch (error) {
+              console.error('Error polling task:', error);
+            }
+          }, 2000); // Poll every 2 seconds (reduced frequency to save resources)
+        };
         
-        // Subscribe to task updates
+        // Subscribe to task updates (declare channel before using it)
         const channel = supabase
           .channel(`task-${taskId}`)
           .on('postgres_changes', {
@@ -686,7 +751,10 @@ const HomePage: React.FC = () => {
             
             // If task is completed, update the processing message with results
             if (updatedTask.status === 'completed' && updatedTask.output_data) {
-              clearInterval(pollInterval);
+              if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+              }
               const outputData = updatedTask.output_data;
               const recommendations = outputData.recommendations || outputData.hotels || [];
               
@@ -828,10 +896,24 @@ const HomePage: React.FC = () => {
           })
           .subscribe();
         
+        // Start polling after channel is created
+        startPolling();
+        
+        // Store subscription info for cleanup
+        const subscriptionInfo = { channel, interval: pollInterval };
+        activeSubscriptionsRef.current.push(subscriptionInfo);
+        
         // Cleanup subscription and polling on unmount or new message
         return () => {
-          clearInterval(pollInterval);
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
           supabase.removeChannel(channel);
+          // Remove from active subscriptions
+          activeSubscriptionsRef.current = activeSubscriptionsRef.current.filter(
+            sub => sub.channel !== channel
+          );
         };
       } else {
         const error = result.error || 'Failed to process your request';

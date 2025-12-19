@@ -110,37 +110,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const initializeAuth = async () => {
       try {
-        // Get session synchronously first to avoid flash of redirect
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
 
-        if (!mounted) return;
-
-        if (sessionError) {
-          console.error('Error getting session:', sessionError);
+        if (session?.user && mounted) {
           clearTimeout(timeout);
-          setIsLoading(false);
-          return;
-        }
-
-        if (session?.user) {
-          clearTimeout(timeout);
-          // Set loading to false first to prevent redirect flash
           setIsLoading(false);
           const profile = await fetchUserProfile(session.user.id);
           if (profile && mounted) {
             setUser(profile);
+
             // Front Chat is initialized directly in index.html
-          } else if (mounted) {
-            // If profile fetch fails, user is still null but we're done loading
-            setIsLoading(false);
           }
-        } else {
-          // No session - user is not authenticated
+        } else if (mounted) {
           clearTimeout(timeout);
           setIsLoading(false);
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
         if (mounted) {
           clearTimeout(timeout);
           setIsLoading(false);
@@ -152,25 +137,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           if (!mounted) return;
 
           if (event === 'SIGNED_IN' && session?.user) {
-            setIsLoading(true);
             const profile = await fetchUserProfile(session.user.id);
             if (profile && mounted) {
               setUser(profile);
-              setIsLoading(false);
+
               // Front Chat is initialized directly in index.html
-            } else if (mounted) {
-              setIsLoading(false);
             }
           } else if (event === 'SIGNED_OUT') {
             setUser(null);
-            setIsLoading(false);
             clearAuthData();
-          } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-            // Refresh user profile on token refresh to ensure data is up to date
-            const profile = await fetchUserProfile(session.user.id);
-            if (profile && mounted) {
-              setUser(profile);
-            }
           }
         }
       );
@@ -275,66 +250,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       if (!user) throw new Error('No authenticated user');
 
-      // Update members table
-      const { error: membersError } = await supabase
+      const { error } = await supabase
         .from('members')
         .update({
-          first_name: data.first_name,
-          last_name: data.last_name,
           phone: data.phone,
           preferences: data.preferences
         })
         .eq('id', user.id);
 
-      if (membersError) throw membersError;
-
-      // Update profiles table if full_name is present or names are updated
-      if (data.first_name || data.last_name || data.full_name) {
-        const firstName = data.first_name || (data.full_name ? data.full_name.split(' ')[0] : user.first_name);
-        const lastName = data.last_name || (data.full_name ? data.full_name.split(' ').slice(1).join(' ') : user.last_name);
-        const fullName = data.full_name || `${firstName} ${lastName}`.trim();
-
-        const { error: profilesError } = await supabase
-          .from('profiles')
-          .update({
-            full_name: fullName,
-            first_name: firstName,
-            last_name: lastName
-          })
-          .eq('id', user.id);
-        
-        if (profilesError) {
-          console.error('Error updating profiles table:', profilesError);
-          // If profiles table update fails, we still proceed if members table update worked,
-          // but we log it. In some schemas, first_name/last_name might not exist in profiles.
-          if (profilesError.code === '42703') { // undefined_column
-            const { error: fallbackError } = await supabase
-              .from('profiles')
-              .update({
-                full_name: fullName
-              })
-              .eq('id', user.id);
-            
-            if (fallbackError) {
-              console.error('Fallback profile update also failed:', fallbackError);
-            }
-          }
-        }
-      }
-
-      // Update profiles table for phone_number if phone is updated
-      if (data.phone) {
-        const { error: phoneUpdateError } = await supabase
-          .from('profiles')
-          .update({
-            phone_number: data.phone
-          })
-          .eq('id', user.id);
-        
-        if (phoneUpdateError) {
-          console.error('Error updating phone_number in profiles:', phoneUpdateError);
-        }
-      }
+      if (error) throw error;
 
       const updatedProfile = await fetchUserProfile(user.id);
       if (!updatedProfile) throw new Error('Failed to fetch updated profile');
