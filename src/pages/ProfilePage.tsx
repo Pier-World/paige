@@ -133,14 +133,67 @@ const ProfilePage: React.FC = () => {
     if (!user) return;
 
     try {
-      // Get ALL Gmail integrations (not just one)
-      const { data: gmailInts, error: gmailError } = await supabase
+      // Add timeout to prevent hanging (15 seconds for connection check)
+      let timeoutId: NodeJS.Timeout | null = null;
+      const timeoutPromise = new Promise<null>((resolve) => {
+        timeoutId = setTimeout(() => {
+          console.warn('Profile connections check timeout - query taking too long');
+          resolve(null);
+        }, 15000); // 15 seconds for connection check
+      });
+
+      // Get ALL Gmail integrations (not just one) - with timeout
+      const gmailPromise = supabase
         .from('integrations')
         .select('*')
         .eq('user_id', user.id)
         .eq('provider', 'google_gmail')
         .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(10); // Limit to prevent issues
+
+      // Get calendar integration - with timeout
+      const calendarPromise = supabase
+        .from('integrations')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('provider', 'google_calendar')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      // Race between queries and timeout
+      let timedOut = false;
+      let results: any = null;
+      
+      try {
+        results = await Promise.race([
+          Promise.all([gmailPromise, calendarPromise]),
+          timeoutPromise.then(() => {
+            timedOut = true;
+            return null;
+          })
+        ]);
+      } catch (error) {
+        console.error('Error in Promise.race for connections:', error);
+        timedOut = true;
+      }
+      
+      // Clear timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
+      // If timeout, set empty arrays and return
+      if (timedOut || results === null) {
+        console.error('Profile connections query timed out');
+        setGmailIntegrations([]);
+        setCalendarIntegrations([]);
+        return;
+      }
+
+      const [gmailResult, calendarResult] = results;
+      const { data: gmailInts, error: gmailError } = gmailResult;
+      const { data: calInt, error: calendarError } = calendarResult;
 
       if (gmailError) {
         console.error('Error fetching Gmail integrations:', gmailError);
@@ -155,21 +208,32 @@ const ProfilePage: React.FC = () => {
         setGmailIntegrations(gmailAccounts);
       }
 
-      // Get calendar integration
-      const { data: calInt } = await supabase
-        .from('integrations')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('provider', 'google_calendar')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (calInt) {
-        // Get all unique calendar IDs from calendar_events
-        const { data: calendarEvents } = await supabase
+      if (calendarError) {
+        console.error('Error fetching calendar integration:', calendarError);
+        setCalendarIntegrations([]);
+      } else if (calInt) {
+        // Get unique calendar IDs from calendar_events (limit to prevent timeout)
+        // We only need a sample to identify unique calendars, not all events
+        const { data: calendarEvents, error: eventsError } = await supabase
           .from('calendar_events')
           .select('gcal_calendar_id')
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .limit(500); // Reduced to 500 events - should still be more than enough to get all unique calendar IDs
+        
+        if (eventsError) {
+          console.error('Error fetching calendar events for connections:', eventsError);
+          // Still show the integration even if events query fails
+          setCalendarIntegrations([{
+            id: calInt.id,
+            integration_id: calInt.id,
+            calendar_id: 'primary',
+            calendar_name: calInt.metadata?.calendar_name || calInt.metadata?.email || 'Google Calendar',
+            email: calInt.metadata?.email || user.email,
+            metadata: calInt.metadata,
+            ...calInt,
+          }]);
+          return;
+        }
 
         // Get unique calendar IDs
         const uniqueCalendarIds = Array.from(

@@ -340,28 +340,32 @@ const CalendarPage: React.FC = () => {
 
     setIsCheckingConnections(true);
     try {
-      // Add timeout to prevent hanging
+      // Shorter timeout for connection check (15 seconds) - this is just checking connections, not loading data
       let timeoutId: NodeJS.Timeout | null = null;
       const timeoutPromise = new Promise<null>((resolve) => {
         timeoutId = setTimeout(() => {
           console.warn('Calendar connections check timeout - query taking too long');
           resolve(null);
-        }, 30000); // Increased to 30 seconds from 20s
+        }, 15000); // 15 seconds for connection check (shorter than data loading)
       });
 
-      // Get calendar integrations AND unique calendar IDs from events in parallel
+      // Get calendar integrations first (this is fast)
       const integrationsPromise = supabase
         .from('integrations')
         .select('*')
         .eq('user_id', user.id)
         .eq('provider', 'google_calendar')
         .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(10); // Limit integrations query too
 
+      // Only fetch a sample of events to get unique calendar IDs (limit to prevent timeout)
+      // We don't need all events, just enough to identify unique calendars
       const eventsPromise = supabase
         .from('calendar_events')
         .select('gcal_calendar_id')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .limit(500); // Reduced to 500 events - should still be more than enough to get all unique calendar IDs
 
       // Race between queries and timeout
       let timedOut = false;
@@ -388,7 +392,8 @@ const CalendarPage: React.FC = () => {
       // If timeout won, results will be null
       if (timedOut || results === null) {
         console.error('Calendar connections query timed out');
-        setError('Calendar sync is taking longer than expected. Please retry.');
+        // Don't set error state for connection check timeout - just show empty state
+        // The error state is for event loading, not connection checking
         setCalendarIntegrations([]);
         setIsCheckingConnections(false);
         return;
