@@ -49,8 +49,17 @@ const CalendarPage: React.FC = () => {
 
   useEffect(() => {
     if (user) {
+      // Load events first (this is the main data)
       loadEvents();
-      checkConnections();
+      // Check connections in background (non-blocking, shorter timeout)
+      // Use setTimeout to avoid blocking the main load
+      const connectionTimeout = setTimeout(() => {
+        checkConnections();
+      }, 500); // Small delay to let events start loading first
+      
+      return () => {
+        clearTimeout(connectionTimeout);
+      };
     } else {
       setLoading(false);
       setIsCheckingConnections(false);
@@ -161,6 +170,50 @@ const CalendarPage: React.FC = () => {
         console.error('Error loading events:', error);
         setEvents([]);
       } else {
+        // Update calendar integrations with unique calendar IDs from loaded events
+        // This is more efficient than querying all events just for connection check
+        if (calendarEvents && calendarEvents.length > 0) {
+          const uniqueCalendarIds = Array.from(
+            new Set(calendarEvents.map((e: any) => e.gcal_calendar_id).filter(Boolean))
+          );
+          
+          // Update calendar integrations if we have them (use functional update to access current state)
+          setCalendarIntegrations(currentCalendars => {
+            if (currentCalendars.length > 0 && uniqueCalendarIds.length > 0) {
+              const updatedCalendars = uniqueCalendarIds.map((calendarId: string) => {
+                const existing = currentCalendars.find(c => c.calendar_id === calendarId);
+                if (existing) return existing;
+                
+                // Create new calendar entry from first integration
+                const calInt = currentCalendars[0];
+                let calendarName = calendarId;
+                if (calendarId === 'primary') {
+                  calendarName = calInt.metadata?.calendar_name || calInt.metadata?.email || 'Primary Calendar';
+                } else if (calendarId.includes('@')) {
+                  calendarName = calendarId;
+                } else {
+                  calendarName = calInt.metadata?.calendar_name || calendarId;
+                }
+                
+                return {
+                  id: `${calInt.integration_id}-${calendarId}`,
+                  integration_id: calInt.integration_id,
+                  calendar_id: calendarId,
+                  calendar_name: calendarName,
+                  email: calInt.email,
+                  metadata: calInt.metadata,
+                };
+              });
+              
+              // Only update if we found new calendars
+              if (updatedCalendars.length > currentCalendars.length) {
+                return updatedCalendars;
+              }
+            }
+            return currentCalendars;
+          });
+        }
+        
         const now = new Date();
         
         // Transform calendar events
@@ -340,16 +393,17 @@ const CalendarPage: React.FC = () => {
 
     setIsCheckingConnections(true);
     try {
-      // Shorter timeout for connection check (15 seconds) - this is just checking connections, not loading data
+      // Much shorter timeout for connection check (5 seconds) - this is just checking integrations
       let timeoutId: NodeJS.Timeout | null = null;
       const timeoutPromise = new Promise<null>((resolve) => {
         timeoutId = setTimeout(() => {
-          console.warn('Calendar connections check timeout - query taking too long');
+          // Don't log warning - this is expected if database is slow
           resolve(null);
-        }, 15000); // 15 seconds for connection check (shorter than data loading)
+        }, 5000); // 5 seconds - just checking integrations, not loading events
       });
 
-      // Get calendar integrations first (this is fast)
+      // Only fetch integrations - we don't need to query events just to show connections
+      // The events query is expensive and not necessary for connection status
       const integrationsPromise = supabase
         .from('integrations')
         .select('*')
@@ -357,23 +411,15 @@ const CalendarPage: React.FC = () => {
         .eq('provider', 'google_calendar')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
-        .limit(10); // Limit integrations query too
+        .limit(10);
 
-      // Only fetch a sample of events to get unique calendar IDs (limit to prevent timeout)
-      // We don't need all events, just enough to identify unique calendars
-      const eventsPromise = supabase
-        .from('calendar_events')
-        .select('gcal_calendar_id')
-        .eq('user_id', user.id)
-        .limit(500); // Reduced to 500 events - should still be more than enough to get all unique calendar IDs
-
-      // Race between queries and timeout
+      // Race between query and timeout
       let timedOut = false;
-      let results: any = null;
+      let result: any = null;
       
       try {
-        results = await Promise.race([
-          Promise.all([integrationsPromise, eventsPromise]),
+        result = await Promise.race([
+          integrationsPromise,
           timeoutPromise.then(() => {
             timedOut = true;
             return null;
@@ -389,84 +435,31 @@ const CalendarPage: React.FC = () => {
         clearTimeout(timeoutId);
       }
 
-      // If timeout won, results will be null
-      if (timedOut || results === null) {
-        console.error('Calendar connections query timed out');
-        // Don't set error state for connection check timeout - just show empty state
-        // The error state is for event loading, not connection checking
+      // If timeout, just show the integration without calendar details
+      if (timedOut || result === null) {
+        // Silently fail - don't show error, just show empty or use cached data
         setCalendarIntegrations([]);
         setIsCheckingConnections(false);
         return;
       }
 
-      const [integrationsResult, eventsResult] = results;
-      const { data: calInts, error: integrationsError } = integrationsResult;
-      const { data: calendarEvents, error: eventsError } = eventsResult;
+      const { data: calInts, error: integrationsError } = result;
 
       if (integrationsError) {
         console.error('Error checking integrations:', integrationsError);
         setCalendarIntegrations([]);
-      } else if (eventsError) {
-        console.error('Error checking calendar events:', eventsError);
-        // Still proceed with integrations if events query failed
-        if (calInts && calInts.length > 0) {
-          const calInt = calInts[0];
-          setCalendarIntegrations([{
-            id: calInt.id,
-            integration_id: calInt.id,
-            calendar_id: 'primary',
-            calendar_name: calInt.metadata?.calendar_name || calInt.metadata?.email || 'Google Calendar',
-            email: calInt.metadata?.email || user.email,
-            metadata: calInt.metadata,
-            ...calInt,
-          }]);
-        }
       } else if (calInts && calInts.length > 0) {
-        // Get the calendar integration
-        const calInt = calInts[0];
-        
-        // Get unique calendar IDs
-        const uniqueCalendarIds = Array.from(
-          new Set((calendarEvents || []).map((e: any) => e.gcal_calendar_id).filter(Boolean))
-        );
-
-        // Create calendar objects for each unique calendar
-        const calendars = uniqueCalendarIds.map((calendarId: string, index: number) => {
-          // Try to get calendar name from metadata or use a readable name
-          let calendarName = calendarId;
-          if (calendarId === 'primary') {
-            calendarName = calInt.metadata?.calendar_name || calInt.metadata?.email || 'Primary Calendar';
-          } else if (calendarId.includes('@')) {
-            // If it's an email, use it as the name
-            calendarName = calendarId;
-          } else {
-            // Try to extract a readable name or use calendar ID
-            calendarName = calInt.metadata?.calendar_name || calendarId;
-          }
-
-          return {
-            id: `${calInt.id}-${calendarId}`,
-            integration_id: calInt.id,
-            calendar_id: calendarId,
-            calendar_name: calendarName,
-            email: calInt.metadata?.email || user.email,
-            metadata: calInt.metadata,
-            ...calInt,
-          };
-        });
-
-        // If no calendar events found, still show the integration
-        if (calendars.length === 0 && calInt) {
-          calendars.push({
-            id: calInt.id,
-            integration_id: calInt.id,
-            calendar_id: 'primary',
-            calendar_name: calInt.metadata?.calendar_name || calInt.metadata?.email || 'Google Calendar',
-            email: calInt.metadata?.email || user.email,
-            metadata: calInt.metadata,
-            ...calInt,
-          });
-        }
+        // Show integrations without querying events
+        // We'll get calendar IDs from events when they're actually loaded
+        const calendars = calInts.map((calInt: any) => ({
+          id: calInt.id,
+          integration_id: calInt.id,
+          calendar_id: 'primary',
+          calendar_name: calInt.metadata?.calendar_name || calInt.metadata?.email || 'Google Calendar',
+          email: calInt.metadata?.email || user.email,
+          metadata: calInt.metadata,
+          ...calInt,
+        }));
 
         setCalendarIntegrations(calendars);
       } else {
