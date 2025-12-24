@@ -38,8 +38,6 @@ const CalendarPage: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [calendarIntegrations, setCalendarIntegrations] = useState<any[]>([]);
   const [isCheckingConnections, setIsCheckingConnections] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     // Start from today
     const today = new Date();
@@ -49,26 +47,13 @@ const CalendarPage: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      // Load events first (this is the main data)
       loadEvents();
-      // Check connections in background (non-blocking, shorter timeout)
-      // Use setTimeout to avoid blocking the main load
-      const connectionTimeout = setTimeout(() => {
-        checkConnections();
-      }, 500); // Small delay to let events start loading first
-      
-      return () => {
-        clearTimeout(connectionTimeout);
-      };
+      checkConnections();
     } else {
       setLoading(false);
       setIsCheckingConnections(false);
     }
-  }, [user, currentWeekStart, retryCount]);
-
-  const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
-  };
+  }, [user, currentWeekStart]);
 
   // Helper function to get local date string (YYYY-MM-DD) from a Date object
   const getLocalDateString = (date: Date): string => {
@@ -106,15 +91,13 @@ const CalendarPage: React.FC = () => {
     }
 
     try {
-      setLoading(true);
-      setError(null);
       // Use Promise.race to handle timeout properly
       let timeoutId: NodeJS.Timeout | null = null;
       const timeoutPromise = new Promise<null>((resolve) => {
         timeoutId = setTimeout(() => {
           console.warn('Calendar events load timeout - queries taking too long');
           resolve(null);
-        }, 30000); // 30 second timeout
+        }, 15000); // Increased to 15 seconds
       });
 
       // Calculate 7-day window
@@ -158,7 +141,6 @@ const CalendarPage: React.FC = () => {
       // If timeout won, result will be null
       if (timedOut || result === null) {
         console.error('Calendar events query timed out');
-        setError('Calendar sync is taking longer than expected. Please retry.');
         setLoading(false);
         setEvents([]);
         return;
@@ -170,50 +152,6 @@ const CalendarPage: React.FC = () => {
         console.error('Error loading events:', error);
         setEvents([]);
       } else {
-        // Update calendar integrations with unique calendar IDs from loaded events
-        // This is more efficient than querying all events just for connection check
-        if (calendarEvents && calendarEvents.length > 0) {
-          const uniqueCalendarIds = Array.from(
-            new Set(calendarEvents.map((e: any) => e.gcal_calendar_id).filter(Boolean))
-          );
-          
-          // Update calendar integrations if we have them (use functional update to access current state)
-          setCalendarIntegrations(currentCalendars => {
-            if (currentCalendars.length > 0 && uniqueCalendarIds.length > 0) {
-              const updatedCalendars = uniqueCalendarIds.map((calendarId: string) => {
-                const existing = currentCalendars.find(c => c.calendar_id === calendarId);
-                if (existing) return existing;
-                
-                // Create new calendar entry from first integration
-                const calInt = currentCalendars[0];
-                let calendarName = calendarId;
-                if (calendarId === 'primary') {
-                  calendarName = calInt.metadata?.calendar_name || calInt.metadata?.email || 'Primary Calendar';
-                } else if (calendarId.includes('@')) {
-                  calendarName = calendarId;
-                } else {
-                  calendarName = calInt.metadata?.calendar_name || calendarId;
-                }
-                
-                return {
-                  id: `${calInt.integration_id}-${calendarId}`,
-                  integration_id: calInt.integration_id,
-                  calendar_id: calendarId,
-                  calendar_name: calendarName,
-                  email: calInt.email,
-                  metadata: calInt.metadata,
-                };
-              });
-              
-              // Only update if we found new calendars
-              if (updatedCalendars.length > currentCalendars.length) {
-                return updatedCalendars;
-              }
-            }
-            return currentCalendars;
-          });
-        }
-        
         const now = new Date();
         
         // Transform calendar events
@@ -393,33 +331,31 @@ const CalendarPage: React.FC = () => {
 
     setIsCheckingConnections(true);
     try {
-      // Much shorter timeout for connection check (5 seconds) - this is just checking integrations
+      // Add timeout to prevent hanging
       let timeoutId: NodeJS.Timeout | null = null;
       const timeoutPromise = new Promise<null>((resolve) => {
         timeoutId = setTimeout(() => {
-          // Don't log warning - this is expected if database is slow
+          console.warn('Calendar connections check timeout - query taking too long');
           resolve(null);
-        }, 5000); // 5 seconds - just checking integrations, not loading events
+        }, 10000); // 10 second timeout
       });
 
-      // Only fetch integrations - we don't need to query events just to show connections
-      // The events query is expensive and not necessary for connection status
-      const integrationsPromise = supabase
+      // Get all calendar integrations (for multiple calendars support)
+      const queryPromise = supabase
         .from('integrations')
         .select('*')
         .eq('user_id', user.id)
         .eq('provider', 'google_calendar')
         .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
       // Race between query and timeout
-      let timedOut = false;
       let result: any = null;
+      let timedOut = false;
       
       try {
         result = await Promise.race([
-          integrationsPromise,
+          queryPromise,
           timeoutPromise.then(() => {
             timedOut = true;
             return null;
@@ -435,31 +371,71 @@ const CalendarPage: React.FC = () => {
         clearTimeout(timeoutId);
       }
 
-      // If timeout, just show the integration without calendar details
+      // If timeout won, result will be null
       if (timedOut || result === null) {
-        // Silently fail - don't show error, just show empty or use cached data
+        console.error('Calendar connections query timed out');
         setCalendarIntegrations([]);
         setIsCheckingConnections(false);
         return;
       }
 
-      const { data: calInts, error: integrationsError } = result;
+      const { data: calInts, error } = result;
 
-      if (integrationsError) {
-        console.error('Error checking integrations:', integrationsError);
+      if (error) {
+        console.error('Error checking connections:', error);
         setCalendarIntegrations([]);
       } else if (calInts && calInts.length > 0) {
-        // Show integrations without querying events
-        // We'll get calendar IDs from events when they're actually loaded
-        const calendars = calInts.map((calInt: any) => ({
-          id: calInt.id,
-          integration_id: calInt.id,
-          calendar_id: 'primary',
-          calendar_name: calInt.metadata?.calendar_name || calInt.metadata?.email || 'Google Calendar',
-          email: calInt.metadata?.email || user.email,
-          metadata: calInt.metadata,
-          ...calInt,
-        }));
+        // Get the calendar integration
+        const calInt = calInts[0];
+        
+        // Get all unique calendar IDs from calendar_events
+        const { data: calendarEvents } = await supabase
+          .from('calendar_events')
+          .select('gcal_calendar_id')
+          .eq('user_id', user.id);
+
+        // Get unique calendar IDs
+        const uniqueCalendarIds = Array.from(
+          new Set((calendarEvents || []).map((e: any) => e.gcal_calendar_id).filter(Boolean))
+        );
+
+        // Create calendar objects for each unique calendar
+        const calendars = uniqueCalendarIds.map((calendarId: string, index: number) => {
+          // Try to get calendar name from metadata or use a readable name
+          let calendarName = calendarId;
+          if (calendarId === 'primary') {
+            calendarName = calInt.metadata?.calendar_name || calInt.metadata?.email || 'Primary Calendar';
+          } else if (calendarId.includes('@')) {
+            // If it's an email, use it as the name
+            calendarName = calendarId;
+          } else {
+            // Try to extract a readable name or use calendar ID
+            calendarName = calInt.metadata?.calendar_name || calendarId;
+          }
+
+          return {
+            id: `${calInt.id}-${calendarId}`,
+            integration_id: calInt.id,
+            calendar_id: calendarId,
+            calendar_name: calendarName,
+            email: calInt.metadata?.email || user.email,
+            metadata: calInt.metadata,
+            ...calInt,
+          };
+        });
+
+        // If no calendar events found, still show the integration
+        if (calendars.length === 0 && calInt) {
+          calendars.push({
+            id: calInt.id,
+            integration_id: calInt.id,
+            calendar_id: 'primary',
+            calendar_name: calInt.metadata?.calendar_name || calInt.metadata?.email || 'Google Calendar',
+            email: calInt.metadata?.email || user.email,
+            metadata: calInt.metadata,
+            ...calInt,
+          });
+        }
 
         setCalendarIntegrations(calendars);
       } else {
@@ -621,26 +597,6 @@ const CalendarPage: React.FC = () => {
               </button>
             </div>
           </div>
-
-          {error && (
-            <div className="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-                  <Calendar size={20} className="text-red-400" />
-                </div>
-                <div>
-                  <p className="text-red-400 text-sm font-medium">{error}</p>
-                  <p className="text-red-400/60 text-xs mt-0.5">Connection issues detected with Supabase.</p>
-                </div>
-              </div>
-              <button
-                onClick={handleRetry}
-                className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-surface border border-border hover:border-red-500/40 text-text-primary transition-all text-sm font-medium"
-              >
-                Retry Connection
-              </button>
-            </div>
-          )}
 
           {/* Timeline View */}
           {loading ? (

@@ -1,7 +1,190 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getValidGoogleToken } from '../_shared/google-oauth.ts';
-import type { GmailMessage, EmailCategory, TravelConfirmation } from '../_shared/types.ts';
+
+// Type definitions (inlined from _shared/types.ts)
+interface GmailMessage {
+  id: string;
+  threadId: string;
+  payload: {
+    headers: Array<{ name: string; value: string }>;
+    body?: {
+      data?: string;
+    };
+    parts?: Array<{
+      mimeType: string;
+      body?: {
+        data?: string;
+      };
+    }>;
+  };
+}
+
+interface TravelConfirmation {
+  confirmation_number?: string;
+  airline?: string;
+  hotel?: string;
+  flight_number?: string;
+  from?: string;
+  to?: string;
+  destination?: string;
+  departure?: string;
+  arrival?: string;
+  check_in?: string;
+  check_out?: string;
+}
+
+interface EmailCategory {
+  category: 'travel_confirmation' | 'receipt' | 'other';
+  extracted_data?: TravelConfirmation;
+}
+
+// Encryption utilities (inlined from _shared/encryption.ts)
+const ENCRYPTION_KEY_RAW = Deno.env.get('MASTER_ENCRYPTION_KEY');
+let encryptionKey: CryptoKey | null = null;
+
+async function getEncryptionKey(): Promise<CryptoKey> {
+  if (encryptionKey) {
+    return encryptionKey;
+  }
+
+  if (!ENCRYPTION_KEY_RAW) {
+    throw new Error('MASTER_ENCRYPTION_KEY environment variable is required');
+  }
+
+  try {
+    let keyBytes: Uint8Array;
+    try {
+      const decoded = Uint8Array.from(atob(ENCRYPTION_KEY_RAW), (c) => c.charCodeAt(0));
+      keyBytes = decoded;
+    } catch {
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(ENCRYPTION_KEY_RAW);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
+      keyBytes = new Uint8Array(hashBuffer);
+    }
+
+    if (keyBytes.length !== 32) {
+      const hashBuffer = await crypto.subtle.digest('SHA-256', keyBytes);
+      keyBytes = new Uint8Array(hashBuffer.slice(0, 32));
+    }
+
+    encryptionKey = await crypto.subtle.importKey(
+      'raw',
+      keyBytes,
+      { name: 'AES-GCM' },
+      false,
+      ['encrypt', 'decrypt']
+    );
+
+    return encryptionKey;
+  } catch (error) {
+    throw new Error(`Failed to initialize encryption key: ${error.message}`);
+  }
+}
+
+async function encrypt(plaintext: string): Promise<string> {
+  if (!plaintext) return '';
+
+  try {
+    const key = await getEncryptionKey();
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plaintext);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv },
+      key,
+      data
+    );
+    const combined = new Uint8Array(iv.length + encrypted.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(encrypted), iv.length);
+    const base64 = btoa(String.fromCharCode(...combined));
+    return base64;
+  } catch (error) {
+    console.error('Encryption error:', error);
+    throw new Error(`Failed to encrypt data: ${error.message}`);
+  }
+}
+
+async function decrypt(ciphertext: string): Promise<string> {
+  if (!ciphertext) return '';
+
+  try {
+    const key = await getEncryptionKey();
+    const combined = Uint8Array.from(atob(ciphertext), (c) => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const encrypted = combined.slice(12);
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv },
+      key,
+      encrypted
+    );
+    const decoder = new TextDecoder();
+    return decoder.decode(decrypted);
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw new Error(`Failed to decrypt data: ${error.message}`);
+  }
+}
+
+// Google OAuth utilities (inlined from _shared/google-oauth.ts)
+async function getValidGoogleToken(
+  userId: string,
+  provider: 'google_gmail' | 'google_calendar'
+): Promise<string> {
+  const { data: integration, error } = await supabase
+    .from('integrations')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('provider', provider)
+    .single();
+
+  if (error || !integration) {
+    throw new Error(`No ${provider} integration found: ${error?.message || 'Not found'}`);
+  }
+
+  if (!integration.access_token || !integration.refresh_token) {
+    throw new Error(`Invalid ${provider} integration: missing tokens`);
+  }
+
+  const now = new Date();
+  const expiresAt = integration.expires_at ? new Date(integration.expires_at) : null;
+
+  if (!expiresAt || now >= expiresAt) {
+    const refreshToken = await decrypt(integration.refresh_token);
+
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: Deno.env.get('GOOGLE_CLIENT_ID')!,
+        client_secret: Deno.env.get('GOOGLE_CLIENT_SECRET')!,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`Failed to refresh token: ${errorData}`);
+    }
+
+    const newTokenData = await response.json();
+    const encryptedToken = await encrypt(newTokenData.access_token);
+    await supabase
+      .from('integrations')
+      .update({
+        access_token: encryptedToken,
+        expires_at: new Date(Date.now() + newTokenData.expires_in * 1000).toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', integration.id);
+
+    return newTokenData.access_token;
+  }
+
+  return await decrypt(integration.access_token);
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
