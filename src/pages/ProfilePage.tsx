@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageLayout } from '../components/layout/PageLayout';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
   User, Edit2, Check, X, MapPin, CreditCard, Link2, 
   Mail, Calendar, LogOut, HelpCircle, ChevronRight, Plus, 
-  Camera, Trash2, Building, Plane, Star, Globe, Award, Eye
+  Camera, Trash2, Building, Plane, Star, Globe, Award, Eye, Sun, Moon
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { ImageWithFallback } from '../components/ui/ImageWithFallback';
@@ -17,6 +18,7 @@ import { InterestSelectionModal } from '../components/ui/InterestSelectionModal'
 
 const ProfilePage: React.FC = () => {
   const { user, updateProfile, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [showMemberCard, setShowMemberCard] = useState(false);
@@ -1219,6 +1221,53 @@ const ProfilePage: React.FC = () => {
                       Add Interest
                     </button>
                   </div>
+                </div>
+              </motion.div>
+
+              {/* Appearance / Theme */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="rounded-2xl bg-surface border border-border p-8"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    {theme === 'light' ? (
+                      <Sun size={20} className="text-accent" />
+                    ) : (
+                      <Moon size={20} className="text-accent" />
+                    )}
+                    <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary">
+                      Appearance
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-text-primary mb-1" style={{ fontSize: '14px', fontWeight: 400 }}>
+                      Theme
+                    </p>
+                    <p className="text-text-tertiary" style={{ fontSize: '12px', fontWeight: 300 }}>
+                      {theme === 'light' ? 'Light mode' : 'Dark mode'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={toggleTheme}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 ${
+                      theme === 'dark' ? 'bg-accent' : 'bg-muted'
+                    }`}
+                    role="switch"
+                    aria-checked={theme === 'dark'}
+                    aria-label="Toggle theme"
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </div>
               </motion.div>
 

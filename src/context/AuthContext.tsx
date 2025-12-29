@@ -72,11 +72,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         throw new Error('No user profile found');
       }
 
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('full_name, front_user_hash')
-        .eq('id', userId)
-        .maybeSingle();
+      // Try to fetch profile data, but handle case where onboarding_completed column might not exist
+      let profileData: any = null;
+      let onboardingCompleted = false;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('full_name, front_user_hash, onboarding_completed')
+          .eq('id', userId)
+          .maybeSingle();
+        
+        if (error) {
+          // If column doesn't exist, error will be thrown - default to false
+          console.warn('Error fetching onboarding status (column may not exist yet):', error);
+          onboardingCompleted = false;
+        } else {
+          profileData = data;
+          // Default to false if null/undefined (column doesn't exist or is null)
+          onboardingCompleted = data?.onboarding_completed ?? false;
+        }
+      } catch (error) {
+        // Column likely doesn't exist - default to false
+        console.warn('onboarding_completed column may not exist, defaulting to false');
+        onboardingCompleted = false;
+      }
 
       return {
         id: userId,
@@ -91,7 +111,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         created_at: userData.created_at,
         full_name: profileData?.full_name || `${userData.first_name} ${userData.last_name}`,
         front_user_hash: profileData?.front_user_hash || null,
-        membership_tier: userData.membership_level
+        membership_tier: userData.membership_level,
+        onboarding_completed: onboardingCompleted,
       };
     } catch (error) {
       return null;
@@ -101,33 +122,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     let mounted = true;
     let authSubscription: any = null;
+    let timeoutId: NodeJS.Timeout | null = null;
 
-    const timeout = setTimeout(() => {
+    // Set a safety timeout to prevent infinite loading
+    timeoutId = setTimeout(() => {
       if (mounted) {
+        console.warn('Auth initialization timeout - setting loading to false');
         setIsLoading(false);
       }
-    }, 5000);
+    }, 10000); // Increased to 10 seconds
 
     const initializeAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Get session with retry logic
+        let session = null;
+        let retries = 3;
+        
+        while (retries > 0 && !session) {
+          try {
+            const result = await supabase.auth.getSession();
+            session = result.data?.session;
+            if (session) break;
+          } catch (error) {
+            console.warn(`Auth session fetch attempt failed, retries left: ${retries - 1}`, error);
+            retries--;
+            if (retries > 0) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          }
+        }
 
         if (session?.user && mounted) {
-          clearTimeout(timeout);
+          if (timeoutId) clearTimeout(timeoutId);
           setIsLoading(false);
-          const profile = await fetchUserProfile(session.user.id);
-          if (profile && mounted) {
-            setUser(profile);
-
-            // Front Chat is initialized directly in index.html
+          
+          try {
+            const profile = await fetchUserProfile(session.user.id);
+            if (profile && mounted) {
+              setUser(profile);
+              // Front Chat is initialized directly in index.html
+            } else if (mounted) {
+              // User exists but profile fetch failed - still set loading to false
+              setIsLoading(false);
+            }
+          } catch (profileError) {
+            console.error('Error fetching user profile:', profileError);
+            if (mounted) {
+              setIsLoading(false);
+            }
           }
         } else if (mounted) {
-          clearTimeout(timeout);
+          if (timeoutId) clearTimeout(timeoutId);
           setIsLoading(false);
         }
       } catch (error) {
+        console.error('Error initializing auth:', error);
         if (mounted) {
-          clearTimeout(timeout);
+          if (timeoutId) clearTimeout(timeoutId);
           setIsLoading(false);
         }
       }
@@ -157,7 +208,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     return () => {
       mounted = false;
-      clearTimeout(timeout);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       if (authSubscription) {
         authSubscription.unsubscribe();
       }

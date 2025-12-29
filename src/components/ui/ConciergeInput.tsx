@@ -252,9 +252,9 @@ export function ConciergeInput({ onSend, placeholder = 'Type your request or que
   return (
     <div className="w-full max-w-4xl mx-auto">
       <div className="mb-8 text-center">
-        <div className="inline-flex items-center gap-2 mb-3 px-3 py-1.5 rounded-full bg-surface-elevated border border-border">
-          <Sparkles size={14} className="text-accent" />
-          <span className="text-accent" style={{ fontSize: '12px', fontWeight: 300 }}>
+        <div className="inline-flex items-center gap-2 mb-3 px-3 py-1.5 rounded-full bg-foreground dark:bg-surface-elevated border border-border">
+          <Sparkles size={14} className="text-background dark:text-accent" />
+          <span className="text-background dark:text-accent" style={{ fontSize: '12px', fontWeight: 300 }}>
             AI-Powered Concierge
           </span>
         </div>

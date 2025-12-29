@@ -640,7 +640,7 @@ const ConversationPage: React.FC = () => {
                         <div
                           className={`rounded-2xl px-4 py-3 ${
                             message.role === 'user'
-                              ? 'bg-accent text-background rounded-tr-sm'
+                              ? 'bg-accent text-accent-foreground dark:text-background rounded-tr-sm'
                               : message.role === 'human'
                               ? 'bg-surface border border-green-500/20 rounded-tl-sm'
                               : 'bg-surface border border-border rounded-tl-sm'

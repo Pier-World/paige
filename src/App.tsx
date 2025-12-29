@@ -1,7 +1,10 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { ScrollToTop } from './components/layout/ScrollToTop';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { NavigationGuard } from './components/NavigationGuard';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const CalendarPage = lazy(() => import('./pages/CalendarPage'));
@@ -17,6 +20,7 @@ const TravelPage = lazy(() => import('./pages/TravelPage'));
 const TasksPage = lazy(() => import('./pages/TasksPage'));
 const ConversationPage = lazy(() => import('./pages/ConversationPage'));
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
+const OnboardingPage = lazy(() => import('./pages/onboarding/OnboardingPage'));
 
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
@@ -24,7 +28,12 @@ const LoadingSpinner = () => (
   </div>
 );
 
-// Protected route component
+// Wrapper to ensure context is available before rendering
+const RouteWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return <>{children}</>;
+};
+
+// Protected route component - redirects to onboarding if not completed
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
   
@@ -41,6 +50,35 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   // Only redirect if we're sure there's no user (after loading is complete)
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+  
+  // Redirect to onboarding if not completed (default to false if undefined)
+  if (user.onboarding_completed === false || user.onboarding_completed === undefined) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+// Onboarding route - only accessible if onboarding is not completed
+const OnboardingRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent"></div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  // If onboarding is completed (explicitly true), redirect to home
+  if (user.onboarding_completed === true) {
+    return <Navigate to="/" replace />;
   }
   
   return <>{children}</>;
@@ -70,11 +108,15 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <ScrollToTop />
-        <Suspense fallback={<LoadingSpinner />}>
-          <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ThemeProvider>
+          <Router>
+            <ScrollToTop />
+            <NavigationGuard />
+            <ErrorBoundary fallback={<LoadingSpinner />}>
+              <Suspense fallback={<LoadingSpinner />}>
+                <Routes>
             {/* Public routes with redirect if authenticated */}
             <Route
               path="/login"
@@ -96,6 +138,16 @@ function App() {
             
             {/* OAuth Callback Route (public - handles OAuth redirects) */}
             <Route path="/oauth-callback" element={<OAuthCallback />} />
+
+            {/* Onboarding Route */}
+            <Route
+              path="/onboarding"
+              element={
+                <OnboardingRoute>
+                  <OnboardingPage />
+                </OnboardingRoute>
+              }
+            />
 
             {/* Main Platform Routes */}
             <Route
@@ -175,10 +227,13 @@ function App() {
 
             {/* Catch all route */}
             <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </Suspense>
-      </Router>
-    </AuthProvider>
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
+          </Router>
+        </ThemeProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

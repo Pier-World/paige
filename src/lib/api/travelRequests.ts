@@ -26,7 +26,18 @@ export async function getOrCreateConversation(userId: string): Promise<string> {
   console.log('Profile query result:', profile);
 
   if (!profile.data) {
-    console.log('📝 Creating new profile...');
+    // Only create profile if user is a member
+    const { data: member } = await supabase
+      .from('members')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!member) {
+      throw new Error('User must be a member to create a profile');
+    }
+
+    console.log('📝 Creating new profile for member...');
     try {
       const newProfile = await supabase
         .from('profiles')
@@ -130,21 +141,32 @@ export async function createMinimalRequest(
     .maybeSingle();
 
   if (!profile.data) {
-    try {
-      const newProfile = await supabase
-        .from('profiles')
-        .insert({ id: userId })
-        .select()
-        .maybeSingle();
-      profile = newProfile;
-    } catch (error: any) {
-      if (error?.code === '23505') {
-        profile = await supabase
+    // Only create profile if user is a member
+    const { data: member } = await supabase
+      .from('members')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (member) {
+      try {
+        const newProfile = await supabase
           .from('profiles')
-          .select('id')
-          .eq('id', userId)
+          .insert({ id: userId })
+          .select()
           .maybeSingle();
+        profile = newProfile;
+      } catch (error: any) {
+        if (error?.code === '23505') {
+          profile = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', userId)
+            .maybeSingle();
+        }
       }
+    } else {
+      throw new Error('User must be a member to create a profile');
     }
   }
 
@@ -195,21 +217,32 @@ export async function createTravelRequest(
     .maybeSingle();
 
   if (!profile.data) {
-    try {
-      const newProfile = await supabase
-        .from('profiles')
-        .insert({ id: userId })
-        .select()
-        .maybeSingle();
-      profile = newProfile;
-    } catch (error: any) {
-      if (error?.code === '23505') {
-        profile = await supabase
+    // Only create profile if user is a member
+    const { data: member } = await supabase
+      .from('members')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (member) {
+      try {
+        const newProfile = await supabase
           .from('profiles')
-          .select('id')
-          .eq('id', userId)
+          .insert({ id: userId })
+          .select()
           .maybeSingle();
+        profile = newProfile;
+      } catch (error: any) {
+        if (error?.code === '23505') {
+          profile = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', userId)
+            .maybeSingle();
+        }
       }
+    } else {
+      throw new Error('User must be a member to create a profile');
     }
   }
 

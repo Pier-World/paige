@@ -4,17 +4,36 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Quiet Luxury Color Palette
-        background: '#0a0a0a',
-        surface: '#141414',
-        'surface-elevated': '#1a1a1a',
-        border: '#2a2a2a',
-        'border-subtle': '#1f1f1f',
-        'text-primary': '#e8e8e8',
-        'text-secondary': '#a0a0a0',
-        'text-tertiary': '#6a6a6a',
-        accent: '#c9b896',
+        // Theme-aware colors using CSS variables
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
+        card: 'var(--card)',
+        'card-foreground': 'var(--card-foreground)',
+        popover: 'var(--popover)',
+        'popover-foreground': 'var(--popover-foreground)',
+        primary: 'var(--primary)',
+        'primary-foreground': 'var(--primary-foreground)',
+        secondary: 'var(--secondary)',
+        'secondary-foreground': 'var(--secondary-foreground)',
+        muted: 'var(--muted)',
+        'muted-foreground': 'var(--muted-foreground)',
+        accent: 'var(--accent)',
+        'accent-foreground': 'var(--accent-foreground)',
+        destructive: 'var(--destructive)',
+        'destructive-foreground': 'var(--destructive-foreground)',
+        border: 'var(--border)',
+        input: 'var(--input)',
+        'input-background': 'var(--input-background)',
+        ring: 'var(--ring)',
+        // Legacy color names for backward compatibility
+        surface: 'var(--card)',
+        'surface-elevated': 'var(--secondary)',
+        'border-subtle': 'var(--muted)',
+        'text-primary': 'var(--foreground)',
+        'text-secondary': 'var(--muted-foreground)',
+        'text-tertiary': 'var(--muted-foreground)',
         'accent-muted': '#8a7a66',
+        'accent-text': 'var(--accent-text, var(--color-accent))',
         // Legacy support (keeping for backward compatibility)
         primary: {
           50: '#f5f5f5',

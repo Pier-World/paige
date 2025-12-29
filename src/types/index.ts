@@ -12,6 +12,7 @@ export interface User {
   full_name?: string;
   front_user_hash?: string | null;
   membership_tier?: string;
+  onboarding_completed?: boolean;
 }
 
 export interface UserPreferences {

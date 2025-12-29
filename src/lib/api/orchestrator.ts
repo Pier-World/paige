@@ -11,6 +11,17 @@ export async function callOrchestrator(
       throw new Error('User not authenticated');
     }
 
+    // Verify user is a member before proceeding
+    const { data: member } = await supabase
+      .from('members')
+      .select('id')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (!member) {
+      throw new Error('User must be a member to use orchestrator');
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('id')
@@ -18,7 +29,16 @@ export async function callOrchestrator(
       .maybeSingle();
 
     if (!profile) {
-      throw new Error('Profile not found');
+      // Create profile for member if it doesn't exist
+      const { error: createError } = await supabase
+        .from('profiles')
+        .insert({ id: user.id })
+        .select()
+        .single();
+
+      if (createError) {
+        throw new Error(`Failed to create profile: ${createError.message}`);
+      }
     }
 
     const conversationId = request.conversationId || `conv_${Date.now()}`;

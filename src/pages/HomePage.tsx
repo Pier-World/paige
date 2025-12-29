@@ -999,7 +999,7 @@ const HomePage: React.FC = () => {
                           <div
                             className={`rounded-2xl px-4 py-3 ${
                               msg.role === 'user'
-                                ? 'bg-accent text-background rounded-tr-sm'
+                                ? 'bg-accent text-accent-foreground dark:text-background rounded-tr-sm'
                                 : 'bg-surface-elevated border border-border rounded-tl-sm'
                             }`}
                             style={{ fontSize: '15px', fontWeight: 300, lineHeight: '1.6' }}
@@ -1228,7 +1228,7 @@ const HomePage: React.FC = () => {
             
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
               <div>
-                <h2 className="mb-2" style={{ fontSize: '20px', fontWeight: 300 }}>
+                <h2 className="text-[11px] tracking-[0.3em] uppercase text-foreground font-medium mb-2">
                   Pier
                 </h2>
                 <p className="text-text-tertiary" style={{ fontSize: '13px', fontWeight: 300 }}>

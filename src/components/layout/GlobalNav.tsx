@@ -30,7 +30,7 @@ export const GlobalNav: React.FC = () => {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center">
-            <span className="text-2xl font-serif font-bold text-gray-900">Pier</span>
+            <span className="text-[11px] tracking-[0.3em] uppercase text-gray-900 font-medium">Pier</span>
           </Link>
 
           {/* Center Navigation */}

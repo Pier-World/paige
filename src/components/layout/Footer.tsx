@@ -8,7 +8,7 @@ export const Footer: React.FC = () => {
       <div className="container-custom">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           <div>
-            <h2 className="font-display text-xl mb-4">PIER</h2>
+            <h2 className="text-[11px] tracking-[0.3em] uppercase text-white font-medium mb-4">Pier</h2>
             <p className="text-primary-200 text-sm mb-4">
               The personal concierge in your pocket.
             </p>

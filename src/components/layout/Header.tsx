@@ -64,8 +64,7 @@ export function Header({ currentPage }: HeaderProps) {
           <div className="flex items-center gap-8">
             <Link
               to="/"
-              className="tracking-tight hover:opacity-80 transition-opacity"
-              style={{ fontSize: '20px', fontWeight: 300 }}
+              className="text-[11px] tracking-[0.3em] uppercase text-foreground font-medium hover:opacity-80 transition-opacity"
             >
               Pier
             </Link>

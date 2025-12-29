@@ -64,7 +64,7 @@ export const MemberCard: React.FC<MemberCardProps> = ({
         {/* Card Content */}
         <div className="relative z-10 p-6 flex flex-col justify-between h-full">
           <div className="flex justify-between items-start">
-            <div className="font-display text-2xl font-medium tracking-wide">PIER</div>
+            <div className="text-[11px] tracking-[0.3em] uppercase text-foreground font-medium">Pier</div>
             <div className="text-xs opacity-80">{membershipLevel}</div>
           </div>
           
