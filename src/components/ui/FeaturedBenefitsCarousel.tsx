@@ -83,9 +83,10 @@ const benefits: Benefit[] = [
 
 interface FeaturedBenefitsCarouselProps {
   firstName?: string;
+  onBenefitClick?: (benefitId: string) => void;
 }
 
-export function FeaturedBenefitsCarousel({ firstName }: FeaturedBenefitsCarouselProps) {
+export function FeaturedBenefitsCarousel({ firstName, onBenefitClick }: FeaturedBenefitsCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDesktop, setIsDesktop] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -203,16 +204,19 @@ export function FeaturedBenefitsCarousel({ firstName }: FeaturedBenefitsCarousel
         behavior: 'smooth'
       });
       
-      // Reset flag after scroll completes
+      // Reset flag after scroll completes (smooth scroll typically takes ~300-500ms)
       setTimeout(() => {
         isProgrammaticScrollRef.current = false;
-      }, 500);
+      }, 600);
     });
   }, [currentIndex, isDesktop]);
 
+  // Debounced scroll handler for smooth updates
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Detect scroll events (for trackpad/mouse wheel scrolling)
   useEffect(() => {
-    if (!scrollContainerRef.current || !isDesktop) return;
+    if (!scrollContainerRef.current) return;
     
     const container = scrollContainerRef.current;
     
@@ -220,18 +224,31 @@ export function FeaturedBenefitsCarousel({ firstName }: FeaturedBenefitsCarousel
       // Skip if we're programmatically scrolling
       if (isProgrammaticScrollRef.current) return;
       
-      const scrollLeft = container.scrollLeft;
-      const visibleWidth = container.offsetWidth;
-      const cardWidth = visibleWidth * 0.36666;
-      
-      // Calculate which card is most visible
-      const cardIndex = Math.round(scrollLeft / cardWidth);
-      const clampedIndex = Math.max(0, Math.min(cardIndex, benefits.length - 1));
-      
-      // Update currentIndex if it changed
-      if (clampedIndex !== currentIndex) {
-        setCurrentIndex(clampedIndex);
+      // Debounce scroll updates for smoother experience
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
       }
+      
+      scrollTimeoutRef.current = setTimeout(() => {
+        if (!scrollContainerRef.current || isProgrammaticScrollRef.current) return;
+        
+        const scrollLeft = container.scrollLeft;
+        const visibleWidth = container.offsetWidth;
+        const gap = isDesktop ? 24 : 16;
+        const cardWidth = isDesktop 
+          ? (visibleWidth * 0.36666)
+          : (visibleWidth * 0.92) + gap;
+        
+        // Calculate which card is most visible (use center of viewport)
+        const centerPosition = scrollLeft + (visibleWidth / 2);
+        const cardIndex = Math.round(centerPosition / cardWidth);
+        const clampedIndex = Math.max(0, Math.min(cardIndex, benefits.length - 1));
+        
+        // Update currentIndex if it changed
+        if (clampedIndex !== currentIndex) {
+          setCurrentIndex(clampedIndex);
+        }
+      }, 100); // Debounce by 100ms for smoother updates
     };
     
     // Use passive listener for better performance
@@ -239,6 +256,9 @@ export function FeaturedBenefitsCarousel({ firstName }: FeaturedBenefitsCarousel
     
     return () => {
       container.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
     };
   }, [isDesktop, currentIndex]);
 
@@ -253,20 +273,20 @@ export function FeaturedBenefitsCarousel({ firstName }: FeaturedBenefitsCarousel
       <div className="max-w-7xl mx-auto px-6 mb-6 md:mb-10">
         {/* Desktop: Greeting centered */}
         <div className="hidden md:block text-center">
-          <h2 className="text-foreground mb-1 tracking-[-0.02em]" style={{ fontSize: '32px', fontWeight: 300, fontFamily: 'Inter, sans-serif', letterSpacing: '0.05em' }}>
+          <h2 className="text-foreground mb-1" style={{ fontSize: '32px', fontWeight: 300, letterSpacing: '-0.02em' }}>
             Good {getTimeOfDay()}, {firstName || 'there'}.
           </h2>
-          <p className="text-muted-foreground tracking-[-0.01em]" style={{ fontSize: '18px', fontWeight: 400, fontFamily: 'Inter, sans-serif' }}>
+          <p className="text-muted-foreground" style={{ fontSize: '18px', fontWeight: 300, letterSpacing: '-0.01em' }}>
             Picked just for you
           </p>
         </div>
         
         {/* Mobile: Featured Benefits Header */}
         <div className="md:hidden">
-          <h1 className="text-foreground mb-1 tracking-[-0.02em]" style={{ fontSize: '28px', fontWeight: 300, fontFamily: 'Inter, sans-serif', letterSpacing: '-0.01em' }}>
+          <h1 className="text-foreground mb-1" style={{ fontSize: '28px', fontWeight: 300, letterSpacing: '-0.02em' }}>
             Good {getTimeOfDay()}, {firstName || 'there'}
           </h1>
-          <p className="text-muted-foreground tracking-[-0.01em]" style={{ fontSize: '14px', fontWeight: 400, fontFamily: 'Inter, sans-serif' }}>
+          <p className="text-muted-foreground" style={{ fontSize: '14px', fontWeight: 300, letterSpacing: '-0.01em' }}>
             {getFormattedDate()}
           </p>
         </div>
@@ -295,6 +315,8 @@ export function FeaturedBenefitsCarousel({ firstName }: FeaturedBenefitsCarousel
             style={{
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
+              scrollBehavior: 'smooth',
+              WebkitOverflowScrolling: 'touch', // Smooth momentum scrolling on iOS
             }}
           >
             {benefits.map((benefit, index) => (
@@ -304,10 +326,13 @@ export function FeaturedBenefitsCarousel({ firstName }: FeaturedBenefitsCarousel
                 style={{
                   opacity: isDesktop && index !== currentIndex && index !== (currentIndex + 1) % benefits.length && index !== (currentIndex - 1 + benefits.length) % benefits.length ? 0.4 : 1,
                   transform: isDesktop && index === currentIndex ? 'scale(1)' : 'scale(0.95)',
-                  transition: 'all 0.5s ease'
+                  transition: 'opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                 }}
               >
-                <div className="rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 group h-full relative bg-card border border-[#2a2a2a]">
+                <div 
+                  className="rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 group h-full relative bg-card border border-[#2a2a2a] cursor-pointer"
+                  onClick={() => onBenefitClick?.(benefit.id)}
+                >
                   {/* Full Image Background - Taller on desktop (10-15% increase) */}
                   <div className="relative aspect-[3/4] md:aspect-[3/4.5]">
                     <ImageWithFallback
@@ -375,7 +400,13 @@ export function FeaturedBenefitsCarousel({ firstName }: FeaturedBenefitsCarousel
                           )}
 
                           {/* Right: CTA Button */}
-                          <button className="px-4 md:px-5 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-all shadow-sm whitespace-nowrap flex-shrink-0 flex items-center justify-center">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onBenefitClick?.(benefit.id);
+                            }}
+                            className="px-4 md:px-5 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-all shadow-sm whitespace-nowrap flex-shrink-0 flex items-center justify-center"
+                          >
                             <span className="text-sm leading-tight" style={{ fontWeight: 600 }}>
                               {benefit.cta}
                             </span>

@@ -961,7 +961,77 @@ const HomePage: React.FC = () => {
       <main className="pt-24 pb-20 bg-background min-h-screen">
         {/* Featured Benefits Carousel - AT THE VERY TOP */}
         <section>
-          <FeaturedBenefitsCarousel firstName={user?.first_name} />
+          <FeaturedBenefitsCarousel 
+            firstName={user?.first_name}
+            onBenefitClick={async (benefitId) => {
+              // Map benefit titles to perk details
+              // Try to find matching perk in database or use mock data
+              try {
+                // First, try to find in perkDetailsData by searching for matching titles
+                const benefitTitles: Record<string, string> = {
+                  '1': 'Equinox',
+                  '2': 'Priority Pass',
+                  '3': 'Michelin',
+                  '4': 'Hyatt',
+                  '5': 'Tesla',
+                };
+                
+                const searchTerm = benefitTitles[benefitId];
+                if (searchTerm) {
+                  // Search for matching perk in database
+                  const { data: perks } = await supabase
+                    .from('perks')
+                    .select('*')
+                    .or(`title.ilike.%${searchTerm}%,short_description.ilike.%${searchTerm}%`)
+                    .limit(1);
+                  
+                  if (perks && perks.length > 0) {
+                    const perk = perks[0];
+                    // Convert to PerkDetailData format
+                    const perkDetail: PerkDetailData = {
+                      id: perk.id,
+                      title: perk.title,
+                      provider: perk.title,
+                      category: perk.category === 'hotels' ? 'Travel' : 
+                               perk.category === 'dining' ? 'Dining' :
+                               perk.category === 'wellness' ? 'Wellness' :
+                               perk.category === 'transportation' ? 'Transportation' :
+                               perk.category === 'lifestyle' || perk.category === 'experiences' ? 'Lifestyle' : 'Perk',
+                      tagline: perk.short_description || '',
+                      description: perk.short_description || perk.partner_description || '',
+                      about: perk.partner_description || perk.short_description || '',
+                      location: perk.city || 'Multiple locations',
+                      imageUrl: perk.image_url || '',
+                      memberBenefits: perk.benefits || [],
+                      value: '$100+ value',
+                      redemptionType: perk.external_link ? 'external' : 'concierge',
+                      redemptionInstructions: perk.redemption_instructions || 'Contact your Pier concierge to redeem this benefit.',
+                      redemptionDetails: perk.redemption_instructions ? [perk.redemption_instructions] : undefined,
+                      redemptionUrl: perk.external_link || undefined,
+                      featured: perk.featured || false,
+                    };
+                    setSelectedPerk(perkDetail);
+                    return;
+                  }
+                }
+                
+                // Fallback: Use perkDetailsData '4' for Michelin (closest match)
+                if (benefitId === '3' && perkDetailsData['4']) {
+                  setSelectedPerk(perkDetailsData['4']);
+                  return;
+                }
+                
+                // If no match found, log for debugging
+                console.log('Benefit clicked:', benefitId, 'No matching perk found');
+              } catch (error) {
+                console.error('Error fetching perk detail:', error);
+                // Fallback to Michelin perk detail if available
+                if (benefitId === '3' && perkDetailsData['4']) {
+                  setSelectedPerk(perkDetailsData['4']);
+                }
+              }
+            }}
+          />
         </section>
 
         {/* Hero Section - Concierge Input */}
