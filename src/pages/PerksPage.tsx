@@ -43,60 +43,48 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
 
   // Fetch all perks data from database
   useEffect(() => {
+    const abortController = new AbortController();
+    let timeoutId: NodeJS.Timeout | null = null;
+
     const fetchAllPerks = async () => {
       try {
         setLoading(true);
         setError(null);
         
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise<null>((resolve) => {
-          setTimeout(() => {
-            console.warn('Perks fetch timeout - queries taking too long');
-            resolve(null);
-          }, 30000); // 30 second timeout
-        });
-
-        // Fetch perks and hotels in parallel with timeout
-        const perksPromise = supabase
-          .from('perks')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(50); // Limit to 50 perks
-
-        const hotelsPromise = supabase
-          .from('hotels')
-          .select('*')
-          .eq('is_active', true)
-          .order('quality_score_internal', { ascending: false })
-          .limit(20);
-
-        // Race between queries and timeout
-        let perksResult: any = null;
-        let hotelsResult: any = null;
-        let timedOut = false;
-
-        try {
-          const results = await Promise.race([
-            Promise.all([perksPromise, hotelsPromise]),
-            timeoutPromise.then(() => {
-              timedOut = true;
-              return null;
-            })
-          ]);
-
-          if (timedOut || results === null) {
-            console.error('Perks fetch timed out');
-            setError('Request timed out. Please try again.');
-            setPerks(mockPerks);
-            setLoading(false);
-            return;
+        // Set timeout to abort requests after 15 seconds
+        timeoutId = setTimeout(() => {
+          if (!abortController.signal.aborted) {
+            console.warn('Perks fetch timeout - aborting queries');
+            abortController.abort();
           }
+        }, 15000); // 15 second timeout
 
-          perksResult = results[0];
-          hotelsResult = results[1];
-        } catch (err) {
-          console.error('Error in Promise.race for perks:', err);
-          setError('Failed to load perks. Showing offline data.');
+        // Fetch perks and hotels in parallel
+        const [perksResult, hotelsResult] = await Promise.all([
+          supabase
+            .from('perks')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50)
+            .abortSignal(abortController.signal),
+          supabase
+            .from('hotels')
+            .select('*')
+            .eq('is_active', true)
+            .order('quality_score_internal', { ascending: false })
+            .limit(20)
+            .abortSignal(abortController.signal)
+        ]);
+
+        // Clear timeout if queries completed
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+
+        // Check if request was aborted
+        if (abortController.signal.aborted) {
+          setError('Request timed out. Showing offline data.');
           setPerks(mockPerks);
           setLoading(false);
           return;
@@ -108,11 +96,21 @@ export function PerksPage({ onOpenConcierge }: PerksPageProps) {
         // If there's an error, log it but continue with available data
         if (perksError) {
           console.error('Error fetching perks:', perksError);
+          if (perksError.message?.includes('aborted') || perksError.name === 'AbortError') {
+            setError('Request timed out. Showing offline data.');
+            setPerks(mockPerks);
+            setLoading(false);
+            return;
+          }
           setError('Some data failed to load.');
         }
         if (hotelsError) {
           console.error('Error fetching hotels:', hotelsError);
-          setError('Some data failed to load.');
+          if (hotelsError.message?.includes('aborted') || hotelsError.name === 'AbortError') {
+            // Already handled above
+          } else {
+            setError('Some data failed to load.');
+          }
         }
 
         const allPerks: Perk[] = [];

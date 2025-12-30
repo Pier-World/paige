@@ -91,14 +91,16 @@ const CalendarPage: React.FC = () => {
     }
 
     try {
-      // Use Promise.race to handle timeout properly
+      const abortController = new AbortController();
       let timeoutId: NodeJS.Timeout | null = null;
-      const timeoutPromise = new Promise<null>((resolve) => {
-        timeoutId = setTimeout(() => {
-          console.warn('Calendar events load timeout - queries taking too long');
-          resolve(null);
-        }, 15000); // Increased to 15 seconds
-      });
+
+      // Set timeout to abort request after 12 seconds
+      timeoutId = setTimeout(() => {
+        if (!abortController.signal.aborted) {
+          console.warn('Calendar events load timeout - aborting query');
+          abortController.abort();
+        }
+      }, 12000); // 12 second timeout
 
       // Calculate 7-day window
       const startDate = new Date(currentWeekStart);
@@ -108,54 +110,49 @@ const CalendarPage: React.FC = () => {
       endDate.setDate(endDate.getDate() + 7);
       endDate.setHours(23, 59, 59, 999);
 
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('calendar_events')
         .select('*, metadata')
         .eq('user_id', user.id)
         .gte('start_time', startDate.toISOString())
         .lt('start_time', endDate.toISOString())
-        .order('start_time');
+        .order('start_time')
+        .abortSignal(abortController.signal);
 
-      // Race between query and timeout
-      let result: any = null;
-      let timedOut = false;
-      
-      try {
-        result = await Promise.race([
-          queryPromise,
-          timeoutPromise.then(() => {
-            timedOut = true;
-            return null;
-          })
-        ]);
-      } catch (error) {
-        console.error('Error in Promise.race:', error);
-        timedOut = true;
-      }
-      
-      // Clear timeout
+      // Clear timeout if query completed
       if (timeoutId) {
         clearTimeout(timeoutId);
+        timeoutId = null;
       }
 
-      // If timeout won, result will be null
-      if (timedOut || result === null) {
-        console.error('Calendar events query timed out');
+      // Check if request was aborted
+      if (abortController.signal.aborted) {
+        console.warn('Calendar events query was aborted (timeout)');
         setLoading(false);
         setEvents([]);
         return;
       }
 
-      const { data: calendarEvents, error } = result;
-
+      // Handle error
       if (error) {
+        if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+          console.warn('Calendar events query was aborted');
+          setLoading(false);
+          setEvents([]);
+          return;
+        }
         console.error('Error loading events:', error);
+        setLoading(false);
         setEvents([]);
-      } else {
+        return;
+      }
+
+      // Process events
+      if (data) {
         const now = new Date();
         
         // Transform calendar events
-        const transformedEvents: Event[] = (calendarEvents || []).map((event, index) => {
+        const transformedEvents: Event[] = (data || []).map((event, index) => {
           // Parse dates - handle timezone correctly
           const startTime = new Date(event.start_time);
           const endTime = new Date(event.end_time);
@@ -254,11 +251,19 @@ const CalendarPage: React.FC = () => {
         });
 
         setEvents(transformedEvents);
+        setLoading(false);
+      } else {
+        setEvents([]);
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading events:', error);
+    } catch (error: any) {
+      // Check if error is due to abort
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        console.warn('Calendar events query was aborted (timeout)');
+      } else {
+        console.error('Error loading events:', error);
+      }
       setEvents([]);
-    } finally {
       setLoading(false);
     }
   }
@@ -330,61 +335,59 @@ const CalendarPage: React.FC = () => {
     }
 
     setIsCheckingConnections(true);
+    const abortController = new AbortController();
+    let timeoutId: NodeJS.Timeout | null = null;
+
     try {
-      // Add timeout to prevent hanging
-      let timeoutId: NodeJS.Timeout | null = null;
-      const timeoutPromise = new Promise<null>((resolve) => {
-        timeoutId = setTimeout(() => {
-          console.warn('Calendar connections check timeout - query taking too long');
-          resolve(null);
-        }, 10000); // 10 second timeout
-      });
+      // Set timeout to abort request after 8 seconds
+      timeoutId = setTimeout(() => {
+        if (!abortController.signal.aborted) {
+          console.warn('Calendar connections check timeout - aborting query');
+          abortController.abort();
+        }
+      }, 8000); // 8 second timeout
 
       // Get all calendar integrations (for multiple calendars support)
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('integrations')
         .select('*')
         .eq('user_id', user.id)
         .eq('provider', 'google_calendar')
         .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .abortSignal(abortController.signal);
 
-      // Race between query and timeout
-      let result: any = null;
-      let timedOut = false;
-      
-      try {
-        result = await Promise.race([
-          queryPromise,
-          timeoutPromise.then(() => {
-            timedOut = true;
-            return null;
-          })
-        ]);
-      } catch (error) {
-        console.error('Error in Promise.race for connections:', error);
-        timedOut = true;
-      }
-      
-      // Clear timeout
+      // Clear timeout if query completed
       if (timeoutId) {
         clearTimeout(timeoutId);
+        timeoutId = null;
       }
 
-      // If timeout won, result will be null
-      if (timedOut || result === null) {
-        console.error('Calendar connections query timed out');
+      // Check if request was aborted
+      if (abortController.signal.aborted) {
+        // Silently handle timeout - don't show error to user
         setCalendarIntegrations([]);
         setIsCheckingConnections(false);
         return;
       }
 
-      const { data: calInts, error } = result;
-
+      // Handle error
       if (error) {
-        console.error('Error checking connections:', error);
+        if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+          // Already handled above
+          setCalendarIntegrations([]);
+          setIsCheckingConnections(false);
+          return;
+        }
+        console.error('Error fetching calendar connections:', error);
         setCalendarIntegrations([]);
-      } else if (calInts && calInts.length > 0) {
+        setIsCheckingConnections(false);
+        return;
+      }
+
+      // Process calendar integrations
+      if (data && data.length > 0) {
+        const calInts = data;
         // Get the calendar integration
         const calInt = calInts[0];
         
@@ -441,10 +444,19 @@ const CalendarPage: React.FC = () => {
       } else {
         setCalendarIntegrations([]);
       }
-    } catch (error) {
-      console.error('Error checking connections:', error);
+    } catch (error: any) {
+      // Check if error is due to abort
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        console.warn('Calendar connections check was aborted (timeout)');
+      } else {
+        console.error('Error checking connections:', error);
+      }
       setCalendarIntegrations([]);
     } finally {
+      // Clean up timeout
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       setIsCheckingConnections(false);
     }
   }
@@ -553,7 +565,7 @@ const CalendarPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>
                 <h1 style={{ fontSize: '28px', fontWeight: 300, letterSpacing: '-0.02em' }} className="text-text-primary mb-2 md:text-[36px]">
-                  Your Calendar
+                  Upcoming
                 </h1>
                 <p className="text-text-secondary md:text-base" style={{ fontSize: '14px', fontWeight: 300 }}>
                   Unified view across all calendars and commitments

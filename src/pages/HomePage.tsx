@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { UpcomingEvents } from '../components/ui/UpcomingEvents';
 import { PerksSection } from '../components/ui/PerksSection';
 import { ExclusiveExperiences } from '../components/ui/ExclusiveExperiences';
+import { FeaturedBenefitsCarousel } from '../components/ui/FeaturedBenefitsCarousel';
 import { TripCard } from '../components/ui/TripCard';
 import { NotificationCard } from '../components/ui/NotificationCard';
 import { MembershipDetail, MembershipDetailData } from '../components/ui/MembershipDetail';
@@ -958,8 +959,13 @@ const HomePage: React.FC = () => {
   return (
     <PageLayout>
       <main className="pt-24 pb-20 bg-background min-h-screen">
+        {/* Featured Benefits Carousel - AT THE VERY TOP */}
+        <section>
+          <FeaturedBenefitsCarousel firstName={user?.first_name} />
+        </section>
+
         {/* Hero Section - Concierge Input */}
-        <section className="px-6 py-16 md:py-24">
+        <section className="px-6 py-[3.2rem] md:py-[4.8rem]">
           <ConciergeInput 
             onSend={handleSendMessage} 
             disabled={sendingMessage}
@@ -1117,18 +1123,6 @@ const HomePage: React.FC = () => {
           <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         </div>
 
-        {/* Upcoming Events Section */}
-        <section className="px-6 py-16 md:py-20">
-          <div className="max-w-7xl mx-auto">
-            <UpcomingEvents events={upcomingEvents} />
-          </div>
-        </section>
-
-        {/* Divider */}
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-        </div>
-
         {/* Perks & Memberships Section */}
         <section className="px-6 py-16 md:py-20">
           <div className="max-w-7xl mx-auto">
@@ -1158,6 +1152,18 @@ const HomePage: React.FC = () => {
         <section className="px-6 py-16 md:py-20">
           <div className="max-w-7xl mx-auto">
             <ExclusiveExperiences />
+          </div>
+        </section>
+
+        {/* Divider */}
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+        </div>
+
+        {/* Upcoming Events Section */}
+        <section className="px-6 py-16 md:py-20">
+          <div className="max-w-7xl mx-auto">
+            <UpcomingEvents events={upcomingEvents} />
           </div>
         </section>
 

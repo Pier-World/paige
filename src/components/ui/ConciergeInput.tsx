@@ -200,9 +200,6 @@ export function ConciergeInput({ onSend, placeholder = 'Type your request or que
     return assistantMessages[Math.floor(Math.random() * assistantMessages.length)];
   });
   
-  // Get time of day and greeting
-  const timeOfDay = getTimeOfDay();
-  const greeting = getGreeting(timeOfDay, firstName);
 
   useEffect(() => {
     // Hide suggestions immediately if hideSuggestions is true
@@ -258,9 +255,6 @@ export function ConciergeInput({ onSend, placeholder = 'Type your request or que
             AI-Powered Concierge
           </span>
         </div>
-        <h2 style={{ fontSize: '36px', fontWeight: 300, letterSpacing: '-0.02em' }} className="text-text-primary mb-2">
-          {greeting}
-        </h2>
         <p className="text-text-secondary" style={{ fontSize: '16px', fontWeight: 300 }}>
           {assistantMessage}
         </p>

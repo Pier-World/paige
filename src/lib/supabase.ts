@@ -28,7 +28,8 @@ export const supabase = createClient<Database>(
       detectSessionInUrl: true,
       storage: window.localStorage,
       storageKey: 'pier_auth_token',
-      debug: import.meta.env.DEV
+      // Disable verbose debug logging to reduce console noise
+      debug: false
     }
   }
 );
