@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '../types';
-import { loadFrontScript, initFrontChat } from '../lib/frontChat';
 
 interface AuthContextType {
   user: User | null;
@@ -153,21 +152,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
 
         if (session?.user && mounted) {
-          if (timeoutId) clearTimeout(timeoutId);
-          setIsLoading(false);
-          
           try {
             const profile = await fetchUserProfile(session.user.id);
-            if (profile && mounted) {
-              setUser(profile);
-              // Front Chat is initialized directly in index.html
-            } else if (mounted) {
-              // User exists but profile fetch failed - still set loading to false
+            if (mounted) {
+              if (timeoutId) clearTimeout(timeoutId);
+              if (profile) {
+                setUser(profile);
+              }
+              // Only set loading to false AFTER profile is fetched
+              // This prevents race condition where user is null but loading is false
               setIsLoading(false);
             }
           } catch (profileError) {
             console.error('Error fetching user profile:', profileError);
             if (mounted) {
+              if (timeoutId) clearTimeout(timeoutId);
               setIsLoading(false);
             }
           }
@@ -191,8 +190,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             const profile = await fetchUserProfile(session.user.id);
             if (profile && mounted) {
               setUser(profile);
-
-              // Front Chat is initialized directly in index.html
             }
           } else if (event === 'SIGNED_OUT') {
             setUser(null);
