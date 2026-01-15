@@ -114,3 +114,4 @@ while (retries > 0 && !session) {
 - Add analytics for error tracking
 - Consider implementing a service worker for offline support
 
+

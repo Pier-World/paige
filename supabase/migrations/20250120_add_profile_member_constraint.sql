@@ -46,3 +46,4 @@ COMMENT ON VIEW orphaned_profiles_view IS 'Shows profiles that are not linked to
 -- Step 3: Add helpful comment to profiles table
 COMMENT ON TABLE profiles IS 'User profiles. Should primarily be linked to members table via id. Can also exist for email parsing context.';
 
+

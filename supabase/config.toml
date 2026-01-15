@@ -319,6 +319,10 @@ deno_version = 1
 [functions.auth-google]
 verify_jwt = false
 
+# Disable JWT verification for intercom-webhook to allow webhook requests from Intercom
+[functions.intercom-webhook]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

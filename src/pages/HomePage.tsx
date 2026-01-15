@@ -67,56 +67,21 @@ const HomePage: React.FC = () => {
   // Track active subscriptions and intervals for cleanup
   const activeSubscriptionsRef = useRef<Array<{ channel: any; interval: NodeJS.Timeout | null }>>([]);
 
-  // Prevent scroll restoration IMMEDIATELY on mount (before any rendering)
+  // Prevent scroll restoration on mount
   useLayoutEffect(() => {
-    // Disable browser scroll restoration FIRST
+    // Disable browser scroll restoration
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual';
     }
     
-    // Force scroll to top immediately - multiple methods to ensure it works
-    window.scrollTo(0, 0);
+    // Set scroll to top once on mount
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    document.documentElement.scrollTop = 0;
-    document.body.scrollTop = 0;
-    
-    // Also set scroll position via CSS if needed
-    if (document.documentElement) {
-      document.documentElement.style.scrollBehavior = 'auto';
-    }
-    if (document.body) {
-      document.body.style.scrollBehavior = 'auto';
-    }
   }, []);
 
-  // Also prevent scroll after user loads (in case of async content)
+  // Load home feed when user is available
   useEffect(() => {
     if (user) {
       loadHomeFeed();
-      
-      // Ensure we stay at top after content loads
-      // Use multiple timeouts to catch different render phases
-      const timeouts = [
-        setTimeout(() => {
-          window.scrollTo(0, 0);
-          document.documentElement.scrollTop = 0;
-          document.body.scrollTop = 0;
-        }, 0),
-        setTimeout(() => {
-          window.scrollTo(0, 0);
-          document.documentElement.scrollTop = 0;
-          document.body.scrollTop = 0;
-        }, 100),
-        setTimeout(() => {
-          window.scrollTo(0, 0);
-          document.documentElement.scrollTop = 0;
-          document.body.scrollTop = 0;
-        }, 500),
-      ];
-      
-      return () => {
-        timeouts.forEach(clearTimeout);
-      };
     } else {
       // If user is not available, clear loading state after a short delay
       // This handles the case where user is null/undefined

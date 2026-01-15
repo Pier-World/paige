@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { MessageCircle, Mail, MessageSquare, Phone, X, ArrowRight, Clock, CheckCircle } from 'lucide-react';
+import { MessageCircle, Mail, MessageSquare, X, ArrowRight, Clock, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useIntercom } from '../../hooks/useIntercom';
 
 interface HumanConciergeProps {
   membershipLevel: string;
@@ -29,6 +30,7 @@ const hasConciergeAccess = (level: string): boolean => {
 export function HumanConcierge({ membershipLevel }: HumanConciergeProps) {
   const [isOpen, setIsOpen] = useState(false);
   const isPremium = hasConciergeAccess(membershipLevel);
+  const { show, showMessages } = useIntercom();
 
   const channels: ContactChannel[] = [
     {
@@ -62,24 +64,10 @@ export function HumanConcierge({ membershipLevel }: HumanConciergeProps) {
       description: 'Chat with our team in real-time',
       responseTime: 'Typically responds in 3 min',
       action: () => {
-        // TODO: Replace with actual chat integration (Front, Intercom, etc.)
-        // For now, open WhatsApp as fallback
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        const link = isMobile ? WHATSAPP_LINK : WHATSAPP_API_LINK;
-        window.open(link, '_blank', 'noopener,noreferrer');
-      },
-      available: true,
-    },
-    {
-      id: 'phone',
-      name: 'Phone Call',
-      icon: Phone,
-      description: 'Schedule a call with your concierge',
-      responseTime: 'Available 9 AM - 9 PM EST',
-      action: () => {
-        // TODO: Replace with actual scheduling link (Calendly, etc.)
-        // For now, open email as fallback
-        window.location.href = `mailto:${CONCIERGE_EMAIL}?subject=Schedule%20Concierge%20Call`;
+        // Open Intercom messenger
+        show();
+        showMessages();
+        setIsOpen(false); // Close the modal when opening chat
       },
       available: true,
     },

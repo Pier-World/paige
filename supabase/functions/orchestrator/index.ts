@@ -550,6 +550,16 @@ function determineExecutionStrategy(
     return 'clarify'; // Always ask if critical info is missing
   }
 
+  // Hotel searches: Use auto_execute when confidence is high (no confirmation needed)
+  if (intentType === 'travel_search_hotels') {
+    if (confidence > 0.7 && risk === 'low' && missingInfo.length === 0) {
+      return 'auto_execute'; // Just search and show results
+    }
+    if (confidence > 0.4 && risk !== 'high') {
+      return 'auto_execute'; // Even medium confidence, just search
+    }
+  }
+
   if (confidence > 0.9 && risk === 'low' && missingInfo.length === 0) {
     return 'auto_execute'; // Just do it + show undo
   }
@@ -1845,6 +1855,180 @@ async function handleHotelClarificationFollowUp(
 }
 
 /**
+ * Search for new hotels (follow-up to previous search)
+ */
+async function searchNewHotels(
+  supabase: any,
+  userId: string,
+  message: string,
+  originalParams: any,
+  excludeHotelIds: string[]
+) {
+  console.log('🔍 Searching for new hotels with context:', originalParams);
+  console.log('🚫 Excluding hotel IDs:', excludeHotelIds);
+  
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  
+  // Create new task
+  const { data: task, error: taskError } = await supabase
+    .from('tasks')
+    .insert({
+      user_id: userId,
+      task_type: 'user_request',
+      status: 'in_progress',
+      assigned_agent: 'hotel',
+      description: `Follow-up hotel search: ${message}`,
+      input_data: {
+        message,
+        parsed_request: originalParams,
+        exclude_hotel_ids: excludeHotelIds,
+        is_follow_up: true,
+      },
+    })
+    .select()
+    .single();
+  
+  if (taskError) {
+    console.error('❌ Error creating follow-up task:', taskError);
+    throw taskError;
+  }
+  
+  // Call hotel recommendations with exclusions
+  const recommendationsUrl = `${supabaseUrl}/functions/v1/get-hotel-recommendations`;
+  console.log('Calling get-hotel-recommendations with exclusions:', recommendationsUrl);
+  
+  const recommendationsResponse = await fetch(recommendationsUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${serviceKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      parsed_request: originalParams,
+      exclude_hotel_ids: excludeHotelIds,
+      user_id: userId,
+      limit: 3,
+      include_reasoning: true,
+    }),
+  });
+  
+  if (!recommendationsResponse.ok) {
+    const errorText = await recommendationsResponse.text();
+    console.error('❌ Get hotel recommendations failed:', errorText);
+    throw new Error(`Get hotel recommendations error: ${recommendationsResponse.status}`);
+  }
+  
+  const recResult = await recommendationsResponse.json();
+  
+  if (!recResult.success || !recResult.recommendations || recResult.recommendations.length === 0) {
+    const response = `I couldn't find any additional hotel options in ${originalParams.city || 'that location'}. Would you like me to search in a different area or adjust your preferences?`;
+    
+    await supabase
+      .from('tasks')
+      .update({
+        status: 'awaiting_human',
+        output_data: { 
+          recommendations: [],
+          message: 'No additional hotels found',
+        },
+      })
+      .eq('id', task.id);
+    
+    return {
+      task,
+      response,
+      intent: {
+        intent_type: 'travel_search_hotels_followup',
+        confidence: 0.9,
+        risk_level: 'low',
+        parameters: {},
+        reasoning: 'Follow-up hotel search with no results',
+        missing_info: [],
+        assumptions: [],
+      },
+      strategy: 'auto_execute',
+    };
+  }
+  
+  // Get rates if dates are available
+  let rates: any[] = [];
+  if (originalParams.dates?.check_in && originalParams.dates?.check_out) {
+    const ratesUrl = `${supabaseUrl}/functions/v1/get-hotel-rates`;
+    const ratesResponse = await fetch(ratesUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
+        hotel_ids: recResult.recommendations.map((r: any) => r.hotel_id || r.id),
+        check_in: originalParams.dates.check_in,
+        check_out: originalParams.dates.check_out,
+        guests: originalParams.party_size || 1,
+      }),
+    });
+    
+    if (ratesResponse.ok) {
+      const ratesResult = await ratesResponse.json();
+      rates = ratesResult.results || [];
+    }
+  }
+  
+  // Format recommendations
+  const recommendations = recResult.recommendations.map((rec: any) => {
+    const rateData = rates.find((r: any) => (r.hotel_id === rec.hotel_id || r.hotel_id === rec.id));
+    return {
+      ...rec,
+      rates: rateData?.rates || [],
+    };
+  });
+  
+  // Update task
+  await supabase
+    .from('tasks')
+    .update({
+      status: 'completed',
+      output_data: {
+        search_type: 'hotel',
+        parsed_request: originalParams,
+        recommendations: recommendations,
+        hotels: recommendations,
+        event_id: recResult.event_id,
+        candidates_evaluated: recResult.candidates_evaluated,
+      },
+      ui_state: {
+        current_step: 'results_ready',
+        progress: 100,
+        rendered_component: 'HotelRecommendations',
+      },
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', task.id);
+  
+  const response = `I hear you! Let me find you some different options in ${originalParams.city || 'that location'}...`;
+  
+  return {
+    task,
+    response,
+    intent: {
+      intent_type: 'travel_search_hotels_followup',
+      confidence: 0.9,
+      risk_level: 'low',
+      parameters: {},
+      reasoning: 'Successfully found new hotel recommendations',
+      missing_info: [],
+      assumptions: [],
+    },
+    strategy: 'auto_execute',
+    data: {
+      recommendations: recommendations,
+      parsed_request: originalParams,
+    },
+  };
+}
+
+/**
  * Generate conversational response
  */
 async function generateConversationalResponse(
@@ -1874,19 +2058,52 @@ async function generateConversationalResponse(
         messages: [
           {
             role: 'system',
-            content: `You are Pier, a luxury travel concierge. Generate a brief, helpful response based on the task result. 
-            Be ${context.communicationStyle.verbosity === 'terse' ? 'brief and concise' : 'helpful and detailed'}.`,
+            content: `You are Pier, a luxury travel concierge for ${context.profile?.full_name || 'valued members'}. 
+            Your responses should be:
+            - ${context.communicationStyle.verbosity === 'terse' ? 'brief and concise' : context.communicationStyle.verbosity === 'verbose' ? 'detailed and comprehensive' : 'helpful and balanced'}
+            - Professional yet warm and personable
+            - Format responses with proper HTML for chat display (use <p>, <strong>, <em>, <br> tags)
+            - Structure information clearly with line breaks
+            - Use the member's name naturally when appropriate
+            ${context.profile?.personal_context ? `- Consider: ${JSON.stringify(context.profile.personal_context)}` : ''}
+            ${context.travelPatterns?.preferredAirlines?.length ? `- Member prefers: ${context.travelPatterns.preferredAirlines.join(', ')}` : ''}
+            
+            CRITICAL: Return ONLY the HTML content. Do NOT wrap it in code blocks, markdown code fences, or <pre><code> tags. 
+            Return the HTML directly as plain text that will be sent to a chat interface.
+            Generate responses that feel personal and tailored, not robotic.`,
           },
           {
             role: 'user',
             content: `Task status: ${result.status}
             Intent: ${intent.intent_type}
             Results: ${JSON.stringify(result.data)}
-            Generate a conversational response.`,
+            User context: ${JSON.stringify({
+              name: context.profile?.full_name,
+              preferences: context.preferences,
+              communicationStyle: context.communicationStyle,
+            })}
+            
+            ${intent.intent_type === 'travel_search_hotels' && result.data?.recommendations ? `
+            IMPORTANT: Format hotel recommendations with:
+            - Do NOT start with "Hello [Name]," or "Hi [Name]," - we've already greeted the user
+            - Each hotel in its own section with clear separation using <hr> between hotels
+            - Hotel name as <strong>Hotel Name</strong> on its own line
+            - Location as <em>Located in [neighborhood]</em> on its own line
+            - Description paragraph
+            - Rate and perks on separate lines
+            - Use proper HTML: <p>, <strong>, <em>, <br>, <hr>
+            - Add <hr> tag between each hotel recommendation for visual separation (but NOT after the last one)
+            - Make it visually appealing and easy to scan
+            - Do NOT add excessive spacing at the end - end cleanly after the last hotel
+            - Do NOT include a follow-up question - that will be sent separately
+            - Keep it concise and focused on the recommendations only
+            ` : ''}
+            
+            Generate a conversational, personalized response in HTML format.`,
           },
         ],
-        temperature: 0.7,
-        max_tokens: 150,
+        temperature: 0.8,
+        max_tokens: 500,
       }),
     });
 
@@ -1895,7 +2112,22 @@ async function generateConversationalResponse(
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || 'I\'ve processed your request.';
+    let content = data.choices[0]?.message?.content || 'I\'ve processed your request.';
+    
+    // Remove any <pre><code> wrappers that OpenAI might add
+    content = content.trim();
+    if (content.startsWith('<pre><code>') && content.endsWith('</code></pre>')) {
+      content = content
+        .replace(/^<pre><code>/, '')
+        .replace(/<\/code><\/pre>$/, '')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+    }
+    
+    return content;
   } catch (error) {
     console.error('Response generation error:', error);
     return 'I\'ve processed your request. Check the task details for results.';
@@ -1909,12 +2141,83 @@ async function handleUserMessage(
   supabase: any,
   userId: string,
   message: string,
-  relatedTaskId?: string
+  relatedTaskId?: string,
+  conversationHistory?: any[]
 ) {
   console.log('=== HANDLE USER MESSAGE ===');
   console.log('Message:', message);
   console.log('Related task ID:', relatedTaskId);
   console.log('User ID:', userId);
+  
+  // 🔴 NEW: Check if this is a follow-up to a hotel search (e.g., "I want other hotels")
+  const followUpPatterns = [
+    /other (hotels?|options?)/i,
+    /different (hotels?|places?)/i,
+    /don'?t like (these|those)/i,
+    /show me more/i,
+    /what else/i,
+    /can we look at/i,
+    /want to look at other/i,
+  ];
+  
+  const isFollowUp = followUpPatterns.some(pattern => pattern.test(message));
+  
+  if (isFollowUp) {
+    console.log('🔄 Detected potential hotel search follow-up');
+    
+    // Find recent completed hotel task
+    const { data: recentHotelTasks } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('assigned_agent', 'hotel')
+      .in('status', ['completed', 'awaiting_human', 'clarifying'])
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    const recentHotelTask = recentHotelTasks?.[0];
+    
+    if (recentHotelTask && recentHotelTask.created_at) {
+      const taskAge = Date.now() - new Date(recentHotelTask.created_at).getTime();
+      
+      // If task is less than 10 minutes old, treat as follow-up
+      if (taskAge < 10 * 60 * 1000) {
+        console.log('🔄 Confirmed hotel search follow-up, searching for new hotels');
+        
+        // Extract original search params
+        const originalParams = recentHotelTask.input_data?.parsed_request || {};
+        
+        // Get hotel IDs to exclude (from previous recommendations)
+        const excludeHotelIds = recentHotelTask.output_data?.recommendations?.map((r: any) => 
+          r.hotel_id || r.id
+        ).filter((id: string) => id) || [];
+        
+        console.log('🔍 Original params:', originalParams);
+        console.log('🚫 Excluding hotel IDs:', excludeHotelIds);
+        
+        // If we have city from original or message, use it
+        let city = originalParams.city;
+        if (!city) {
+          // Try to extract from message
+          const cityMatch = message.match(/\b(SF|San Francisco|NYC|New York|LA|Los Angeles|Paris|London|Tokyo)\b/i);
+          if (cityMatch) {
+            city = cityMatch[1];
+          }
+        }
+        
+        if (city || originalParams.city) {
+          // Use original params but update city if found in message
+          const searchParams = {
+            ...originalParams,
+            city: city || originalParams.city,
+            exclude_hotel_ids: excludeHotelIds,
+          };
+          
+          return await searchNewHotels(supabase, userId, message, searchParams, excludeHotelIds);
+        }
+      }
+    }
+  }
   
   // Check if this is a follow-up to an existing clarifying task
   let existingTask = null;
@@ -2195,7 +2498,7 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { userId, message, relatedTaskId }: ChatRequest & { relatedTaskId?: string } = await req.json();
+    const { userId, message, relatedTaskId, conversationHistory }: ChatRequest & { relatedTaskId?: string; conversationHistory?: any[] } = await req.json();
 
     if (!userId || !message) {
       return new Response(
@@ -2207,9 +2510,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('Orchestrator processing:', { userId, messageLength: message.length });
+    console.log('Orchestrator processing:', { 
+      userId, 
+      messageLength: message.length,
+      conversationHistoryLength: conversationHistory?.length || 0 
+    });
 
-    const result = await handleUserMessage(supabase, userId, message, relatedTaskId);
+    const result = await handleUserMessage(supabase, userId, message, relatedTaskId, conversationHistory);
 
     // Get input_hint from task if available
     const taskData = result.task?.input_data || {};

@@ -197,3 +197,4 @@ const { data: userPrefs } = await supabase
 - Preferences can be updated later via profile page
 - Missing data defaults to sensible values for recommendations
 
+

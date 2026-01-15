@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { IntercomProvider } from './providers/IntercomProvider';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationGuard } from './components/NavigationGuard';
@@ -110,13 +111,14 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <ThemeProvider>
-          <Router>
-            <ScrollToTop />
-            <NavigationGuard />
-            <ErrorBoundary fallback={<LoadingSpinner />}>
-              <Suspense fallback={<LoadingSpinner />}>
-                <Routes>
+        <IntercomProvider>
+          <ThemeProvider>
+            <Router>
+              <ScrollToTop />
+              <NavigationGuard />
+              <ErrorBoundary fallback={<LoadingSpinner />}>
+                <Suspense fallback={<LoadingSpinner />}>
+                  <Routes>
             {/* Public routes with redirect if authenticated */}
             <Route
               path="/login"
@@ -232,6 +234,7 @@ function App() {
             </ErrorBoundary>
           </Router>
         </ThemeProvider>
+        </IntercomProvider>
       </AuthProvider>
     </ErrorBoundary>
   );
