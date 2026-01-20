@@ -71,14 +71,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         throw new Error('No user profile found');
       }
 
-      // Try to fetch profile data, but handle case where onboarding_completed column might not exist
+      // Try to fetch profile data, including personal_context as a fallback indicator
       let profileData: any = null;
       let onboardingCompleted = false;
       
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('full_name, front_user_hash, onboarding_completed')
+          .select('full_name, front_user_hash, onboarding_completed, personal_context')
           .eq('id', userId)
           .maybeSingle();
         
@@ -88,8 +88,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           onboardingCompleted = false;
         } else {
           profileData = data;
-          // Default to false if null/undefined (column doesn't exist or is null)
-          onboardingCompleted = data?.onboarding_completed ?? false;
+          // Primary check: onboarding_completed flag
+          // Fallback: If personal_context has data (name, goals, etc), user completed onboarding
+          // This handles cases where the flag wasn't properly set but data was saved
+          const hasPersonalContext = data?.personal_context && 
+            typeof data.personal_context === 'object' &&
+            (data.personal_context.name || data.personal_context.goals?.length > 0);
+          
+          onboardingCompleted = data?.onboarding_completed === true || hasPersonalContext;
+          
+          if (hasPersonalContext && !data?.onboarding_completed) {
+            console.log('Using personal_context as fallback indicator for completed onboarding');
+          }
         }
       } catch (error) {
         // Column likely doesn't exist - default to false

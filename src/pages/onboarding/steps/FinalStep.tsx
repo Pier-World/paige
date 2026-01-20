@@ -27,8 +27,9 @@ export function FinalStep({ data, onBack }: FinalStepProps) {
     setIsCompleting(true);
     
     try {
-      // Prepare profile update data
-      const profileUpdateData: any = {
+      // Prepare profile data - MUST include id for upsert
+      const profileData: any = {
+        id: user.id, // Required for upsert to work
         personal_context: {
           name: data.name,
           goals: data.goals,
@@ -41,24 +42,32 @@ export function FinalStep({ data, onBack }: FinalStepProps) {
         onboarding_completed: true,
       };
 
-      // Update profile with onboarding data
-      const { error: profileError } = await supabase
+      // Use UPSERT to create profile if it doesn't exist, or update if it does
+      // This is critical - .update() silently succeeds with 0 rows if profile doesn't exist
+      console.log('Saving onboarding data with upsert for user:', user.id);
+      const { error: profileError, data: upsertResult } = await supabase
         .from('profiles')
-        .update(profileUpdateData)
-        .eq('id', user.id);
+        .upsert(profileData, { 
+          onConflict: 'id',
+          ignoreDuplicates: false 
+        })
+        .select('id, onboarding_completed');
 
       if (profileError) {
-        // If error is about column not existing, try without it
+        // If error is about column not existing, try without onboarding_completed
         if (profileError.message?.includes('onboarding_completed') || 
             profileError.message?.includes('column') ||
             profileError.code === '42703') {
-          console.warn('onboarding_completed column does not exist, updating without it');
+          console.warn('onboarding_completed column does not exist, upserting without it');
           const { error: retryError } = await supabase
             .from('profiles')
-            .update({
-              personal_context: profileUpdateData.personal_context,
-            })
-            .eq('id', user.id);
+            .upsert({
+              id: user.id,
+              personal_context: profileData.personal_context,
+            }, { 
+              onConflict: 'id',
+              ignoreDuplicates: false 
+            });
           
           if (retryError) {
             console.error('Error saving onboarding data:', retryError);
@@ -70,6 +79,8 @@ export function FinalStep({ data, onBack }: FinalStepProps) {
           setIsCompleting(false);
           return;
         }
+      } else {
+        console.log('Profile upsert successful:', upsertResult);
       }
 
       // Update members table preferences
