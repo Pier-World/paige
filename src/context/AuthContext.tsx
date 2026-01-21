@@ -318,10 +318,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const resetPassword = async (email: string) => {
     try {
+      // Always use production URL for email links to avoid localhost in emails
+      const PRODUCTION_URL = 'https://pier.vip';
+      const redirectUrl = import.meta.env.PROD 
+        ? `${PRODUCTION_URL}/reset-password`
+        : `${window.location.origin}/reset-password`;
+      
       const { data, error } = await supabase.auth.resetPasswordForEmail(
         email,
         {
-          redirectTo: `${window.location.origin}/reset-password`
+          redirectTo: redirectUrl
         }
       );
 
