@@ -71,39 +71,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         throw new Error('No user profile found');
       }
 
-      // Try to fetch profile data, including personal_context as a fallback indicator
+      // Try to fetch profile data - use SELECT * to avoid 406 errors if columns don't exist
       let profileData: any = null;
       let onboardingCompleted = false;
       
       try {
+        // Use SELECT * to avoid 406 errors when specific columns don't exist in production
         const { data, error } = await supabase
           .from('profiles')
-          .select('full_name, front_user_hash, onboarding_completed, personal_context')
+          .select('*')
           .eq('id', userId)
           .maybeSingle();
         
         if (error) {
-          // If column doesn't exist, error will be thrown - default to false
-          console.warn('Error fetching onboarding status (column may not exist yet):', error);
+          // Profile query failed - this is OK, profile might not exist yet
+          console.warn('Error fetching profile (may not exist yet):', error.message);
           onboardingCompleted = false;
-        } else {
+        } else if (data) {
           profileData = data;
-          // Primary check: onboarding_completed flag
-          // Fallback: If personal_context has data (name, goals, etc), user completed onboarding
-          // This handles cases where the flag wasn't properly set but data was saved
-          const hasPersonalContext = data?.personal_context && 
-            typeof data.personal_context === 'object' &&
-            (data.personal_context.name || data.personal_context.goals?.length > 0);
           
-          onboardingCompleted = data?.onboarding_completed === true || hasPersonalContext;
+          // Check onboarding_completed field if it exists
+          if ('onboarding_completed' in data) {
+            onboardingCompleted = data.onboarding_completed === true;
+          }
           
-          if (hasPersonalContext && !data?.onboarding_completed) {
-            console.log('Using personal_context as fallback indicator for completed onboarding');
+          // Fallback: If personal_context has data, user completed onboarding
+          if (!onboardingCompleted && data.personal_context) {
+            const hasPersonalContext = 
+              typeof data.personal_context === 'object' &&
+              (data.personal_context.name || data.personal_context.goals?.length > 0);
+            
+            if (hasPersonalContext) {
+              console.log('Using personal_context as fallback indicator for completed onboarding');
+              onboardingCompleted = true;
+            }
           }
         }
+        // If data is null, profile doesn't exist - onboardingCompleted stays false
       } catch (error) {
-        // Column likely doesn't exist - default to false
-        console.warn('onboarding_completed column may not exist, defaulting to false');
+        // Query failed entirely - default to false so user can complete onboarding
+        console.warn('Profile fetch failed, defaulting onboarding to false');
         onboardingCompleted = false;
       }
 
@@ -238,9 +245,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (signInError) {
         setIsLoading(false);
+        // Convert Supabase error messages to user-friendly messages
+        let friendlyMessage = 'Unable to sign in. Please try again.';
+        const errorMsg = signInError.message?.toLowerCase() || '';
+        
+        if (errorMsg.includes('invalid login credentials') || 
+            errorMsg.includes('invalid_credentials') ||
+            errorMsg.includes('invalid password') ||
+            errorMsg.includes('wrong password')) {
+          friendlyMessage = 'Incorrect email or password. Please try again.';
+        } else if (errorMsg.includes('email not confirmed')) {
+          friendlyMessage = 'Please verify your email address before signing in.';
+        } else if (errorMsg.includes('too many requests') || errorMsg.includes('rate limit')) {
+          friendlyMessage = 'Too many sign in attempts. Please wait a moment and try again.';
+        } else if (errorMsg.includes('user not found') || errorMsg.includes('no user')) {
+          friendlyMessage = 'No account found with this email address.';
+        } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
+          friendlyMessage = 'Connection error. Please check your internet and try again.';
+        }
+        
         return {
           data: null,
-          error: signInError
+          error: new Error(friendlyMessage)
         };
       }
 
@@ -248,7 +274,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsLoading(false);
         return {
           data: null,
-          error: new Error('No user returned from authentication')
+          error: new Error('Unable to sign in. Please try again.')
         };
       }
 
@@ -257,17 +283,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsLoading(false);
         return {
           data: null,
-          error: new Error('Failed to fetch user profile')
+          error: new Error('Account found but profile could not be loaded. Please contact support.')
         };
       }
 
+      setUser(profile);
       setIsLoading(false);
       return { data: profile, error: null };
     } catch (error) {
       setIsLoading(false);
+      console.error('Sign in error:', error);
       return {
         data: null,
-        error: error instanceof Error ? error : new Error('An unexpected error occurred')
+        error: new Error('An unexpected error occurred. Please try again.')
       };
     }
   };

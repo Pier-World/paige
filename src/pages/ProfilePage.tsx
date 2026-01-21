@@ -94,14 +94,17 @@ const ProfilePage: React.FC = () => {
     if (!user) return;
 
     try {
-      // Fetch profile data including personal_context
+      // Fetch profile data - use SELECT * to avoid 406 errors if columns don't exist
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('profile_photo_url, personal_context')
+        .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Error fetching profile:', error.message);
+        // Don't throw - continue with empty data
+      }
 
       if (profile) {
         const personalContext = profile.personal_context || {};

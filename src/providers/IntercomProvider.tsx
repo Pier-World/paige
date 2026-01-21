@@ -18,12 +18,12 @@ export function IntercomProvider({ children }: IntercomProviderProps) {
           return;
         }
 
-        // Get user profile for additional context
+        // Get user profile for additional context - use SELECT * to avoid 406 if columns missing
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, phone_number')
+          .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         // Get membership data
         const { data: member } = await supabase

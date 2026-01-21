@@ -43,10 +43,10 @@ export function AllPreferencesPage() {
 
       // Fetch all preference sources in parallel
       const [profileData, hotelPrefs, travelPrefs, contextHistory] = await Promise.all([
-        // Profile personal_context
+        // Profile data - use SELECT * to avoid 406 errors if columns don't exist
         supabase
           .from('profiles')
-          .select('personal_context, updated_at')
+          .select('*')
           .eq('id', user.id)
           .maybeSingle(),
         

@@ -42,14 +42,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Fetch theme preference from database
     const fetchThemePreference = async () => {
       try {
+        // Use SELECT * to avoid 406 errors if theme_preference column doesn't exist
         const { data, error } = await supabase
           .from('profiles')
-          .select('theme_preference')
+          .select('*')
           .eq('id', user.id)
           .maybeSingle();
 
         if (error) {
-          console.error('Error fetching theme preference:', error);
+          // Don't log error - column might not exist, just use default
           return;
         }
 
@@ -57,7 +58,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setThemeState(userTheme);
         applyTheme(userTheme);
       } catch (error) {
-        console.error('Error fetching theme preference:', error);
+        // Silent fail - use default theme
       }
     };
 

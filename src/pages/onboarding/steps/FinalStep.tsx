@@ -45,42 +45,63 @@ export function FinalStep({ data, onBack }: FinalStepProps) {
       // Use UPSERT to create profile if it doesn't exist, or update if it does
       // This is critical - .update() silently succeeds with 0 rows if profile doesn't exist
       console.log('Saving onboarding data with upsert for user:', user.id);
-      const { error: profileError, data: upsertResult } = await supabase
+      
+      // Try with all fields first, then fall back if columns don't exist
+      let profileSaved = false;
+      
+      // Attempt 1: Try with onboarding_completed and personal_context
+      const { error: profileError } = await supabase
         .from('profiles')
         .upsert(profileData, { 
           onConflict: 'id',
           ignoreDuplicates: false 
-        })
-        .select('id, onboarding_completed');
+        });
 
       if (profileError) {
-        // If error is about column not existing, try without onboarding_completed
-        if (profileError.message?.includes('onboarding_completed') || 
-            profileError.message?.includes('column') ||
-            profileError.code === '42703') {
-          console.warn('onboarding_completed column does not exist, upserting without it');
-          const { error: retryError } = await supabase
+        console.warn('First upsert attempt failed:', profileError.message);
+        
+        // Attempt 2: Try with just personal_context (maybe onboarding_completed doesn't exist)
+        const { error: retryError1 } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            personal_context: profileData.personal_context,
+          }, { 
+            onConflict: 'id',
+            ignoreDuplicates: false 
+          });
+        
+        if (retryError1) {
+          console.warn('Second upsert attempt failed:', retryError1.message);
+          
+          // Attempt 3: Try with just the ID (maybe personal_context column doesn't exist either)
+          const { error: retryError2 } = await supabase
             .from('profiles')
             .upsert({
               id: user.id,
-              personal_context: profileData.personal_context,
             }, { 
               onConflict: 'id',
               ignoreDuplicates: false 
             });
           
-          if (retryError) {
-            console.error('Error saving onboarding data:', retryError);
-            setIsCompleting(false);
-            return;
+          if (retryError2) {
+            console.error('All profile upsert attempts failed:', retryError2);
+            // Don't block onboarding completion - the user data will be in members table
+          } else {
+            console.log('Profile created with just ID');
+            profileSaved = true;
           }
         } else {
-          console.error('Error saving onboarding data:', profileError);
-          setIsCompleting(false);
-          return;
+          console.log('Profile saved with personal_context (no onboarding_completed column)');
+          profileSaved = true;
         }
       } else {
-        console.log('Profile upsert successful:', upsertResult);
+        console.log('Profile upsert successful with all fields');
+        profileSaved = true;
+      }
+      
+      if (!profileSaved) {
+        console.warn('Could not save to profiles table, but continuing with onboarding completion');
       }
 
       // Update members table preferences
