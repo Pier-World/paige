@@ -17,7 +17,7 @@ import { CitySelectionModal } from '../components/ui/CitySelectionModal';
 import { InterestSelectionModal } from '../components/ui/InterestSelectionModal';
 
 const ProfilePage: React.FC = () => {
-  const { user, updateProfile, signOut } = useAuth();
+  const { user, updateProfile, updateEmail, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -568,6 +568,18 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      // Navigate to login page after sign out
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Even on error, try to navigate to login
+      navigate('/login', { replace: true });
+    }
+  };
+
   const handleCancel = () => {
     setEditingField(null);
     setTempValue('');
@@ -995,7 +1007,7 @@ const ProfilePage: React.FC = () => {
                       <ChevronRight size={16} className="text-text-tertiary" />
                     </button>
                     <button
-                      onClick={signOut}
+                      onClick={handleLogout}
                       className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-surface-elevated hover:bg-border text-red-400 transition-all"
                       style={{ fontSize: '14px', fontWeight: 400 }}
                     >
