@@ -934,11 +934,11 @@ const HomePage: React.FC = () => {
               try {
                 // First, try to find in perkDetailsData by searching for matching titles
                 const benefitTitles: Record<string, string> = {
-                  '1': 'Equinox',
-                  '2': 'Priority Pass',
-                  '3': 'Michelin',
-                  '4': 'Hyatt',
-                  '5': 'Tesla',
+                  '1': 'Scotch',
+                  '2': 'Aescape',
+                  '3': 'Japan',
+                  '4': 'Nat Geo',
+                  '5': 'Hampton',
                 };
                 
                 const searchTerm = benefitTitles[benefitId];
@@ -980,20 +980,10 @@ const HomePage: React.FC = () => {
                   }
                 }
                 
-                // Fallback: Use perkDetailsData '4' for Michelin (closest match)
-                if (benefitId === '3' && perkDetailsData['4']) {
-                  setSelectedPerk(perkDetailsData['4']);
-                  return;
-                }
-                
-                // If no match found, log for debugging
+                // If no match found, log for debugging (future: perks in DB can match these)
                 console.log('Benefit clicked:', benefitId, 'No matching perk found');
               } catch (error) {
                 console.error('Error fetching perk detail:', error);
-                // Fallback to Michelin perk detail if available
-                if (benefitId === '3' && perkDetailsData['4']) {
-                  setSelectedPerk(perkDetailsData['4']);
-                }
               }
             }}
           />

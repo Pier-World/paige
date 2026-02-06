@@ -208,6 +208,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             if (profile && mounted) {
               setUser(profile);
             }
+          } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+            const profile = await fetchUserProfile(session.user.id);
+            if (profile && mounted) {
+              setUser(profile);
+            }
           } else if (event === 'SIGNED_OUT') {
             setUser(null);
             clearAuthData();
@@ -228,6 +233,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (authSubscription) {
         authSubscription.unsubscribe();
       }
+    };
+  }, []);
+
+  // Sync auth state when another tab changes localStorage (sign-in, sign-out, token refresh)
+  useEffect(() => {
+    let mounted = true;
+
+    const handleStorage = async (event: StorageEvent) => {
+      const key = event.key;
+      const isAuthKey =
+        key === 'pier_auth_token' ||
+        key === 'supabase.auth.token' ||
+        (key?.startsWith('sb-') ?? false) ||
+        (key?.includes('supabase') ?? false);
+      if (!isAuthKey) return;
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data?.session;
+        if (!mounted) return;
+        if (session?.user) {
+          const profile = await fetchUserProfile(session.user.id);
+          if (mounted && profile) {
+            setUser(profile);
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        if (mounted) {
+          setUser(null);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      mounted = false;
+      window.removeEventListener('storage', handleStorage);
     };
   }, []);
 

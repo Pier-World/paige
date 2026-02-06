@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Clock, Dumbbell, Plane, UtensilsCrossed, Home, Car } from 'lucide-react';
+import { Clock, Dumbbell, Plane, UtensilsCrossed, Home, Car, Briefcase, Heart } from 'lucide-react';
 import { ImageWithFallback } from './ImageWithFallback';
 
 interface Benefit {
@@ -21,63 +21,53 @@ interface Benefit {
 const benefits: Benefit[] = [
   {
     id: '1',
-    title: 'Equinox: Complimentary Guest Passes',
-    description: 'Share your fitness journey. Bring guests to experience luxury wellness.',
-    image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxneW0lMjBsdXh1cnl8ZW58MXx8fHwxNzM1NTA2NDAwfDA&ixlib=rb-4.1.0&q=80&w=1080',
-    countdown: {
-      days: 20,
-      hours: 6,
-      minutes: 45
-    },
-    cta: 'Claim',
-    category: 'Fitness',
-    bottomLabel: 'Guest passes available',
-    bottomValue: '3 remaining this month'
+    title: 'GP & LP Scotch Tasting',
+    description: 'Exclusive whisky experience for investors only. Curated tastings with rare single malts.',
+    image: 'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
+    cta: 'Reserve',
+    category: 'Investor Experiences',
+    bottomLabel: 'Spots remaining',
+    bottomValue: '3 left'
   },
   {
     id: '2',
-    title: 'Priority Pass: Global Lounge Access',
-    description: 'Access 1,300+ airport lounges worldwide with Priority Pass Select.',
-    image: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhaXJwb3J0JTIwbG91bmdlfGVufDF8fHx8MTczNTUwNjQwMHww&ixlib=rb-4.1.0&q=80&w=1080',
-    cta: 'Activate',
-    category: 'Travel Rewards',
-    bottomLabel: 'Lounge access',
-    bottomValue: 'Unlimited visits included'
+    title: 'Robotic Massages with Aescape',
+    description: 'Next-generation recovery. Precision robotic massage technology for deep-tissue relief.',
+    image: '/aescape-massage.png',
+    cta: 'Book',
+    category: 'Wellness',
+    bottomLabel: 'Experience',
+    bottomValue: 'By appointment'
   },
   {
     id: '3',
-    title: 'Michelin Star Dining Credits',
-    description: '$200 dining credit at participating Michelin-starred restaurants.',
-    image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZXN0YXVyYW50JTIwZmluZSUyMGRpbmluZ3xlbnwxfHx8fDE3MzU1MDY0MDB8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    countdown: {
-      days: 12,
-      hours: 18,
-      minutes: 30
-    },
-    cta: 'Book table',
-    category: 'Dining',
-    bottomLabel: 'Dining credit',
-    bottomValue: '$200 available'
+    title: "Japan's Golden Route: Tokyo, Kanazawa, Kyoto & Fuji",
+    description: '14-day curated journey through Japan\'s most iconic destinations. Temples, gardens, and culture.',
+    image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
+    cta: 'Explore',
+    category: 'Travel',
+    bottomLabel: 'Price',
+    bottomValue: '$6,800 / person'
   },
   {
     id: '4',
-    title: 'Transfer Bilt Points to Hyatt',
-    description: 'Access premium experiences worldwide at 30+ hotel brands.',
-    image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBob3RlbCUyMHBvb2x8ZW58MXx8fHwxNzM1NTA2NDAwfDA&ixlib=rb-4.1.0&q=80&w=1080',
-    cta: 'Transfer',
-    category: 'Travel Rewards',
-    bottomLabel: 'Transfer 1:1',
-    bottomValue: '1K pts = 1K Hyatt Bonus Points'
+    title: 'Around the World by Private Jet with Nat Geo',
+    description: 'Once-in-a-lifetime expedition with Nat Geo experts. Limited spots available.',
+    image: 'https://images.unsplash.com/photo-1589994965851-a8f479c573a9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
+    cta: 'Inquire',
+    category: 'Travel',
+    bottomLabel: 'Availability',
+    bottomValue: 'Limited spots'
   },
   {
     id: '5',
-    title: 'Tesla Rental: Weekend Upgrade',
-    description: 'Complimentary upgrade to Model S or X for weekend rentals.',
-    image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZXNsYSUyMGNhcnxlbnwxfHx8fDE3MzU1MDY0MDB8MA&ixlib=rb-4.1.0&q=80&w=1080',
+    title: 'Hampton Wellness Retreat',
+    description: 'Exclusive retreat in the Hamptons. Restore and recharge with curated wellness programming.',
+    image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
     cta: 'Reserve',
-    category: 'Auto',
-    bottomLabel: 'Weekend upgrade',
-    bottomValue: 'Available Fri-Sun'
+    category: 'Wellness',
+    bottomLabel: 'Availability',
+    bottomValue: 'Limited spots'
   }
 ];
 
@@ -115,12 +105,17 @@ export function FeaturedBenefitsCarousel({ firstName, onBenefitClick }: Featured
     switch (category) {
       case 'Fitness':
         return <Dumbbell size={12} className="text-white" />;
+      case 'Travel':
       case 'Travel Rewards':
         return <Plane size={12} className="text-white" />;
       case 'Dining':
         return <UtensilsCrossed size={12} className="text-white" />;
       case 'Auto':
         return <Car size={12} className="text-white" />;
+      case 'Wellness':
+        return <Heart size={12} className="text-white" />;
+      case 'Investor Experiences':
+        return <Briefcase size={12} className="text-white" />;
       default:
         return <Home size={12} className="text-white" />;
     }
