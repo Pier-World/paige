@@ -16,7 +16,7 @@ These email templates are designed to match Pier's branding and work on both des
 |------------|------|
 | Confirm Sign Up | `confirm-signup.html` |
 | Invite User | `invite-user.html` |
-| Magic Link | `magic-link.html` |
+| Magic Link | `magic-link.html` — Set **subject** to "Welcome to Pier" in Supabase (used for login and new-member sign-in). |
 | Change Email Address | `change-email.html` |
 | Reset Password | `reset-password.html` |
 | Reauthentication | `reauthentication.html` |

@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { IntercomProvider } from './providers/IntercomProvider';
@@ -22,6 +22,7 @@ const TasksPage = lazy(() => import('./pages/TasksPage'));
 const ConversationPage = lazy(() => import('./pages/ConversationPage'));
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 const OnboardingPage = lazy(() => import('./pages/onboarding/OnboardingPage'));
+const NewMember = lazy(() => import('./pages/admin/NewMember'));
 
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
@@ -37,9 +38,10 @@ const RouteWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 // Protected route component - redirects to onboarding if not completed
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
-  
+  const { pathname } = useLocation();
+  const isAdminRoute = pathname.startsWith('/admin/');
+
   // Always wait for auth to finish loading before making routing decisions
-  // This prevents redirect loops and flash of login page
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -47,17 +49,16 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
       </div>
     );
   }
-  
-  // Only redirect if we're sure there's no user (after loading is complete)
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
-  // Redirect to onboarding if not completed (default to false if undefined)
-  if (user.onboarding_completed === false || user.onboarding_completed === undefined) {
+
+  // Skip onboarding redirect for admin routes so admins can reach /admin/members/new
+  if (!isAdminRoute && (user.onboarding_completed === false || user.onboarding_completed === undefined)) {
     return <Navigate to="/onboarding" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -213,6 +214,16 @@ function App() {
               element={
                 <ProtectedRoute>
                   <ConversationPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin: manual member creation (protected; page enforces admin role) */}
+            <Route
+              path="/admin/members/new"
+              element={
+                <ProtectedRoute>
+                  <NewMember />
                 </ProtectedRoute>
               }
             />

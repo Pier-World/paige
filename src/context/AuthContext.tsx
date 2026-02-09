@@ -10,6 +10,11 @@ interface AuthContextType {
     error: Error | null;
     data: any | null;
   }>;
+  sendMagicLink: (email: string) => Promise<{ error: Error | null }>;
+  verifyMagicLinkCode: (email: string, token: string) => Promise<{
+    error: Error | null;
+    data: User | null;
+  }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{
     error: Error | null;
@@ -57,13 +62,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
     try {
+      // Auth identity is auth.users.id. We use the same id for both:
+      // - members: canonical member record (role, membership_level, etc.)
+      // - profiles: onboarding, preferences, personal_context (can be missing for some users)
+      // Select only columns we use so existing users without new columns (e.g. stripe_customer_id) still work
       const { data: userData, error: userError } = await supabase
         .from('members')
-        .select('*')
+        .select('id, email, first_name, last_name, role, member_id, phone, preferences, membership_level, created_at, onboarding_completed')
         .eq('id', userId)
         .maybeSingle();
 
       if (userError) {
+        console.warn('Members fetch error:', userError.message);
         throw userError;
       }
 
@@ -71,66 +81,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         throw new Error('No user profile found');
       }
 
-      // Try to fetch profile data - use SELECT * to avoid 406 errors if columns don't exist
+      // Safe reads for existing rows that may have nulls or missing fields
+      const email = userData.email ?? '';
+      const firstName = userData.first_name ?? '';
+      const lastName = userData.last_name ?? '';
+      const role = (userData.role === 'admin' ? 'admin' : 'member') as 'member' | 'admin';
+      const memberId = userData.member_id ?? '';
+      const membershipLevel = (userData.membership_level as User['membership_level']) ?? 'Standard';
+      const created_at = userData.created_at ?? new Date().toISOString();
+
       let profileData: any = null;
-      let onboardingCompleted = false;
-      
-      try {
-        // Use SELECT * to avoid 406 errors when specific columns don't exist in production
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
-        
-        if (error) {
-          // Profile query failed - this is OK, profile might not exist yet
-          console.warn('Error fetching profile (may not exist yet):', error.message);
-          onboardingCompleted = false;
-        } else if (data) {
-          profileData = data;
-          
-          // Check onboarding_completed field if it exists
-          if ('onboarding_completed' in data) {
-            onboardingCompleted = data.onboarding_completed === true;
-          }
-          
-          // Fallback: If personal_context has data, user completed onboarding
-          if (!onboardingCompleted && data.personal_context) {
-            const hasPersonalContext = 
-              typeof data.personal_context === 'object' &&
-              (data.personal_context.name || data.personal_context.goals?.length > 0);
-            
-            if (hasPersonalContext) {
-              console.log('Using personal_context as fallback indicator for completed onboarding');
-              onboardingCompleted = true;
+      // Prefer onboarding_completed from members (denormalized, always present); fallback to profiles
+      let onboardingCompleted = (userData as { onboarding_completed?: boolean })?.onboarding_completed === true;
+
+      if (!onboardingCompleted) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('full_name, onboarding_completed, personal_context')
+            .eq('id', userId)
+            .maybeSingle();
+
+          if (error) {
+            console.warn('Error fetching profile (may not exist yet):', error.message);
+          } else if (data) {
+            profileData = data;
+            if (data.onboarding_completed === true) onboardingCompleted = true;
+            else if (data.personal_context && typeof data.personal_context === 'object') {
+              const pc = data.personal_context as { name?: string; goals?: unknown[] };
+              if (pc.name || (Array.isArray(pc.goals) && pc.goals.length > 0)) onboardingCompleted = true;
             }
           }
+        } catch {
+          console.warn('Profile fetch failed');
         }
-        // If data is null, profile doesn't exist - onboardingCompleted stays false
-      } catch (error) {
-        // Query failed entirely - default to false so user can complete onboarding
-        console.warn('Profile fetch failed, defaulting onboarding to false');
-        onboardingCompleted = false;
+      } else {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('full_name, personal_context')
+            .eq('id', userId)
+            .maybeSingle();
+          if (data) profileData = data;
+        } catch {
+          // optional profile for display name
+        }
       }
 
       return {
         id: userId,
-        email: userData.email,
-        first_name: userData.first_name,
-        last_name: userData.last_name,
-        role: userData.role,
-        member_id: userData.member_id,
-        phone: userData.phone,
-        preferences: userData.preferences,
-        membership_level: userData.membership_level,
-        created_at: userData.created_at,
-        full_name: profileData?.full_name || `${userData.first_name} ${userData.last_name}`,
-        front_user_hash: profileData?.front_user_hash || null,
-        membership_tier: userData.membership_level,
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        role,
+        member_id: memberId,
+        phone: userData.phone ?? undefined,
+        preferences: userData.preferences ?? undefined,
+        membership_level: membershipLevel,
+        created_at,
+        full_name: profileData?.full_name || `${firstName} ${lastName}`.trim() || 'Member',
+        front_user_hash: (profileData as any)?.front_user_hash ?? null,
+        membership_tier: membershipLevel,
         onboarding_completed: onboardingCompleted,
       };
     } catch (error) {
+      console.warn('fetchUserProfile failed:', error);
       return null;
     }
   };
@@ -140,63 +155,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     let authSubscription: any = null;
     let timeoutId: NodeJS.Timeout | null = null;
 
-    // Set a safety timeout to prevent infinite loading
+    const SAFETY_TIMEOUT_MS = 6000;
+    const SESSION_FETCH_TIMEOUT_MS = 5000;
+    const PROFILE_FETCH_TIMEOUT_MS = 5000;
+
+    const setLoadingFalse = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      if (mounted) setIsLoading(false);
+    };
+
+    // Safety net: if init doesn't finish in time, show login so user isn't stuck
     timeoutId = setTimeout(() => {
       if (mounted) {
         console.warn('Auth initialization timeout - setting loading to false');
-        setIsLoading(false);
+        setLoadingFalse();
       }
-    }, 10000); // Increased to 10 seconds
+    }, SAFETY_TIMEOUT_MS);
 
     const initializeAuth = async () => {
       try {
-        // Get session with retry logic
-        let session = null;
-        let retries = 3;
-        
-        while (retries > 0 && !session) {
-          try {
-            const result = await supabase.auth.getSession();
-            session = result.data?.session;
-            if (session) break;
-          } catch (error) {
-            console.warn(`Auth session fetch attempt failed, retries left: ${retries - 1}`, error);
-            retries--;
-            if (retries > 0) {
-              await new Promise(resolve => setTimeout(resolve, 500));
-            }
-          }
-        }
+        // Get session with hard timeout so we don't hang (e.g. Supabase unreachable)
+        const session = await Promise.race([
+          supabase.auth.getSession().then((r) => r.data?.session ?? null),
+          new Promise<null>((resolve) =>
+            setTimeout(() => resolve(null), SESSION_FETCH_TIMEOUT_MS)
+          ),
+        ]);
 
         if (session?.user && mounted) {
           try {
-            const profile = await fetchUserProfile(session.user.id);
+            const profile = await Promise.race([
+              fetchUserProfile(session.user.id),
+              new Promise<null>((resolve) =>
+                setTimeout(() => resolve(null), PROFILE_FETCH_TIMEOUT_MS)
+              ),
+            ]);
             if (mounted) {
-              if (timeoutId) clearTimeout(timeoutId);
-              if (profile) {
-                setUser(profile);
-              }
-              // Only set loading to false AFTER profile is fetched
-              // This prevents race condition where user is null but loading is false
-              setIsLoading(false);
+              setLoadingFalse();
+              if (profile) setUser(profile);
             }
           } catch (profileError) {
             console.error('Error fetching user profile:', profileError);
-            if (mounted) {
-              if (timeoutId) clearTimeout(timeoutId);
-              setIsLoading(false);
-            }
+            setLoadingFalse();
           }
         } else if (mounted) {
-          if (timeoutId) clearTimeout(timeoutId);
-          setIsLoading(false);
+          setLoadingFalse();
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-        if (mounted) {
-          if (timeoutId) clearTimeout(timeoutId);
-          setIsLoading(false);
-        }
+        setLoadingFalse();
       }
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -344,6 +354,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const sendMagicLink = async (email: string): Promise<{ error: Error | null }> => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
+        },
+      });
+      if (error) {
+        const friendlyMessage =
+          error.message?.toLowerCase().includes('not found') ||
+          error.message?.toLowerCase().includes('no user')
+            ? 'No account found with this email. Please contact support.'
+            : error.message;
+        return { error: new Error(friendlyMessage) };
+      }
+      return { error: null };
+    } catch (err) {
+      console.error('Send magic link error:', err);
+      return {
+        error: err instanceof Error ? err : new Error('Failed to send access code'),
+      };
+    }
+  };
+
+  const verifyMagicLinkCode = async (
+    email: string,
+    token: string
+  ): Promise<{ error: Error | null; data: User | null }> => {
+    try {
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+      if (verifyError) {
+        return {
+          data: null,
+          error: new Error(verifyError.message || 'Invalid or expired code. Please try again.'),
+        };
+      }
+      if (!data?.user) {
+        return { data: null, error: new Error('Verification failed. Please try again.') };
+      }
+      const profile = await fetchUserProfile(data.user.id);
+      if (!profile) {
+        return {
+          data: null,
+          error: new Error('Account found but profile could not be loaded. Please contact support.'),
+        };
+      }
+      setUser(profile);
+      return { data: profile, error: null };
+    } catch (err) {
+      console.error('Verify OTP error:', err);
+      return {
+        data: null,
+        error: err instanceof Error ? err : new Error('Verification failed. Please try again.'),
+      };
+    }
+  };
+
   const signOut = async () => {
     setIsLoading(true);
     try {
@@ -484,6 +556,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     profile: user,
     isLoading,
     signIn,
+    sendMagicLink,
+    verifyMagicLinkCode,
     signOut,
     resetPassword,
     updateProfile,

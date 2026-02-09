@@ -104,12 +104,10 @@ export function FinalStep({ data, onBack }: FinalStepProps) {
         console.warn('Could not save to profiles table, but continuing with onboarding completion');
       }
 
-      // Update members table preferences
-      // Map onboarding interests to members.preferences.interests
-      const memberInterests = [
+      // Map onboarding interests (IDs from PreferencesStep) to labels and merge with any existing from admin
+      const onboardingInterests = [
         ...data.preferences.interests,
-        ...data.goals.map(goal => {
-          // Map goal IDs to readable interest names
+        ...data.goals.map((goal: string) => {
           const goalMap: Record<string, string> = {
             'maximize-points': 'Points Maximization',
             'travel-optimization': 'Travel',
@@ -120,24 +118,59 @@ export function FinalStep({ data, onBack }: FinalStepProps) {
           return goalMap[goal] || 'Travel';
         }),
       ];
+      const idToLabel: Record<string, string> = {
+        'points-maximization': 'Points Maximization',
+        'lounge-access': 'Lounge Access',
+        'status-matching': 'Status Matching',
+        'elite-perks': 'Elite Status Perks',
+        'concierge': 'Concierge Services',
+        'Travel': 'Travel',
+      };
+      const onboardingAsLabels = onboardingInterests.map(
+        (id: string) => idToLabel[id] || id
+      );
 
-      // Get unique interests
-      const uniqueInterests = Array.from(new Set(memberInterests));
+      // Fetch existing member preferences so we don't overwrite admin-selected interests
+      const { data: existingMember } = await supabase
+        .from('members')
+        .select('preferences')
+        .eq('id', user.id)
+        .maybeSingle();
 
-      // Update members.preferences
+      const existingInterests: string[] = Array.isArray(
+        (existingMember?.preferences as { interests?: string[] })?.interests
+      )
+        ? (existingMember!.preferences as { interests: string[] }).interests
+        : [];
+      const mergedInterests = Array.from(
+        new Set([...existingInterests, ...onboardingAsLabels])
+      );
+
+      // Update members: preferences (merged interests) and onboarding_completed
+      const memberUpdate: { preferences: { interests: string[]; preferred_cities: string[] }; onboarding_completed?: boolean } = {
+        preferences: {
+          interests: mergedInterests,
+          preferred_cities: (existingMember?.preferences as { preferred_cities?: string[] })?.preferred_cities ?? [],
+        },
+      };
+      // Set onboarding_completed on members if column exists (denormalized for reliable routing)
+      memberUpdate.onboarding_completed = true;
+
       const { error: memberError } = await supabase
         .from('members')
-        .update({
-          preferences: {
-            interests: uniqueInterests,
-            preferred_cities: [], // Can be populated later
-          },
-        })
+        .update(memberUpdate)
         .eq('id', user.id);
 
       if (memberError) {
-        console.warn('Error updating members preferences (non-critical):', memberError);
-        // Don't fail onboarding if this fails
+        console.warn('Error updating members (non-critical):', memberError);
+        // Try without onboarding_completed in case column doesn't exist yet
+        const { error: memberError2 } = await supabase
+          .from('members')
+          .update({ preferences: memberUpdate.preferences })
+          .eq('id', user.id);
+        if (memberError2) {
+          console.warn('Members preferences update failed:', memberError2);
+        }
       }
 
       // Extract hotel brands and airlines from memberships
