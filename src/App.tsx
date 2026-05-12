@@ -6,23 +6,38 @@ import { IntercomProvider } from './providers/IntercomProvider';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationGuard } from './components/NavigationGuard';
+import { CapitalMarketsLayout } from './components/layout/CapitalMarketsLayout';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
-const CalendarPage = lazy(() => import('./pages/CalendarPage'));
-const PerksPage = lazy(() => import('./pages/PerksPage'));
 const MembershipsPage = lazy(() => import('./pages/MembershipsPage'));
 const ExperiencesPage = lazy(() => import('./pages/ExperiencesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const AllPreferencesPage = lazy(() => import('./pages/AllPreferencesPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
-const TravelPage = lazy(() => import('./pages/TravelPage'));
-const TasksPage = lazy(() => import('./pages/TasksPage'));
 const ConversationPage = lazy(() => import('./pages/ConversationPage'));
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 const OnboardingPage = lazy(() => import('./pages/onboarding/OnboardingPage'));
 const NewMember = lazy(() => import('./pages/admin/NewMember'));
+const CapitalMarketsDashboardPage = lazy(() => import('./pages/capital-markets/DashboardPage'));
+const CapitalMarketsDealsPage = lazy(() => import('./pages/capital-markets/DealsPage'));
+const CapitalMarketsDealDetailPage = lazy(() => import('./pages/capital-markets/DealDetailPage'));
+const CapitalMarketsEventsPage = lazy(() => import('./pages/capital-markets/CapitalMarketsEventsPage'));
+const CapitalMarketsPartnersPage = lazy(() => import('./pages/capital-markets/PartnersPage'));
+const CapitalMarketsConciergePage = lazy(() => import('./pages/capital-markets/ConciergePage'));
+const CapitalMarketsMembersPage = lazy(() => import('./pages/capital-markets/MembersPage'));
+
+/**
+ * Retired full-page routes (components removed from repo; `<Navigate>` aliases remain below):
+ * - `/calendar` → `/events`
+ * - `/perks`, `/perks/:id` → `/partners`
+ * - `/travel` → `/concierge`
+ * - `/tasks` → `/dashboard`
+ * - `/admin` (no trailing path) → `/dashboard`
+ * - `CalendarPage`, `PerksPage`, `TravelPage`, `TravelPageOld`, `TasksPage`, `PerkDetailPage`, `EventDetailPage` modules deleted.
+ */
 
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-background">
@@ -108,6 +123,14 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
+const CapitalMarketsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <ProtectedRoute>
+      <CapitalMarketsLayout>{children}</CapitalMarketsLayout>
+    </ProtectedRoute>
+  );
+};
+
 function App() {
   return (
     <ErrorBoundary>
@@ -137,6 +160,8 @@ function App() {
                 </PublicRoute>
               }
             />
+            {/* Recovery links from email; must not use PublicRoute (would bounce authed session to /) */}
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/auth/callback" element={<Navigate to="/" replace />} />
             
             {/* OAuth Callback Route (public - handles OAuth redirects) */}
@@ -149,6 +174,64 @@ function App() {
                 <OnboardingRoute>
                   <OnboardingPage />
                 </OnboardingRoute>
+              }
+            />
+
+            {/* Capital Markets Routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <CapitalMarketsRoute>
+                  <CapitalMarketsDashboardPage />
+                </CapitalMarketsRoute>
+              }
+            />
+            <Route
+              path="/deals"
+              element={
+                <CapitalMarketsRoute>
+                  <CapitalMarketsDealsPage />
+                </CapitalMarketsRoute>
+              }
+            />
+            <Route
+              path="/deals/:id"
+              element={
+                <CapitalMarketsRoute>
+                  <CapitalMarketsDealDetailPage />
+                </CapitalMarketsRoute>
+              }
+            />
+            <Route
+              path="/events"
+              element={
+                <CapitalMarketsRoute>
+                  <CapitalMarketsEventsPage />
+                </CapitalMarketsRoute>
+              }
+            />
+            <Route
+              path="/partners"
+              element={
+                <CapitalMarketsRoute>
+                  <CapitalMarketsPartnersPage />
+                </CapitalMarketsRoute>
+              }
+            />
+            <Route
+              path="/concierge"
+              element={
+                <CapitalMarketsRoute>
+                  <CapitalMarketsConciergePage />
+                </CapitalMarketsRoute>
+              }
+            />
+            <Route
+              path="/members"
+              element={
+                <CapitalMarketsRoute>
+                  <CapitalMarketsMembersPage />
+                </CapitalMarketsRoute>
               }
             />
 
@@ -165,7 +248,7 @@ function App() {
               path="/calendar"
               element={
                 <ProtectedRoute>
-                  <CalendarPage />
+                  <Navigate to="/events" replace />
                 </ProtectedRoute>
               }
             />
@@ -173,7 +256,7 @@ function App() {
               path="/perks"
               element={
                 <ProtectedRoute>
-                  <PerksPage />
+                  <Navigate to="/partners" replace />
                 </ProtectedRoute>
               }
             />
@@ -229,14 +312,13 @@ function App() {
             />
 
             {/* Legacy/Redirect routes */}
-            <Route path="/travel" element={<Navigate to="/" replace />} />
-            <Route path="/tasks" element={<Navigate to="/" replace />} />
-            <Route path="/admin" element={<Navigate to="/" replace />} />
-            <Route path="/perks/:id" element={<Navigate to="/perks" replace />} />
+            <Route path="/travel" element={<Navigate to="/concierge" replace />} />
+            <Route path="/tasks" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/perks/:id" element={<Navigate to="/partners" replace />} />
             <Route path="/explore" element={<Navigate to="/experiences" replace />} />
             <Route path="/explore/:id" element={<Navigate to="/experiences" replace />} />
             <Route path="/membership" element={<Navigate to="/memberships" replace />} />
-            <Route path="/events" element={<Navigate to="/experiences" replace />} />
 
             {/* Catch all route */}
             <Route path="*" element={<NotFoundPage />} />

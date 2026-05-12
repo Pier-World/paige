@@ -10,9 +10,9 @@ export const GlobalNav: React.FC = () => {
 
   const navItems = [
     { label: 'Home', path: '/' },
-    { label: 'Perks', path: '/perks' },
-    { label: 'Concierge', path: '/travel' },
-    { label: 'Events', path: '/explore' }
+    { label: 'Perks', path: '/partners' },
+    { label: 'Concierge', path: '/concierge' },
+    { label: 'Events', path: '/events' },
   ];
 
   const isActive = (path: string) => {
@@ -83,7 +83,7 @@ export const GlobalNav: React.FC = () => {
                     Profile
                   </Link>
                   <Link
-                    to="/membership"
+                    to="/memberships"
                     onClick={() => setShowDropdown(false)}
                     className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >

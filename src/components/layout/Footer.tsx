@@ -32,10 +32,10 @@ export const Footer: React.FC = () => {
                 <Link to="/" className="hover:text-white transition-colors">Home</Link>
               </li>
               <li>
-                <Link to="/perks" className="hover:text-white transition-colors">Perks</Link>
+                <Link to="/partners" className="hover:text-white transition-colors">Perks</Link>
               </li>
               <li>
-                <Link to="/explore" className="hover:text-white transition-colors">Explore</Link>
+                <Link to="/experiences" className="hover:text-white transition-colors">Explore</Link>
               </li>
               <li>
                 <Link to="/profile" className="hover:text-white transition-colors">My Profile</Link>

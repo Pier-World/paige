@@ -1,0 +1,1 @@
+-- Intentionally empty. Preserve-table production data is backed up under supabase/.temp and should not be committed as seed data.

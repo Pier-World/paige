@@ -4,6 +4,14 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Pier brand tokens
+        ink: '#0B0E10',
+        parchment: '#F6F4EF',
+        midnight: '#121B2B',
+        ledger: '#1E2F24',
+        gilt: '#B8925A',
+        slate: '#6B6F76',
+        danger: '#7A2A2A',
         // Theme-aware colors using CSS variables
         background: 'var(--background)',
         foreground: 'var(--foreground)',
@@ -29,10 +37,11 @@ export default {
         surface: 'var(--card)',
         'surface-elevated': 'var(--secondary)',
         'border-subtle': 'var(--muted)',
+        'border-strong': 'var(--border-strong)',
         'text-primary': 'var(--foreground)',
         'text-secondary': 'var(--muted-foreground)',
         'text-tertiary': 'var(--muted-foreground)',
-        'accent-muted': '#8a7a66',
+        'accent-muted': 'rgba(184, 146, 90, 0.55)',
         'accent-text': 'var(--accent-text, var(--color-accent))',
         // Legacy support (keeping for backward compatibility)
         primary: {
@@ -50,18 +59,28 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Inter', 'system-ui', 'sans-serif'],
-        display: ['-apple-system', 'BlinkMacSystemFont', 'SF Pro Display', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-body)', 'AF Another Sans', 'Inter', 'system-ui', 'sans-serif'],
+        body: ['var(--font-body)', 'AF Another Sans', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'TT Neoris', 'Georgia', 'serif'],
+        mono: ['var(--font-mono)', 'Departure Mono', 'Menlo', 'monospace'],
       },
       fontWeight: {
         light: '300',
         normal: '400',
       },
+      borderRadius: {
+        pier: '4px',
+        'pier-md': '8px',
+        'pier-lg': '12px',
+      },
       boxShadow: {
-        'subtle': '0 1px 2px 0 rgb(0 0 0 / 0.3)',
-        'card': '0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4)',
-        'lg': '0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5)',
-        'xl': '0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.6)',
+        hairline: 'inset 0 0 0 1px var(--border)',
+        subtle: '0 1px 2px 0 rgb(11 14 16 / 0.08)',
+        card: '0 1px 0 rgb(11 14 16 / 0.04), 0 1px 2px rgb(11 14 16 / 0.04)',
+        raised: '0 8px 24px rgb(11 14 16 / 0.08)',
+        modal: '0 24px 64px rgb(11 14 16 / 0.18)',
+        lg: '0 8px 24px rgb(11 14 16 / 0.08)',
+        xl: '0 24px 64px rgb(11 14 16 / 0.18)',
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',

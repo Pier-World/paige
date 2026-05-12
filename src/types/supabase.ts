@@ -2,9 +2,453 @@
 // This is a placeholder - in production, generate types using:
 // npx supabase gen types typescript --project-id <your-project-id> > src/types/supabase.ts
 
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
 export type Database = {
   public: {
     Tables: {
+      capital_member_profiles: {
+        Row: {
+          id: string;
+          member_id: string | null;
+          slug: string;
+          display_name: string;
+          role: 'gp' | 'lp';
+          firm: string;
+          title: string | null;
+          location: string | null;
+          aum_display: string | null;
+          aum_numeric: number | null;
+          check_size_display: string | null;
+          check_size_max: number | null;
+          check_size_min: number | null;
+          currency_code: string;
+          focus_sectors: string[];
+          bio: string | null;
+          investment_thesis: string | null;
+          avatar_url: string | null;
+          verified: boolean;
+          status: 'draft' | 'active' | 'hidden' | 'archived';
+          sort_order: number;
+          published_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          member_id?: string | null;
+          slug: string;
+          display_name: string;
+          role: 'gp' | 'lp';
+          firm: string;
+          title?: string | null;
+          location?: string | null;
+          aum_display?: string | null;
+          aum_numeric?: number | null;
+          check_size_display?: string | null;
+          check_size_max?: number | null;
+          check_size_min?: number | null;
+          currency_code?: string;
+          focus_sectors?: string[];
+          bio?: string | null;
+          investment_thesis?: string | null;
+          avatar_url?: string | null;
+          verified?: boolean;
+          status?: 'draft' | 'active' | 'hidden' | 'archived';
+          sort_order?: number;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          member_id?: string | null;
+          slug?: string;
+          display_name?: string;
+          role?: 'gp' | 'lp';
+          firm?: string;
+          title?: string | null;
+          location?: string | null;
+          aum_display?: string | null;
+          aum_numeric?: number | null;
+          check_size_display?: string | null;
+          check_size_max?: number | null;
+          check_size_min?: number | null;
+          currency_code?: string;
+          focus_sectors?: string[];
+          bio?: string | null;
+          investment_thesis?: string | null;
+          avatar_url?: string | null;
+          verified?: boolean;
+          status?: 'draft' | 'active' | 'hidden' | 'archived';
+          sort_order?: number;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      capital_deals: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          manager_name: string;
+          sponsor_profile_id: string | null;
+          deal_type: 'fund' | 'co-invest' | 'secondary' | 'spv';
+          asset_class: string;
+          status: 'pending' | 'open' | 'closing' | 'closed';
+          target_size: number;
+          raised_size: number;
+          min_commitment: number | null;
+          currency_code: string;
+          close_date: string | null;
+          target_irr: number | null;
+          moic_target: number | null;
+          vintage: number | null;
+          geography: string | null;
+          sectors: string[];
+          description: string;
+          thesis: string | null;
+          contacts: Json;
+          sort_order: number;
+          published_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          manager_name: string;
+          sponsor_profile_id?: string | null;
+          deal_type: 'fund' | 'co-invest' | 'secondary' | 'spv';
+          asset_class: string;
+          status?: 'pending' | 'open' | 'closing' | 'closed';
+          target_size: number;
+          raised_size?: number;
+          min_commitment?: number | null;
+          currency_code?: string;
+          close_date?: string | null;
+          target_irr?: number | null;
+          moic_target?: number | null;
+          vintage?: number | null;
+          geography?: string | null;
+          sectors?: string[];
+          description: string;
+          thesis?: string | null;
+          contacts?: Json;
+          sort_order?: number;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          manager_name?: string;
+          sponsor_profile_id?: string | null;
+          deal_type?: 'fund' | 'co-invest' | 'secondary' | 'spv';
+          asset_class?: string;
+          status?: 'pending' | 'open' | 'closing' | 'closed';
+          target_size?: number;
+          raised_size?: number;
+          min_commitment?: number | null;
+          currency_code?: string;
+          close_date?: string | null;
+          target_irr?: number | null;
+          moic_target?: number | null;
+          vintage?: number | null;
+          geography?: string | null;
+          sectors?: string[];
+          description?: string;
+          thesis?: string | null;
+          contacts?: Json;
+          sort_order?: number;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      capital_deal_documents: {
+        Row: {
+          id: string;
+          deal_id: string;
+          label: string;
+          document_type: 'deck' | 'memo' | 'tearsheet' | 'legal' | 'financials' | 'other';
+          display_size: string | null;
+          file_size_bytes: number | null;
+          storage_path: string | null;
+          external_url: string | null;
+          access_level: 'members' | 'approved_interest' | 'admin';
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          deal_id: string;
+          label: string;
+          document_type: 'deck' | 'memo' | 'tearsheet' | 'legal' | 'financials' | 'other';
+          display_size?: string | null;
+          file_size_bytes?: number | null;
+          storage_path?: string | null;
+          external_url?: string | null;
+          access_level?: 'members' | 'approved_interest' | 'admin';
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          deal_id?: string;
+          label?: string;
+          document_type?: 'deck' | 'memo' | 'tearsheet' | 'legal' | 'financials' | 'other';
+          display_size?: string | null;
+          file_size_bytes?: number | null;
+          storage_path?: string | null;
+          external_url?: string | null;
+          access_level?: 'members' | 'approved_interest' | 'admin';
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      capital_deal_interests: {
+        Row: {
+          id: string;
+          deal_id: string;
+          member_id: string;
+          request_type: 'express_interest' | 'schedule_call' | 'request_documents';
+          status: 'submitted' | 'under_review' | 'approved' | 'intro_scheduled' | 'declined' | 'withdrawn';
+          commitment_amount: number | null;
+          currency_code: string;
+          message: string | null;
+          admin_notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          deal_id: string;
+          member_id: string;
+          request_type?: 'express_interest' | 'schedule_call' | 'request_documents';
+          status?: 'submitted' | 'under_review' | 'approved' | 'intro_scheduled' | 'declined' | 'withdrawn';
+          commitment_amount?: number | null;
+          currency_code?: string;
+          message?: string | null;
+          admin_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          deal_id?: string;
+          member_id?: string;
+          request_type?: 'express_interest' | 'schedule_call' | 'request_documents';
+          status?: 'submitted' | 'under_review' | 'approved' | 'intro_scheduled' | 'declined' | 'withdrawn';
+          commitment_amount?: number | null;
+          currency_code?: string;
+          message?: string | null;
+          admin_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      capital_events: {
+        Row: {
+          id: string;
+          slug: string;
+          title: string;
+          event_type: 'dinner' | 'summit' | 'roundtable' | 'tour' | 'webinar';
+          status: 'draft' | 'upcoming' | 'completed' | 'cancelled';
+          starts_at: string;
+          ends_at: string | null;
+          location: string;
+          city: string;
+          capacity: number | null;
+          registered_count: number;
+          description: string;
+          recap_url: string | null;
+          featured: boolean;
+          sort_order: number;
+          published_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          title: string;
+          event_type: 'dinner' | 'summit' | 'roundtable' | 'tour' | 'webinar';
+          status?: 'draft' | 'upcoming' | 'completed' | 'cancelled';
+          starts_at: string;
+          ends_at?: string | null;
+          location: string;
+          city: string;
+          capacity?: number | null;
+          registered_count?: number;
+          description: string;
+          recap_url?: string | null;
+          featured?: boolean;
+          sort_order?: number;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          title?: string;
+          event_type?: 'dinner' | 'summit' | 'roundtable' | 'tour' | 'webinar';
+          status?: 'draft' | 'upcoming' | 'completed' | 'cancelled';
+          starts_at?: string;
+          ends_at?: string | null;
+          location?: string;
+          city?: string;
+          capacity?: number | null;
+          registered_count?: number;
+          description?: string;
+          recap_url?: string | null;
+          featured?: boolean;
+          sort_order?: number;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      capital_event_rsvps: {
+        Row: {
+          id: string;
+          event_id: string;
+          member_id: string;
+          status: 'requested' | 'confirmed' | 'waitlisted' | 'attended' | 'cancelled' | 'declined';
+          attendee_count: number;
+          message: string | null;
+          admin_notes: string | null;
+          responded_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          member_id: string;
+          status?: 'requested' | 'confirmed' | 'waitlisted' | 'attended' | 'cancelled' | 'declined';
+          attendee_count?: number;
+          message?: string | null;
+          admin_notes?: string | null;
+          responded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          member_id?: string;
+          status?: 'requested' | 'confirmed' | 'waitlisted' | 'attended' | 'cancelled' | 'declined';
+          attendee_count?: number;
+          message?: string | null;
+          admin_notes?: string | null;
+          responded_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      capital_partners: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          category: 'hotels' | 'restaurants' | 'travel' | 'lifestyle' | 'finance' | 'health';
+          tagline: string | null;
+          benefit: string;
+          description: string;
+          website_url: string | null;
+          featured: boolean;
+          status: 'draft' | 'active' | 'inactive' | 'archived';
+          sort_order: number;
+          published_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          category: 'hotels' | 'restaurants' | 'travel' | 'lifestyle' | 'finance' | 'health';
+          tagline?: string | null;
+          benefit: string;
+          description: string;
+          website_url?: string | null;
+          featured?: boolean;
+          status?: 'draft' | 'active' | 'inactive' | 'archived';
+          sort_order?: number;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          slug?: string;
+          name?: string;
+          category?: 'hotels' | 'restaurants' | 'travel' | 'lifestyle' | 'finance' | 'health';
+          tagline?: string | null;
+          benefit?: string;
+          description?: string;
+          website_url?: string | null;
+          featured?: boolean;
+          status?: 'draft' | 'active' | 'inactive' | 'archived';
+          sort_order?: number;
+          published_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      capital_partner_intros: {
+        Row: {
+          id: string;
+          partner_id: string;
+          member_id: string;
+          status: 'submitted' | 'in_review' | 'introduced' | 'declined' | 'cancelled';
+          message: string | null;
+          contact_preference: 'email' | 'phone' | 'concierge' | null;
+          admin_notes: string | null;
+          introduced_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          partner_id: string;
+          member_id: string;
+          status?: 'submitted' | 'in_review' | 'introduced' | 'declined' | 'cancelled';
+          message?: string | null;
+          contact_preference?: 'email' | 'phone' | 'concierge' | null;
+          admin_notes?: string | null;
+          introduced_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          partner_id?: string;
+          member_id?: string;
+          status?: 'submitted' | 'in_review' | 'introduced' | 'declined' | 'cancelled';
+          message?: string | null;
+          contact_preference?: 'email' | 'phone' | 'concierge' | null;
+          admin_notes?: string | null;
+          introduced_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       profiles: {
         Row: {
           id: string;
@@ -641,7 +1085,52 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      update_my_capital_member_profile: {
+        Args: {
+          p_role?: 'gp' | 'lp';
+          p_display_name: string;
+          p_firm: string;
+          p_title?: string | null;
+          p_location?: string | null;
+          p_bio?: string | null;
+          p_investment_thesis?: string | null;
+          p_focus_sectors?: string[] | null;
+          p_aum_display?: string | null;
+          p_aum_numeric?: number | null;
+          p_check_size_display?: string | null;
+          p_check_size_min?: number | null;
+          p_check_size_max?: number | null;
+          p_currency_code?: string;
+        };
+        Returns: {
+          id: string;
+          member_id: string | null;
+          slug: string;
+          display_name: string;
+          role: 'gp' | 'lp';
+          firm: string;
+          title: string | null;
+          location: string | null;
+          aum_display: string | null;
+          aum_numeric: number | null;
+          check_size_display: string | null;
+          check_size_max: number | null;
+          check_size_min: number | null;
+          currency_code: string;
+          focus_sectors: string[];
+          bio: string | null;
+          investment_thesis: string | null;
+          avatar_url: string | null;
+          verified: boolean;
+          status: 'draft' | 'active' | 'hidden' | 'archived';
+          sort_order: number;
+          published_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+    };
   };
 };
 

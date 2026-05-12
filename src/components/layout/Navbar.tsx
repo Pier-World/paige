@@ -59,9 +59,9 @@ export const Navbar: React.FC = () => {
 
   const navLinks = [
     { name: 'Home', path: '/' },
-    { name: 'Perks', path: '/perks' },
-    { name: 'Concierge', path: '/travel' },
-    { name: 'Events', path: '/explore' },
+    { name: 'Perks', path: '/partners' },
+    { name: 'Concierge', path: '/concierge' },
+    { name: 'Events', path: '/events' },
   ];
 
   return (
@@ -141,7 +141,7 @@ export const Navbar: React.FC = () => {
                     </Link>
 
                     <Link
-                      to="/membership"
+                      to="/memberships"
                       className="flex items-center space-x-3 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
                       onClick={() => setIsProfileDropdownOpen(false)}
                     >

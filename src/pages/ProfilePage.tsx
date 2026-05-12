@@ -15,6 +15,29 @@ import { MemberCard } from '../components/features/MemberCard';
 import { memberships } from '../data/memberships';
 import { CitySelectionModal } from '../components/ui/CitySelectionModal';
 import { InterestSelectionModal } from '../components/ui/InterestSelectionModal';
+import {
+  getMyCapitalMemberProfile,
+  updateMyCapitalMemberProfile,
+  type CapitalMemberProfile,
+  type CapitalMemberRole,
+} from '../lib/api/capitalMarkets';
+
+type CapitalProfileForm = {
+  role: CapitalMemberRole;
+  displayName: string;
+  firm: string;
+  title: string;
+  location: string;
+  bio: string;
+  investmentThesis: string;
+  focusSectors: string;
+  aumDisplay: string;
+  aumNumeric: string;
+  checkSizeDisplay: string;
+  checkSizeMin: string;
+  checkSizeMax: string;
+  currencyCode: string;
+};
 
 const ProfilePage: React.FC = () => {
   const { user, updateProfile, updateEmail, signOut } = useAuth();
@@ -39,6 +62,28 @@ const ProfilePage: React.FC = () => {
     profilePhotoUrl: '',
     preferredCities: [] as string[],
     interests: [] as string[],
+  });
+  const [capitalProfile, setCapitalProfile] = useState<CapitalMemberProfile | null>(null);
+  const [isLoadingCapitalProfile, setIsLoadingCapitalProfile] = useState(false);
+  const [isEditingCapitalProfile, setIsEditingCapitalProfile] = useState(false);
+  const [isSavingCapitalProfile, setIsSavingCapitalProfile] = useState(false);
+  const [capitalProfileError, setCapitalProfileError] = useState<string | null>(null);
+  const [capitalProfileSuccess, setCapitalProfileSuccess] = useState<string | null>(null);
+  const [capitalProfileForm, setCapitalProfileForm] = useState<CapitalProfileForm>({
+    role: 'lp',
+    displayName: '',
+    firm: '',
+    title: '',
+    location: '',
+    bio: '',
+    investmentThesis: '',
+    focusSectors: '',
+    aumDisplay: '',
+    aumNumeric: '',
+    checkSizeDisplay: '',
+    checkSizeMin: '',
+    checkSizeMax: '',
+    currencyCode: 'USD',
   });
   
   // Connections state
@@ -89,6 +134,41 @@ const ProfilePage: React.FC = () => {
       window.history.replaceState({}, '', '/profile');
     }
   }, [user, searchParams]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadCapitalProfile() {
+      if (!user) {
+        setCapitalProfile(null);
+        setCapitalProfileError(null);
+        setIsLoadingCapitalProfile(false);
+        return;
+      }
+
+      setIsLoadingCapitalProfile(true);
+      setCapitalProfileError(null);
+
+      try {
+        const profile = await getMyCapitalMemberProfile(user.id);
+        if (!ignore) setCapitalProfile(profile);
+      } catch (error) {
+        console.warn('Error fetching capital profile:', error);
+        if (!ignore) {
+          setCapitalProfile(null);
+          setCapitalProfileError('Capital profile details are temporarily unavailable.');
+        }
+      } finally {
+        if (!ignore) setIsLoadingCapitalProfile(false);
+      }
+    }
+
+    loadCapitalProfile();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user]);
 
   async function loadProfileData() {
     if (!user) return;
@@ -854,6 +934,120 @@ const ProfilePage: React.FC = () => {
     return tierMap[level] || level;
   };
 
+  const getCapitalRoleDisplay = (role: CapitalMemberProfile['role']) => {
+    return role === 'gp' ? 'General Partner' : 'Limited Partner';
+  };
+
+  const getCapitalProfileStatusDisplay = (profile: CapitalMemberProfile) => {
+    if (profile.isPublished) return 'Published';
+    return profile.status.charAt(0).toUpperCase() + profile.status.slice(1);
+  };
+
+  const getCapitalProfileForm = (profile: CapitalMemberProfile | null): CapitalProfileForm => ({
+    role: profile?.role ?? 'lp',
+    displayName: profile?.displayName || user?.full_name || `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim(),
+    firm: profile?.firm ?? '',
+    title: profile?.title === 'Member' ? '' : profile?.title ?? '',
+    location: profile?.location === 'Global' ? '' : profile?.location ?? '',
+    bio: profile?.bio ?? '',
+    investmentThesis: profile?.investmentThesis ?? '',
+    focusSectors: profile?.focusSectors.join(', ') ?? '',
+    aumDisplay: profile?.aumDisplay ?? '',
+    aumNumeric: profile?.aumNumeric !== null && profile?.aumNumeric !== undefined ? String(profile.aumNumeric) : '',
+    checkSizeDisplay: profile?.checkSizeDisplay ?? '',
+    checkSizeMin: profile?.checkSizeMin !== null && profile?.checkSizeMin !== undefined ? String(profile.checkSizeMin) : '',
+    checkSizeMax: profile?.checkSizeMax !== null && profile?.checkSizeMax !== undefined ? String(profile.checkSizeMax) : '',
+    currencyCode: profile?.currencyCode ?? 'USD',
+  });
+
+  const handleCapitalProfileEdit = () => {
+    setCapitalProfileForm(getCapitalProfileForm(capitalProfile));
+    setCapitalProfileError(null);
+    setCapitalProfileSuccess(null);
+    setIsEditingCapitalProfile(true);
+  };
+
+  const handleCapitalProfileCancel = () => {
+    setCapitalProfileForm(getCapitalProfileForm(capitalProfile));
+    setCapitalProfileError(null);
+    setIsEditingCapitalProfile(false);
+  };
+
+  const updateCapitalProfileForm = (field: keyof CapitalProfileForm, value: string) => {
+    setCapitalProfileForm((current) => ({
+      ...current,
+      [field]: field === 'role' ? (value as CapitalMemberRole) : value,
+    }));
+  };
+
+  const parseOptionalCapitalNumber = (value: string, label: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed.replace(/,/g, ''));
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      throw new Error(`${label} must be a non-negative number`);
+    }
+    return parsed;
+  };
+
+  const handleCapitalProfileSave = async () => {
+    const displayName = capitalProfileForm.displayName.trim();
+    const firm = capitalProfileForm.firm.trim();
+    const currencyCode = capitalProfileForm.currencyCode.trim().toUpperCase();
+
+    try {
+      if (!displayName) throw new Error('Display name is required');
+      if (!firm) throw new Error('Firm is required');
+      if (!/^[A-Z]{3}$/.test(currencyCode)) throw new Error('Currency code must be a 3-letter ISO code');
+
+      const aumNumeric = parseOptionalCapitalNumber(capitalProfileForm.aumNumeric, 'AUM numeric value');
+      const checkSizeMin = parseOptionalCapitalNumber(capitalProfileForm.checkSizeMin, 'Minimum check size');
+      const checkSizeMax = parseOptionalCapitalNumber(capitalProfileForm.checkSizeMax, 'Maximum check size');
+
+      if (checkSizeMin !== null && checkSizeMax !== null && checkSizeMax < checkSizeMin) {
+        throw new Error('Maximum check size must be greater than or equal to minimum check size');
+      }
+
+      setIsSavingCapitalProfile(true);
+      setCapitalProfileError(null);
+      setCapitalProfileSuccess(null);
+
+      const focusSectors = capitalProfileForm.focusSectors
+        .split(',')
+        .map((sector) => sector.trim())
+        .filter(Boolean)
+        .slice(0, 12);
+
+      const savedProfile = await updateMyCapitalMemberProfile({
+        role: capitalProfile?.role ?? capitalProfileForm.role,
+        displayName,
+        firm,
+        title: capitalProfileForm.title.trim() || null,
+        location: capitalProfileForm.location.trim() || null,
+        bio: capitalProfileForm.bio.trim() || null,
+        investmentThesis: capitalProfileForm.investmentThesis.trim() || null,
+        focusSectors,
+        aumDisplay: capitalProfileForm.aumDisplay.trim() || null,
+        aumNumeric,
+        checkSizeDisplay: capitalProfileForm.checkSizeDisplay.trim() || null,
+        checkSizeMin,
+        checkSizeMax,
+        currencyCode,
+      });
+
+      setCapitalProfile(savedProfile);
+      setCapitalProfileForm(getCapitalProfileForm(savedProfile));
+      setIsEditingCapitalProfile(false);
+      setCapitalProfileSuccess('Capital profile saved. Changes may be reviewed by Pier.');
+      setTimeout(() => setCapitalProfileSuccess(null), 4000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to save capital profile';
+      setCapitalProfileError(message);
+    } finally {
+      setIsSavingCapitalProfile(false);
+    }
+  };
+
   if (!user) {
     return (
       <PageLayout>
@@ -1144,6 +1338,257 @@ const ProfilePage: React.FC = () => {
                     )}
                   </div>
                 </div>
+              </motion.div>
+
+              {/* Capital Profile */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+                className="rounded-2xl bg-surface border border-border p-8"
+              >
+                <div className="flex items-center justify-between gap-4 mb-6">
+                  <div className="flex items-center gap-2">
+                    <Building size={20} className="text-accent" />
+                    <h3 style={{ fontSize: '20px', fontWeight: 400 }} className="text-text-primary">
+                      Capital Profile
+                    </h3>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {capitalProfile && (
+                      <>
+                        <span className="rounded-full border border-border bg-surface-elevated px-3 py-1 text-text-secondary" style={{ fontSize: '12px', fontWeight: 400 }}>
+                          {getCapitalProfileStatusDisplay(capitalProfile)}
+                        </span>
+                        <span className={`rounded-full border px-3 py-1 ${capitalProfile.verified ? 'border-accent/30 bg-accent/10 text-accent' : 'border-border bg-surface-elevated text-text-secondary'}`} style={{ fontSize: '12px', fontWeight: 400 }}>
+                          {capitalProfile.verified ? 'Verified' : 'Not verified'}
+                        </span>
+                      </>
+                    )}
+                    {!isLoadingCapitalProfile && !isEditingCapitalProfile && (
+                      <button
+                        type="button"
+                        onClick={handleCapitalProfileEdit}
+                        className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent hover:bg-accent/20 transition-colors"
+                        style={{ fontSize: '12px', fontWeight: 400 }}
+                      >
+                        {capitalProfile ? 'Edit' : 'Set Up'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {capitalProfileSuccess && (
+                  <div className="mb-5 rounded-lg border border-green-500/20 bg-green-500/10 p-3 text-green-400" style={{ fontSize: '13px', fontWeight: 300 }}>
+                    {capitalProfileSuccess}
+                  </div>
+                )}
+
+                {isEditingCapitalProfile ? (
+                  <div className="space-y-5">
+                    <p className="text-text-secondary leading-relaxed" style={{ fontSize: '13px', fontWeight: 300 }}>
+                      Changes may be reviewed by Pier before your network profile is promoted or published.
+                    </p>
+
+                    {!capitalProfile && (
+                      <div>
+                        <label className="block text-text-tertiary mb-2" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Network Role
+                        </label>
+                        <select
+                          value={capitalProfileForm.role}
+                          onChange={(event) => updateCapitalProfileForm('role', event.target.value)}
+                          className="w-full px-4 py-3 rounded-lg bg-surface-elevated border border-border text-text-primary focus:outline-none focus:border-accent"
+                          style={{ fontSize: '14px', fontWeight: 400 }}
+                        >
+                          <option value="lp">Limited Partner</option>
+                          <option value="gp">General Partner</option>
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {[
+                        { field: 'displayName' as const, label: 'Display Name', required: true },
+                        { field: 'firm' as const, label: 'Firm', required: true },
+                        { field: 'title' as const, label: 'Title' },
+                        { field: 'location' as const, label: 'Location' },
+                        { field: 'currencyCode' as const, label: 'Currency Code', placeholder: 'USD' },
+                        { field: 'aumDisplay' as const, label: 'AUM Display', placeholder: '$250M AUM' },
+                        { field: 'aumNumeric' as const, label: 'AUM Numeric', placeholder: '250000000' },
+                        { field: 'checkSizeDisplay' as const, label: 'Check Size Display', placeholder: '$250K - $1M' },
+                        { field: 'checkSizeMin' as const, label: 'Check Size Min', placeholder: '250000' },
+                        { field: 'checkSizeMax' as const, label: 'Check Size Max', placeholder: '1000000' },
+                      ].map((item) => (
+                        <div key={item.field}>
+                          <label className="block text-text-tertiary mb-2" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {item.label}{item.required ? ' *' : ''}
+                          </label>
+                          <input
+                            type="text"
+                            value={capitalProfileForm[item.field]}
+                            onChange={(event) => updateCapitalProfileForm(item.field, event.target.value)}
+                            placeholder={item.placeholder}
+                            className="w-full px-4 py-3 rounded-lg bg-surface-elevated border border-border text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                            style={{ fontSize: '14px', fontWeight: 400 }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div>
+                      <label className="block text-text-tertiary mb-2" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Focus Sectors
+                      </label>
+                      <input
+                        type="text"
+                        value={capitalProfileForm.focusSectors}
+                        onChange={(event) => updateCapitalProfileForm('focusSectors', event.target.value)}
+                        placeholder="Private credit, SaaS, Hospitality"
+                        className="w-full px-4 py-3 rounded-lg bg-surface-elevated border border-border text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                        style={{ fontSize: '14px', fontWeight: 400 }}
+                      />
+                      <p className="mt-2 text-text-tertiary" style={{ fontSize: '12px', fontWeight: 300 }}>
+                        Separate sectors with commas. Up to 12 sectors are saved.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-text-tertiary mb-2" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Bio
+                      </label>
+                      <textarea
+                        value={capitalProfileForm.bio}
+                        onChange={(event) => updateCapitalProfileForm('bio', event.target.value)}
+                        rows={4}
+                        className="w-full resize-none px-4 py-3 rounded-lg bg-surface-elevated border border-border text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                        style={{ fontSize: '14px', fontWeight: 400 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-text-tertiary mb-2" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Thesis
+                      </label>
+                      <textarea
+                        value={capitalProfileForm.investmentThesis}
+                        onChange={(event) => updateCapitalProfileForm('investmentThesis', event.target.value)}
+                        rows={4}
+                        className="w-full resize-none px-4 py-3 rounded-lg bg-surface-elevated border border-border text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent"
+                        style={{ fontSize: '14px', fontWeight: 400 }}
+                      />
+                    </div>
+
+                    {capitalProfileError && (
+                      <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-red-400" style={{ fontSize: '13px', fontWeight: 300 }}>
+                        {capitalProfileError}
+                      </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        type="button"
+                        onClick={handleCapitalProfileCancel}
+                        disabled={isSavingCapitalProfile}
+                        className="flex-1 px-4 py-2.5 rounded-lg bg-surface-elevated hover:bg-border text-text-primary transition-colors disabled:opacity-50"
+                        style={{ fontSize: '14px', fontWeight: 400 }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCapitalProfileSave}
+                        disabled={isSavingCapitalProfile}
+                        className="flex-1 px-4 py-2.5 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-colors disabled:opacity-50"
+                        style={{ fontSize: '14px', fontWeight: 400 }}
+                      >
+                        {isSavingCapitalProfile ? 'Saving...' : 'Save Capital Profile'}
+                      </button>
+                    </div>
+                  </div>
+                ) : isLoadingCapitalProfile ? (
+                  <p className="text-text-tertiary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                    Loading capital profile...
+                  </p>
+                ) : capitalProfileError ? (
+                  <p className="text-text-tertiary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                    {capitalProfileError}
+                  </p>
+                ) : capitalProfile ? (
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {[
+                        { label: 'Role', value: getCapitalRoleDisplay(capitalProfile.role) },
+                        { label: 'Firm', value: capitalProfile.firm },
+                        { label: 'Title', value: capitalProfile.title },
+                        { label: 'Location', value: capitalProfile.location },
+                        { label: 'AUM', value: capitalProfile.aum },
+                        { label: 'Check Size', value: capitalProfile.checkSize },
+                        { label: 'Published Status', value: getCapitalProfileStatusDisplay(capitalProfile) },
+                      ].map((item) => (
+                        <div key={item.label} className="rounded-lg bg-surface-elevated border border-border px-4 py-3">
+                          <p className="text-text-tertiary mb-1" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {item.label}
+                          </p>
+                          <p className="text-text-primary" style={{ fontSize: '14px', fontWeight: 400 }}>
+                            {item.value || 'Not provided'}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div>
+                      <p className="text-text-tertiary mb-2" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Focus Sectors
+                      </p>
+                      {capitalProfile.focusSectors.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {capitalProfile.focusSectors.map((sector) => (
+                            <span key={sector} className="rounded-full bg-surface-elevated border border-border px-3 py-1.5 text-text-primary" style={{ fontSize: '13px', fontWeight: 400 }}>
+                              {sector}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-text-tertiary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                          Not provided
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="text-text-tertiary mb-2" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Bio
+                      </p>
+                      <p className="text-text-secondary leading-relaxed" style={{ fontSize: '14px', fontWeight: 300 }}>
+                        {capitalProfile.bio || 'Not provided'}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-text-tertiary mb-2" style={{ fontSize: '11px', fontWeight: 300, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Thesis
+                      </p>
+                      <p className="text-text-secondary leading-relaxed" style={{ fontSize: '14px', fontWeight: 300 }}>
+                        {capitalProfile.investmentThesis || 'Not provided'}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <p className="text-text-secondary leading-relaxed" style={{ fontSize: '14px', fontWeight: 300 }}>
+                      Capital profile not set up. Contact the Pier team to publish your network profile.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleCapitalProfileEdit}
+                      className="px-4 py-2.5 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-colors"
+                      style={{ fontSize: '14px', fontWeight: 400 }}
+                    >
+                      Start Draft Profile
+                    </button>
+                  </div>
+                )}
               </motion.div>
 
               {/* Preferences */}

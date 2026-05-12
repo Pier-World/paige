@@ -57,7 +57,7 @@ export const PerksSpotlight: React.FC = () => {
           </p>
         </div>
         <Link
-          to="/perks"
+          to="/partners"
           className="flex items-center gap-2 text-sm font-medium text-gray-900 hover:text-gray-600 transition-colors"
         >
           View all
@@ -74,7 +74,7 @@ export const PerksSpotlight: React.FC = () => {
             transition={{ delay: index * 0.1 }}
           >
             <Link
-              to={`/perks/${perk.id}`}
+              to="/partners"
               className="group block bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all"
             >
               <div className="aspect-[4/3] overflow-hidden bg-gray-100">
@@ -108,7 +108,7 @@ export const PerksSpotlight: React.FC = () => {
 
       <div className="text-center">
         <Link
-          to="/perks"
+          to="/partners"
           className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors"
         >
           Explore all perks

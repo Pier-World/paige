@@ -65,7 +65,7 @@ export function UpcomingEvents({ events = defaultEvents }: UpcomingEventsProps) 
 
   const handleEventClick = (event: Event) => {
     // Navigate to calendar page - could also pass event ID as query param
-    navigate('/calendar', { state: { eventId: event.id } });
+    navigate('/events', { state: { eventId: event.id } });
   };
 
   return (
