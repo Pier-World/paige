@@ -64,17 +64,20 @@ export function shouldClearLocalSessionOnInitError(message: string | undefined):
  */
 export function mapAuthErrorMessage(
   rawMessage: string | undefined,
-  context: 'otp_send' | 'otp_verify' | 'password' | 'profile'
+  context: 'otp_send' | 'otp_verify' | 'password' | 'profile',
+  options?: { errorCode?: string }
 ): AuthFlowMessage {
   const raw = (rawMessage || '').trim();
   const m = raw.toLowerCase();
+  const code = (options?.errorCode || '').toLowerCase();
+  const blob = `${m} ${code}`.trim();
 
   if (context === 'profile') {
     return membershipMessage();
   }
 
   if (context === 'otp_send') {
-    if (looksLikeOtpSendNoMembership(raw)) {
+    if (looksLikeOtpSendNoMembership(blob)) {
       return membershipMessage();
     }
     if (m.includes('too many requests') || m.includes('rate limit')) {
@@ -146,4 +149,26 @@ export class AuthUserFacingError extends Error {
 
 export function isAuthUserFacingError(e: unknown): e is AuthUserFacingError {
   return e instanceof AuthUserFacingError;
+}
+
+/**
+ * Ensures login UI can show structured copy even if a caller only passes a plain `Error`
+ * (e.g. older bundles, cached JS, or a code path that lost the subclass).
+ */
+export function coerceToAuthUserFacingError(
+  err: Error,
+  context: 'otp_send' | 'otp_verify' | 'password' | 'profile'
+): AuthUserFacingError {
+  if (isAuthUserFacingError(err)) {
+    return err;
+  }
+  const raw =
+    typeof err.message === 'string' && err.message.trim().length > 0
+      ? err.message
+      : 'Unable to complete the request. Please try again.';
+  const code =
+    typeof (err as { code?: unknown }).code === 'string'
+      ? ((err as { code?: string }).code as string)
+      : undefined;
+  return new AuthUserFacingError(mapAuthErrorMessage(raw, context, { errorCode: code }));
 }

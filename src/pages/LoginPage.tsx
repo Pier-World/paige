@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { isAuthUserFacingError } from '../lib/authErrors';
+import { coerceToAuthUserFacingError, isAuthUserFacingError } from '../lib/authErrors';
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SEC = 60;
@@ -68,7 +68,7 @@ const LoginPage: React.FC = () => {
     try {
       const { error: sendError } = await sendMagicLink(email);
       if (sendError) {
-        setAuthError(sendError);
+        setAuthError(coerceToAuthUserFacingError(sendError, 'otp_send'));
         return;
       }
       setStep('code');
@@ -88,7 +88,7 @@ const LoginPage: React.FC = () => {
       try {
         const { data, error: verifyError } = await verifyMagicLinkCode(email, token);
         if (verifyError) {
-          setAuthError(verifyError);
+          setAuthError(coerceToAuthUserFacingError(verifyError, 'otp_verify'));
           return;
         }
         if (data) navigate('/');
@@ -152,7 +152,7 @@ const LoginPage: React.FC = () => {
     try {
       const { data, error: signInError } = await signIn(email, password);
       if (signInError) {
-        setAuthError(signInError);
+        setAuthError(coerceToAuthUserFacingError(signInError, 'password'));
         return;
       }
       if (data) navigate('/');

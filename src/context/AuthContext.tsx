@@ -319,7 +319,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (signInError) {
         setIsLoading(false);
-        const display = mapAuthErrorMessage(signInError.message, 'password');
+        const display = mapAuthErrorMessage(signInError.message, 'password', {
+          errorCode:
+            typeof (signInError as { code?: string }).code === 'string'
+              ? (signInError as { code?: string }).code
+              : undefined,
+        });
         return {
           data: null,
           error: new AuthUserFacingError(display),
@@ -371,7 +376,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         },
       });
       if (error) {
-        const display = mapAuthErrorMessage(error.message, 'otp_send');
+        const display = mapAuthErrorMessage(error.message, 'otp_send', {
+          errorCode: typeof (error as { code?: string }).code === 'string' ? (error as { code?: string }).code : undefined,
+        });
         return { error: new AuthUserFacingError(display) };
       }
       return { error: null };
@@ -397,14 +404,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         type: 'email',
       });
       if (verifyError) {
-        const display = mapAuthErrorMessage(verifyError.message, 'otp_verify');
+        const display = mapAuthErrorMessage(verifyError.message, 'otp_verify', {
+          errorCode:
+            typeof (verifyError as { code?: string }).code === 'string'
+              ? (verifyError as { code?: string }).code
+              : undefined,
+        });
         return {
           data: null,
           error: new AuthUserFacingError(display),
         };
       }
       if (!data?.user) {
-        return { data: null, error: new Error('Verification failed. Please try again.') };
+        return {
+          data: null,
+          error: new AuthUserFacingError({
+            kind: 'plain',
+            text: 'Verification failed. Please try again.',
+          }),
+        };
       }
       const profile = await fetchUserProfile(data.user.id);
       if (!profile) {
@@ -420,7 +438,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return {
         data: null,
         error: new AuthUserFacingError(
-          mapAuthErrorMessage(err instanceof Error ? err.message : undefined, 'otp_verify')
+          mapAuthErrorMessage(err instanceof Error ? err.message : undefined, 'otp_verify', {
+            errorCode:
+              err instanceof Error && typeof (err as { code?: string }).code === 'string'
+                ? (err as { code?: string }).code
+                : undefined,
+          })
         ),
       };
     }
