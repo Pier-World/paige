@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Building2, Check, MapPin, Search, TrendingUp } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { getCapitalMembers, type CapitalMember } from '../../lib/api/capitalMarkets';
@@ -53,6 +53,7 @@ export default function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     let ignore = false;
@@ -82,8 +83,17 @@ export default function MembersPage() {
     };
   }, [reloadNonce]);
 
-  const gps = members.filter((member) => member.role === 'gp');
-  const lps = members.filter((member) => member.role === 'lp');
+  const filteredMembers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return members;
+    return members.filter((m) => {
+      const hay = [m.name, m.firm, m.title, m.location, m.aum, ...m.focusSectors].join(' ').toLowerCase();
+      return hay.includes(q);
+    });
+  }, [members, searchQuery]);
+
+  const gps = filteredMembers.filter((member) => member.role === 'gp');
+  const lps = filteredMembers.filter((member) => member.role === 'lp');
   const locationCount = new Set(members.map((member) => member.location).filter(Boolean)).size;
 
   return (
@@ -105,6 +115,8 @@ export default function MembersPage() {
           <input
             type="text"
             placeholder="Search members..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-[6px] border border-border bg-surface py-2.5 pl-9 pr-4 text-[14px] text-ink placeholder:text-slate focus:border-ink focus:outline-none"
           />
         </div>
@@ -117,6 +129,12 @@ export default function MembersPage() {
 
       {!loading && !error ? (
         <>
+      {searchQuery.trim() && filteredMembers.length === 0 ? (
+        <div className="mb-8 rounded-[4px] border border-border bg-surface px-5 py-4 text-[14px] text-slate">
+          No members match "{searchQuery.trim()}". Try a name, firm, or sector.
+        </div>
+      ) : null}
+
       <div className="mb-8 grid grid-cols-2 gap-6 md:flex">
         {[
           { label: 'Total Members', value: members.length },

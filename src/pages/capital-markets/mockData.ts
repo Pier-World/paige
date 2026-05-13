@@ -34,11 +34,14 @@ export interface CapitalEvent {
   endDate: string;
   location: string;
   city: string;
-  capacity: number;
+  capacity: number | null;
   registeredCount: number;
   registered: boolean;
   description: string;
   upcoming: boolean;
+  registrationUrl?: string;
+  registrationLabel?: string;
+  recapUrl?: string;
 }
 
 export interface CapitalPartner {
@@ -233,6 +236,9 @@ export const events: CapitalEvent[] = [
     capacity: 24,
     registeredCount: 20,
     registered: true,
+    registrationUrl: '',
+    registrationLabel: 'Register',
+    recapUrl: '',
     description:
       'An intimate dinner for Pier principals: GPs and LPs at the frontier of emerging manager allocations. Conversation off the record. Seats strictly limited.',
     upcoming: true,
@@ -248,6 +254,9 @@ export const events: CapitalEvent[] = [
     capacity: 60,
     registeredCount: 48,
     registered: false,
+    registrationUrl: '',
+    registrationLabel: 'Register',
+    recapUrl: '',
     description:
       'Pier flagship quarterly gathering with panels and structured introductions between LPs deploying into emerging managers and GPs raising their next fund.',
     upcoming: true,
@@ -263,6 +272,9 @@ export const events: CapitalEvent[] = [
     capacity: 18,
     registeredCount: 18,
     registered: false,
+    registrationUrl: '',
+    registrationLabel: 'Register',
+    recapUrl: '',
     description:
       'Breakfast roundtable for West Coast family offices and emerging manager GPs. Three prepared practitioners, open discussion, no slides.',
     upcoming: false,
@@ -278,6 +290,9 @@ export const events: CapitalEvent[] = [
     capacity: 30,
     registeredCount: 30,
     registered: true,
+    registrationUrl: '',
+    registrationLabel: 'Register',
+    recapUrl: '',
     description:
       'Three-day curated tour introducing Pier members to leading MENA family office allocators.',
     upcoming: false,

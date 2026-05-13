@@ -276,6 +276,8 @@ export type Database = {
           registered_count: number;
           description: string;
           recap_url: string | null;
+          external_registration_url: string | null;
+          external_registration_label: string | null;
           featured: boolean;
           sort_order: number;
           published_at: string | null;
@@ -296,6 +298,8 @@ export type Database = {
           registered_count?: number;
           description: string;
           recap_url?: string | null;
+          external_registration_url?: string | null;
+          external_registration_label?: string | null;
           featured?: boolean;
           sort_order?: number;
           published_at?: string | null;
@@ -316,6 +320,8 @@ export type Database = {
           registered_count?: number;
           description?: string;
           recap_url?: string | null;
+          external_registration_url?: string | null;
+          external_registration_label?: string | null;
           featured?: boolean;
           sort_order?: number;
           published_at?: string | null;

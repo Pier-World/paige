@@ -41,11 +41,16 @@ export interface CapitalEvent {
   endDate: string;
   location: string;
   city: string;
-  capacity: number;
+  /** Null when capacity is not published (no misleading progress bar). */
+  capacity: number | null;
   registeredCount: number;
   registered: boolean;
   description: string;
   upcoming: boolean;
+  /** Off-platform registration (e.g. Luma). Empty when unset. */
+  registrationUrl: string;
+  registrationLabel: string;
+  recapUrl: string;
 }
 
 export interface CapitalPartner {
@@ -236,11 +241,14 @@ function mapEvent(row: CapitalEventRow): CapitalEvent {
     endDate: row.ends_at ?? row.starts_at,
     location: row.location,
     city: row.city,
-    capacity: row.capacity ?? 0,
+    capacity: row.capacity,
     registeredCount: row.registered_count,
     registered: false,
     description: row.description,
     upcoming: row.status === 'upcoming',
+    registrationUrl: row.external_registration_url ?? '',
+    registrationLabel: (row.external_registration_label ?? '').trim() || 'Register',
+    recapUrl: row.recap_url ?? '',
   };
 }
 

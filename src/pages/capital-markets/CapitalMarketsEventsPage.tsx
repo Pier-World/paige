@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Calendar, Clock, MapPin, Users } from 'lucide-react';
+import { Calendar, Clock, ExternalLink, MapPin, Users } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -11,7 +11,7 @@ import {
   type CapitalEventRsvp,
 } from '../../lib/api/capitalMarkets';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
-import { formatDate } from '../../lib/utils';
+import { cn, formatDate } from '../../lib/utils';
 import { eventTypeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
@@ -146,11 +146,16 @@ export default function CapitalMarketsEventsPage() {
         ) : (
           <div className="grid gap-4">
             {upcoming.map((event) => {
-            const spotsLeft = event.capacity - event.registeredCount;
-            const capacityPercent = event.capacity > 0 ? Math.min(100, (event.registeredCount / event.capacity) * 100) : 0;
+            const hasCapacity = event.capacity != null && event.capacity > 0;
+            const spotsLeft = hasCapacity ? event.capacity! - event.registeredCount : null;
+            const capacityPercent =
+              hasCapacity && event.capacity! > 0
+                ? Math.min(100, (event.registeredCount / event.capacity!) * 100)
+                : 0;
             const rsvp = rsvpByEventId.get(event.databaseId);
             const hasRsvp = Boolean(rsvp);
-            const waitlist = spotsLeft <= 0;
+            const waitlist = hasCapacity && spotsLeft !== null && spotsLeft <= 0;
+            const hasExternalRegister = Boolean(event.registrationUrl?.trim());
             return (
               <div
                 key={event.id}
@@ -182,10 +187,12 @@ export default function CapitalMarketsEventsPage() {
                       <MapPin className="h-3.5 w-3.5" />
                       {event.city}
                     </span>
-                    <span className="flex items-center gap-1.5">
-                      <Users className="h-3.5 w-3.5" />
-                      {event.registeredCount}/{event.capacity} attending
-                    </span>
+                    {hasCapacity ? (
+                      <span className="flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5" />
+                        {event.registeredCount}/{event.capacity} attending
+                      </span>
+                    ) : null}
                   </div>
                   <p className="mt-4 max-w-2xl text-[14px] leading-relaxed text-slate">
                     {event.description}
@@ -198,18 +205,38 @@ export default function CapitalMarketsEventsPage() {
                     <p className="text-[13px] text-ink">{event.location}</p>
                     <p className="text-[13px] text-slate">{event.city}</p>
 
-                    <div className="mt-4">
-                      <p className="eyebrow mb-1">Capacity</p>
-                      <div className="mt-1.5 h-0.5 w-full rounded-full bg-border">
-                        <div className="h-full rounded-full bg-ink" style={{ width: `${capacityPercent}%` }} />
+                    {hasCapacity ? (
+                      <div className="mt-4">
+                        <p className="eyebrow mb-1">Capacity</p>
+                        <div className="mt-1.5 h-0.5 w-full rounded-full bg-border">
+                          <div className="h-full rounded-full bg-ink" style={{ width: `${capacityPercent}%` }} />
+                        </div>
+                        <p className="mt-1.5 text-[12px] text-slate">
+                          {spotsLeft !== null && spotsLeft > 0
+                            ? `${spotsLeft} spots remaining`
+                            : 'Waitlist only'}
+                        </p>
                       </div>
-                      <p className="mt-1.5 text-[12px] text-slate">
-                        {spotsLeft > 0 ? `${spotsLeft} spots remaining` : 'Waitlist only'}
-                      </p>
-                    </div>
+                    ) : (
+                      <p className="mt-4 text-[12px] text-slate">Capacity shared with confirmed guests.</p>
+                    )}
                   </div>
 
-                  <div className="mt-5">
+                  <div className="mt-5 flex flex-col gap-2">
+                    {hasExternalRegister ? (
+                      <a
+                        href={event.registrationUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          'flex h-8 w-full items-center justify-center gap-2 rounded-[6px] border border-ink bg-ink px-3 text-[13px] font-medium text-parchment transition-colors hover:bg-ink/90',
+                          'dark:border-gilt dark:bg-gilt dark:text-ink dark:hover:bg-gilt/90'
+                        )}
+                      >
+                        {event.registrationLabel}
+                        <ExternalLink className="h-3.5 w-3.5 opacity-80" />
+                      </a>
+                    ) : null}
                     {rsvp?.status === 'confirmed' || event.registered ? (
                       <div className="flex items-center gap-2 rounded-[4px] border border-ledger/20 bg-ledger/[0.06] px-3 py-2">
                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-ledger" />
@@ -222,6 +249,7 @@ export default function CapitalMarketsEventsPage() {
                     ) : (
                       <Button
                         size="sm"
+                        variant={hasExternalRegister ? 'outline' : 'primary'}
                         className="w-full"
                         loading={submittingEventId === event.databaseId}
                         disabled={submittingEventId !== null}
@@ -268,9 +296,20 @@ export default function CapitalMarketsEventsPage() {
                     <p className="mt-0.5 text-[13px] text-slate">{event.city}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   {event.registered ? <Badge variant="muted">Attended</Badge> : null}
                   <Badge variant="closed">{eventTypeLabels[event.type]}</Badge>
+                  {event.recapUrl?.trim() ? (
+                    <a
+                      href={event.recapUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink underline-offset-4 hover:underline"
+                    >
+                      Recap
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  ) : null}
                 </div>
               </div>
             ))}
