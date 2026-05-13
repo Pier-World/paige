@@ -16,11 +16,8 @@ export function Header({ currentPage }: HeaderProps) {
 
   const navItems = [
     { id: 'home', label: 'Home', path: '/dashboard' },
-    { id: 'legacy', label: 'Discover', path: '/home' },
     { id: 'calendar', label: 'Upcoming', path: '/events' },
     { id: 'perks', label: 'Perks', path: '/partners' },
-    { id: 'memberships', label: 'Memberships', path: '/memberships' },
-    { id: 'experiences', label: 'Experiences', path: '/experiences' },
   ];
 
   const isActive = (path: string) => {

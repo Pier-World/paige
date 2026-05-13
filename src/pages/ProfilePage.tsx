@@ -1150,11 +1150,11 @@ const ProfilePage: React.FC = () => {
                       </span>
                     </div>
                     <button
-                      onClick={() => navigate('/memberships')}
+                      onClick={() => navigate('/partners')}
                       className="block w-full mt-2 text-accent hover:text-[#d4c4a6] transition-colors"
                       style={{ fontSize: '13px', fontWeight: 400 }}
                     >
-                      Upgrade Membership →
+                      Member benefits →
                     </button>
                   </div>
 

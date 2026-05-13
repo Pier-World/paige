@@ -49,7 +49,7 @@ export function HotelRecommendationCard({ hotel, index, onOpenConcierge }: Hotel
   const [showFullDetail, setShowFullDetail] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
-  // Check if this is being rendered as a modal (from HomePage)
+  // Check if this is being rendered as a modal (full-screen overlay pattern)
   const isModal = (hotel as any).__isModal;
   
   // If modal, show detail immediately

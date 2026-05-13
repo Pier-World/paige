@@ -8,9 +8,6 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationGuard } from './components/NavigationGuard';
 import { CapitalMarketsLayout } from './components/layout/CapitalMarketsLayout';
 
-const HomePage = lazy(() => import('./pages/HomePage'));
-const MembershipsPage = lazy(() => import('./pages/MembershipsPage'));
-const ExperiencesPage = lazy(() => import('./pages/ExperiencesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const AllPreferencesPage = lazy(() => import('./pages/AllPreferencesPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -34,9 +31,9 @@ const CapitalMarketsMembersPage = lazy(() => import('./pages/capital-markets/Mem
  * - `/calendar` → `/events`
  * - `/perks`, `/perks/:id` → `/partners`
  * - `/travel` → `/concierge`
- * - `/tasks` → `/dashboard`
+ * - `/tasks`, `/home`, `/memberships`, `/experiences`, `/explore`, `/membership` → `/dashboard`
  * - `/admin` (no trailing path) → `/dashboard`
- * - `CalendarPage`, `PerksPage`, `TravelPage`, `TravelPageOld`, `TasksPage`, `PerkDetailPage`, `EventDetailPage` modules deleted.
+ * - Legacy marketing shell (`HomePage`, `MembershipsPage`, `ExperiencesPage`) removed; capital markets routes are canonical.
  */
 
 const LoadingSpinner = () => (
@@ -235,7 +232,7 @@ function App() {
               }
             />
 
-            {/* Default app shell: capital markets dashboard (legacy carousel home lives at /home) */}
+            {/* Default: capital markets dashboard */}
             <Route
               path="/"
               element={
@@ -244,14 +241,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/home"
-              element={
-                <ProtectedRoute>
-                  <HomePage />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/home" element={<Navigate to="/dashboard" replace />} />
             <Route
               path="/calendar"
               element={
@@ -268,22 +258,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/memberships"
-              element={
-                <ProtectedRoute>
-                  <MembershipsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/experiences"
-              element={
-                <ProtectedRoute>
-                  <ExperiencesPage />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/memberships" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/experiences" element={<Navigate to="/dashboard" replace />} />
             <Route
               path="/profile"
               element={
@@ -324,9 +300,9 @@ function App() {
             <Route path="/tasks" element={<Navigate to="/dashboard" replace />} />
             <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
             <Route path="/perks/:id" element={<Navigate to="/partners" replace />} />
-            <Route path="/explore" element={<Navigate to="/experiences" replace />} />
-            <Route path="/explore/:id" element={<Navigate to="/experiences" replace />} />
-            <Route path="/membership" element={<Navigate to="/memberships" replace />} />
+            <Route path="/explore" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/explore/:id" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/membership" element={<Navigate to="/dashboard" replace />} />
 
             {/* Catch all route */}
             <Route path="*" element={<NotFoundPage />} />
