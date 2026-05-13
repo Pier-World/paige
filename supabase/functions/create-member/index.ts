@@ -115,28 +115,31 @@ Deno.serve(async (req) => {
       return 'Premium';
     };
 
+    const memberPayload = {
+      id: authData.user.id,
+      first_name: memberData.firstName,
+      last_name: memberData.lastName,
+      email: memberData.email,
+      phone: memberData.phone || '',
+      member_id: memberId,
+      stripe_customer_id: memberData.stripeCustomerId,
+      subscription_status: 'trialing',
+      trial_ends_at: trialEndsAt.toISOString(),
+      membership_level: mapMembershipLevel(memberData.membershipLevel),
+      role: 'member',
+      preferences: {
+        interests: memberData.interests || [],
+        preferred_cities: memberData.preferredCities || [],
+      },
+      cards: memberData.cards || [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // Upsert: DB trigger on auth.users may have inserted a stub members row first.
     const { error: insertError } = await supabaseAdmin
       .from('members')
-      .insert({
-        id: authData.user.id,
-        first_name: memberData.firstName,
-        last_name: memberData.lastName,
-        email: memberData.email,
-        phone: memberData.phone || '',
-        member_id: memberId,
-        stripe_customer_id: memberData.stripeCustomerId,
-        subscription_status: 'trialing',
-        trial_ends_at: trialEndsAt.toISOString(),
-        membership_level: mapMembershipLevel(memberData.membershipLevel),
-        role: 'member',
-        preferences: {
-          interests: memberData.interests || [],
-          preferred_cities: memberData.preferredCities || [],
-        },
-        cards: memberData.cards || [],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+      .upsert(memberPayload, { onConflict: 'id' });
 
     if (insertError) {
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
