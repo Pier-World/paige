@@ -124,7 +124,12 @@ export default function NewMember() {
       }
 
       setSuccess(true);
-      setSuccessMessage(data?.message || `Member created! Member ID: ${data?.memberId}`);
+      const baseMsg = data?.message || `Member created! Member ID: ${data?.memberId}`;
+      const otpNote =
+        data?.otpSent === false && data?.otpError
+          ? ` Sign-in email failed: ${data.otpError}`
+          : '';
+      setSuccessMessage(`${baseMsg}${otpNote}`);
 
       setForm({
         firstName: '',

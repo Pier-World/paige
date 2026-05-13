@@ -192,19 +192,27 @@ Deno.serve(async (req) => {
     const { error: otpError } = await supabaseAdmin.auth.signInWithOtp({
       email: memberData.email,
       options: {
+        shouldCreateUser: false,
         emailRedirectTo: `${frontendUrl}/`,
       },
     });
 
+    const otpSent = !otpError;
     if (otpError) {
       console.error('Failed to send OTP:', otpError);
     }
+
+    const message = otpSent
+      ? `Member created successfully! Access code sent to ${memberData.email}`
+      : `Member created (ID ${memberId}), but the sign-in email could not be sent. Send a code manually or check Auth logs. ${otpError?.message ?? ''}`;
 
     return new Response(
       JSON.stringify({
         success: true,
         memberId,
-        message: `Member created successfully! Access code sent to ${memberData.email}`,
+        otpSent,
+        ...(otpError ? { otpError: otpError.message } : {}),
+        message,
       }),
       {
         status: 200,

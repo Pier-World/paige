@@ -1,4 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import {
+  AuthUserFacingError,
+  mapAuthErrorMessage,
+  shouldClearLocalSessionOnInitError,
+} from '../lib/authErrors';
 import { supabase } from '../lib/supabase';
 import type { User } from '../types';
 
@@ -177,32 +182,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const initializeAuth = async () => {
       try {
-        // Get session with hard timeout so we don't hang (e.g. Supabase unreachable)
-        const session = await Promise.race([
-          supabase.auth.getSession().then((r) => r.data?.session ?? null),
-          new Promise<null>((resolve) =>
-            setTimeout(() => resolve(null), SESSION_FETCH_TIMEOUT_MS)
+        const raced = await Promise.race([
+          supabase.auth.getSession().then((r) => ({ tag: 'session' as const, ...r })),
+          new Promise<{ tag: 'timeout' }>((resolve) =>
+            setTimeout(() => resolve({ tag: 'timeout' }), SESSION_FETCH_TIMEOUT_MS)
           ),
         ]);
 
-        if (session?.user && mounted) {
-          try {
-            const profile = await Promise.race([
-              fetchUserProfile(session.user.id),
-              new Promise<null>((resolve) =>
-                setTimeout(() => resolve(null), PROFILE_FETCH_TIMEOUT_MS)
-              ),
-            ]);
-            if (mounted) {
-              setLoadingFalse();
-              if (profile) setUser(profile);
+        if (raced.tag === 'timeout') {
+          if (mounted) setLoadingFalse();
+        } else {
+          const { data, error: sessionError } = raced;
+          if (sessionError?.message && shouldClearLocalSessionOnInitError(sessionError.message)) {
+            try {
+              await supabase.auth.signOut({ scope: 'local' });
+            } catch {
+              /* ignore */
             }
-          } catch (profileError) {
-            console.error('Error fetching user profile:', profileError);
+            clearAuthData();
+          }
+
+          const session = data?.session ?? null;
+
+          if (session?.user && mounted) {
+            try {
+              const profile = await Promise.race([
+                fetchUserProfile(session.user.id),
+                new Promise<null>((resolve) =>
+                  setTimeout(() => resolve(null), PROFILE_FETCH_TIMEOUT_MS)
+                ),
+              ]);
+              if (mounted) {
+                setLoadingFalse();
+                if (profile) setUser(profile);
+              }
+            } catch (profileError) {
+              console.error('Error fetching user profile:', profileError);
+              setLoadingFalse();
+            }
+          } else if (mounted) {
             setLoadingFalse();
           }
-        } else if (mounted) {
-          setLoadingFalse();
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -271,7 +291,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         } else {
           setUser(null);
         }
-      } catch (err) {
+      } catch (_err) {
         if (mounted) {
           setUser(null);
         }
@@ -299,28 +319,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (signInError) {
         setIsLoading(false);
-        // Convert Supabase error messages to user-friendly messages
-        let friendlyMessage = 'Unable to sign in. Please try again.';
-        const errorMsg = signInError.message?.toLowerCase() || '';
-        
-        if (errorMsg.includes('invalid login credentials') || 
-            errorMsg.includes('invalid_credentials') ||
-            errorMsg.includes('invalid password') ||
-            errorMsg.includes('wrong password')) {
-          friendlyMessage = 'Incorrect email or password. Please try again.';
-        } else if (errorMsg.includes('email not confirmed')) {
-          friendlyMessage = 'Please verify your email address before signing in.';
-        } else if (errorMsg.includes('too many requests') || errorMsg.includes('rate limit')) {
-          friendlyMessage = 'Too many sign in attempts. Please wait a moment and try again.';
-        } else if (errorMsg.includes('user not found') || errorMsg.includes('no user')) {
-          friendlyMessage = 'No account found with this email address.';
-        } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
-          friendlyMessage = 'Connection error. Please check your internet and try again.';
-        }
-        
+        const display = mapAuthErrorMessage(signInError.message, 'password');
         return {
           data: null,
-          error: new Error(friendlyMessage)
+          error: new AuthUserFacingError(display),
         };
       }
 
@@ -328,7 +330,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsLoading(false);
         return {
           data: null,
-          error: new Error('Unable to sign in. Please try again.')
+          error: new AuthUserFacingError({
+            kind: 'plain',
+            text: 'Unable to sign in. Please try again.',
+          }),
         };
       }
 
@@ -337,7 +342,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setIsLoading(false);
         return {
           data: null,
-          error: new Error('Account found but profile could not be loaded. Please contact support.')
+          error: new AuthUserFacingError(mapAuthErrorMessage(undefined, 'profile')),
         };
       }
 
@@ -349,7 +354,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error('Sign in error:', error);
       return {
         data: null,
-        error: new Error('An unexpected error occurred. Please try again.')
+        error: new AuthUserFacingError({
+          kind: 'plain',
+          text: 'An unexpected error occurred. Please try again.',
+        }),
       };
     }
   };
@@ -363,18 +371,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         },
       });
       if (error) {
-        const friendlyMessage =
-          error.message?.toLowerCase().includes('not found') ||
-          error.message?.toLowerCase().includes('no user')
-            ? 'No account found with this email. Please contact support.'
-            : error.message;
-        return { error: new Error(friendlyMessage) };
+        const display = mapAuthErrorMessage(error.message, 'otp_send');
+        return { error: new AuthUserFacingError(display) };
       }
       return { error: null };
     } catch (err) {
       console.error('Send magic link error:', err);
       return {
-        error: err instanceof Error ? err : new Error('Failed to send access code'),
+        error: new AuthUserFacingError({
+          kind: 'plain',
+          text: err instanceof Error ? err.message : 'Failed to send access code',
+        }),
       };
     }
   };
@@ -390,9 +397,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         type: 'email',
       });
       if (verifyError) {
+        const display = mapAuthErrorMessage(verifyError.message, 'otp_verify');
         return {
           data: null,
-          error: new Error(verifyError.message || 'Invalid or expired code. Please try again.'),
+          error: new AuthUserFacingError(display),
         };
       }
       if (!data?.user) {
@@ -402,7 +410,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!profile) {
         return {
           data: null,
-          error: new Error('Account found but profile could not be loaded. Please contact support.'),
+          error: new AuthUserFacingError(mapAuthErrorMessage(undefined, 'profile')),
         };
       }
       setUser(profile);
@@ -411,7 +419,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error('Verify OTP error:', err);
       return {
         data: null,
-        error: err instanceof Error ? err : new Error('Verification failed. Please try again.'),
+        error: new AuthUserFacingError(
+          mapAuthErrorMessage(err instanceof Error ? err.message : undefined, 'otp_verify')
+        ),
       };
     }
   };
@@ -423,7 +433,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (error) throw error;
       setUser(null);
       clearAuthData();
-    } catch (error) {
+    } catch (_error) {
       // Even if signOut fails, clear local data
       clearAuthData();
       setUser(null);

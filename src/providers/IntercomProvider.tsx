@@ -10,6 +10,11 @@ export function IntercomProvider({ children }: IntercomProviderProps) {
   useEffect(() => {
     const initializeIntercom = async () => {
       try {
+        const path = window.location.pathname;
+        if (path === '/login' || path === '/forgot-password') {
+          return;
+        }
+
         // Get authenticated user
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         

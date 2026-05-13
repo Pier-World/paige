@@ -32,6 +32,10 @@ Updated the following files to only create profiles for actual members:
 
 ## Running the Cleanup
 
+### Accessing the monitoring views
+
+`valid_profiles` and `orphaned_profiles_view` join `auth.users` for classification. They are **not** granted to the `anon` or `authenticated` roles (see migration `20260512170000_security_advisor_remediation.sql`) so they do not appear on the public PostgREST API. To run the queries below, use the **Supabase SQL Editor** (dashboard), a **service-role** server client, or another privileged database session—not the browser anon key.
+
 ### Step 1: Review Orphaned Profiles
 ```sql
 -- See what will be deleted

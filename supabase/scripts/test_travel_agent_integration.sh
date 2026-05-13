@@ -5,6 +5,7 @@
 
 SUPABASE_URL="${SUPABASE_URL:-https://oifchjaqembbkdyfjctp.supabase.co}"
 ANON_KEY="${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pZmNoamFxZW1iYmtkeWZqY3RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc2MTMyMjQsImV4cCI6MjA2MzE4OTIyNH0._i2SJ0KGLHbH1e-v2lsfU6XdbVueQW-Iq4mTQslLDak}"
+SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-}"
 USER_ID="${TEST_USER_ID:-f78c2fcb-b2ba-4b75-8c4f-d7c73982c480}"
 
 echo "🧪 Testing Orchestrator → Travel Agent Integration"
@@ -48,10 +49,17 @@ sleep 3
 echo "Checking task status and results..."
 echo ""
 
-task_check=$(curl -s -X POST "${SUPABASE_URL}/rest/v1/rpc/get_task_with_ui_state" \
-  -H "Authorization: Bearer ${ANON_KEY}" \
-  -H "Content-Type: application/json" \
-  -d "{\"p_task_id\": \"${task_id}\"}" 2>/dev/null)
+if [ -n "$SERVICE_ROLE_KEY" ]; then
+  task_check=$(curl -s -X POST "${SUPABASE_URL}/rest/v1/rpc/get_task_with_ui_state" \
+    -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+    -H "Content-Type: application/json" \
+    -H "apikey: ${SERVICE_ROLE_KEY}" \
+    -d "{\"p_task_id\": \"${task_id}\"}" 2>/dev/null)
+else
+  task_check=""
+  echo "Note: SUPABASE_SERVICE_ROLE_KEY is unset; skipping RPC get_task_with_ui_state (requires service role after security migration)."
+  echo ""
+fi
 
 if [ -z "$task_check" ]; then
   # Fallback: direct query via SQL
