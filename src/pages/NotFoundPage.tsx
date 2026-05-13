@@ -13,7 +13,7 @@ const NotFoundPage: React.FC = () => {
         <p className="text-primary-600 max-w-md mx-auto mb-8">
           The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
         </p>
-        <Link to="/">
+        <Link to="/dashboard">
           <Button className="inline-flex items-center">
             <ArrowLeft size={16} className="mr-2" />
             Return to Home

@@ -467,7 +467,7 @@ const ConversationPage: React.FC = () => {
             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
               <div className="flex items-center gap-4 px-4 py-3">
                 <button
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/dashboard')}
                   className="p-2 hover:bg-surface rounded-lg transition-colors"
                 >
                   <ArrowLeft className="w-5 h-5 text-text-primary" />
@@ -478,7 +478,7 @@ const ConversationPage: React.FC = () => {
                   </h1>
                 </div>
                 <Link
-                  to="/"
+                  to="/dashboard"
                   className="px-4 py-2 rounded-lg bg-accent hover:bg-[#d4c4a6] text-background transition-colors"
                   style={{ fontSize: '13px', fontWeight: 500 }}
                 >
@@ -760,7 +760,7 @@ const ConversationPage: React.FC = () => {
               Conversations
             </h2>
             <Link
-              to="/"
+              to="/dashboard"
               className="block w-full px-5 py-3.5 rounded-xl bg-accent hover:bg-[#d4c4a6] text-background transition-colors text-center font-medium flex items-center justify-center gap-2"
               style={{ fontSize: '14px' }}
             >

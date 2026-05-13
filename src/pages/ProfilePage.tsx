@@ -1190,7 +1190,7 @@ const ProfilePage: React.FC = () => {
                   {/* Quick Actions */}
                   <div className="space-y-2">
                     <button
-                      onClick={() => navigate('/')}
+                      onClick={() => navigate('/dashboard')}
                       className="w-full flex items-center justify-between px-4 py-3 rounded-lg bg-surface-elevated hover:bg-border text-text-primary transition-all"
                       style={{ fontSize: '14px', fontWeight: 400 }}
                     >

@@ -15,7 +15,8 @@ export function Header({ currentPage }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navItems = [
-    { id: 'home', label: 'Home', path: '/' },
+    { id: 'home', label: 'Home', path: '/dashboard' },
+    { id: 'legacy', label: 'Discover', path: '/home' },
     { id: 'calendar', label: 'Upcoming', path: '/events' },
     { id: 'perks', label: 'Perks', path: '/partners' },
     { id: 'memberships', label: 'Memberships', path: '/memberships' },
@@ -23,8 +24,8 @@ export function Header({ currentPage }: HeaderProps) {
   ];
 
   const isActive = (path: string) => {
-    if (path === '/') {
-      return location.pathname === '/';
+    if (path === '/dashboard') {
+      return location.pathname === '/dashboard';
     }
     return location.pathname.startsWith(path);
   };
@@ -63,7 +64,7 @@ export function Header({ currentPage }: HeaderProps) {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <Link
-              to="/"
+              to="/dashboard"
               className="text-[11px] tracking-[0.3em] uppercase text-foreground font-medium hover:opacity-80 transition-opacity"
             >
               Pier

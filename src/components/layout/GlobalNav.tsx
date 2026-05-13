@@ -29,7 +29,7 @@ export const GlobalNav: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center">
+          <Link to="/dashboard" className="flex items-center">
             <span className="text-[11px] tracking-[0.3em] uppercase text-gray-900 font-medium">Pier</span>
           </Link>
 

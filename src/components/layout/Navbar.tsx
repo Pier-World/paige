@@ -71,7 +71,7 @@ export const Navbar: React.FC = () => {
       }`}
     >
       <div className="container-custom flex items-center justify-between">
-        <Link to="/" className="flex items-center">
+        <Link to="/dashboard" className="flex items-center">
           <img
             src="/Pier Logo Outline v1 1.png"
             alt="Pier Logo"

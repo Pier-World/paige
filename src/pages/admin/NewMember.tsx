@@ -79,7 +79,7 @@ export default function NewMember() {
         .maybeSingle();
 
       if (member?.role !== 'admin') {
-        navigate('/');
+        navigate('/dashboard');
         return;
       }
 

@@ -93,9 +93,9 @@ const OnboardingRoute: React.FC<{ children: React.ReactNode }> = ({ children }) 
     return <Navigate to="/login" replace />;
   }
   
-  // If onboarding is completed (explicitly true), redirect to home
+  // If onboarding is completed (explicitly true), land on capital markets shell (not legacy `/` home)
   if (user.onboarding_completed === true) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
   
   return <>{children}</>;
@@ -117,7 +117,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   // Only redirect if we're sure user is authenticated (after loading is complete)
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -162,7 +162,7 @@ function App() {
             />
             {/* Recovery links from email; must not use PublicRoute (would bounce authed session to /) */}
             <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/auth/callback" element={<Navigate to="/" replace />} />
+            <Route path="/auth/callback" element={<Navigate to="/dashboard" replace />} />
             
             {/* OAuth Callback Route (public - handles OAuth redirects) */}
             <Route path="/oauth-callback" element={<OAuthCallback />} />
@@ -235,9 +235,17 @@ function App() {
               }
             />
 
-            {/* Main Platform Routes */}
+            {/* Default app shell: capital markets dashboard (legacy carousel home lives at /home) */}
             <Route
               path="/"
+              element={
+                <ProtectedRoute>
+                  <Navigate to="/dashboard" replace />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/home"
               element={
                 <ProtectedRoute>
                   <HomePage />

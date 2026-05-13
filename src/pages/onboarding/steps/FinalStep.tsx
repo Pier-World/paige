@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 
 // Force a page reload to refresh auth context
 const reloadPage = () => {
-  window.location.href = '/';
+  window.location.href = '/dashboard';
 };
 
 interface FinalStepProps {

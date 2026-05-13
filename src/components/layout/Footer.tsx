@@ -29,7 +29,7 @@ export const Footer: React.FC = () => {
             <h3 className="text-lg font-medium mb-4">Navigation</h3>
             <ul className="space-y-2 text-primary-200">
               <li>
-                <Link to="/" className="hover:text-white transition-colors">Home</Link>
+                <Link to="/dashboard" className="hover:text-white transition-colors">Home</Link>
               </li>
               <li>
                 <Link to="/partners" className="hover:text-white transition-colors">Perks</Link>

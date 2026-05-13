@@ -91,7 +91,7 @@ const LoginPage: React.FC = () => {
           setAuthError(coerceToAuthUserFacingError(verifyError, 'otp_verify'));
           return;
         }
-        if (data) navigate('/');
+        if (data) navigate('/dashboard');
       } finally {
         setIsLoading(false);
       }
@@ -155,7 +155,7 @@ const LoginPage: React.FC = () => {
         setAuthError(coerceToAuthUserFacingError(signInError, 'password'));
         return;
       }
-      if (data) navigate('/');
+      if (data) navigate('/dashboard');
     } catch (err) {
       setAuthError(err instanceof Error ? err : new Error('An unexpected error occurred'));
     } finally {
