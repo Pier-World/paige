@@ -12,6 +12,7 @@ import {
   type CapitalDealInterest,
   type CapitalDealInterestRequestType,
 } from '../../lib/api/capitalMarkets';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
 import { formatCurrency, formatDate, formatPercent } from '../../lib/utils';
 import { typeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
@@ -26,6 +27,7 @@ export default function DealDetailPage() {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
   const [submittingRequest, setSubmittingRequest] = useState<CapitalDealInterestRequestType | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let ignore = false;
@@ -41,19 +43,31 @@ export default function DealDetailPage() {
       setError(null);
 
       try {
-        const data = await getCapitalDealBySlugOrId(id);
+        const data = await withTimeout(
+          getCapitalDealBySlugOrId(id),
+          CAPITAL_SUPABASE_TIMEOUT_MS,
+          'capital deal'
+        );
         if (ignore) return;
 
         setDeal(data);
 
         if (data && user?.id) {
-          const interestData = await getMyCapitalDealInterests(user.id, data.databaseId);
-          if (!ignore) setInterests(interestData);
+          try {
+            const interestData = await withTimeout(
+              getMyCapitalDealInterests(user.id, data.databaseId),
+              CAPITAL_SUPABASE_TIMEOUT_MS,
+              'deal interest requests'
+            );
+            if (!ignore) setInterests(interestData);
+          } catch {
+            if (!ignore) setInterests([]);
+          }
         } else {
           setInterests([]);
         }
       } catch (err) {
-        if (!ignore) setError(err instanceof Error ? err.message : 'Unable to load capital deal.');
+        if (!ignore) setError(describeCapitalLoadFailure(err, 'Unable to load capital deal.'));
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -64,7 +78,7 @@ export default function DealDetailPage() {
     return () => {
       ignore = true;
     };
-  }, [id, user?.id]);
+  }, [id, user?.id, reloadNonce]);
 
   if (loading) {
     return (
@@ -85,7 +99,7 @@ export default function DealDetailPage() {
           <ArrowLeft className="h-3.5 w-3.5" />
           Deal Flow
         </Link>
-        <ErrorState message={error} />
+        <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} />
       </div>
     );
   }
@@ -100,7 +114,7 @@ export default function DealDetailPage() {
         <p className="eyebrow mb-2">Deal not found</p>
         <h1 className="font-display text-[36px] leading-none text-ink">This opportunity is unavailable.</h1>
         <p className="mt-4 text-[14px] text-slate">
-          Supabase did not return a published open, closing, or closed deal for this route.
+          No published deal matched this URL. That usually means the listing was unpublished or the link is wrong—not a temporary outage.
         </p>
       </div>
     );
@@ -115,6 +129,10 @@ export default function DealDetailPage() {
       setRequestError('Please sign in before submitting a deal request.');
       return;
     }
+    if (!deal) {
+      setRequestError('Deal data is not available. Try refreshing the page.');
+      return;
+    }
 
     setSubmittingRequest(requestType);
     setRequestError(null);
@@ -126,7 +144,11 @@ export default function DealDetailPage() {
         memberId: user.id,
         requestType,
       });
-      const updatedInterests = await getMyCapitalDealInterests(user.id, deal.databaseId);
+      const updatedInterests = await withTimeout(
+        getMyCapitalDealInterests(user.id, deal.databaseId),
+        CAPITAL_SUPABASE_TIMEOUT_MS,
+        'deal interest requests'
+      );
       setInterests(updatedInterests);
       setRequestSuccess(
         requestType === 'schedule_call'

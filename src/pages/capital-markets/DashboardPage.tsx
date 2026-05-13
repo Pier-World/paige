@@ -11,6 +11,7 @@ import {
   type CapitalEvent,
   type CapitalMember,
 } from '../../lib/api/capitalMarkets';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
 import { formatCurrency, formatDate, formatPercent } from '../../lib/utils';
 import { typeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
@@ -22,6 +23,7 @@ export default function DashboardPage() {
   const [members, setMembers] = useState<CapitalMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let ignore = false;
@@ -31,11 +33,11 @@ export default function DashboardPage() {
       setError(null);
 
       try {
-        const [dealData, eventData, memberData] = await Promise.all([
-          getCapitalDeals(),
-          getCapitalEvents(),
-          getCapitalMembers(),
-        ]);
+        const [dealData, eventData, memberData] = await withTimeout(
+          Promise.all([getCapitalDeals(), getCapitalEvents(), getCapitalMembers()]),
+          CAPITAL_SUPABASE_TIMEOUT_MS,
+          'dashboard summary'
+        );
 
         if (!ignore) {
           setDeals(dealData);
@@ -44,7 +46,7 @@ export default function DashboardPage() {
         }
       } catch (err) {
         if (!ignore) {
-          setError(err instanceof Error ? err.message : 'Unable to load capital markets dashboard.');
+          setError(describeCapitalLoadFailure(err, 'Unable to load capital markets dashboard.'));
         }
       } finally {
         if (!ignore) {
@@ -58,7 +60,7 @@ export default function DashboardPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [reloadNonce]);
 
   const firstName = user?.first_name || user?.full_name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
@@ -114,7 +116,9 @@ export default function DashboardPage() {
       </div>
 
       {loading ? <LoadingState label="Loading dashboard from Supabase..." /> : null}
-      {error ? <ErrorState message={error} /> : null}
+      {error ? (
+        <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} />
+      ) : null}
 
       {!loading && !error ? (
         <>
@@ -151,7 +155,7 @@ export default function DashboardPage() {
               {deals.length === 0 ? (
                 <EmptyState
                   title="No published opportunities yet."
-                  description="Published open, closing, and closed deals from Supabase will appear here."
+                  description="The deal table can be empty until listings are published for members. Zero rows here is expected for a new workspace—not proof the app failed to load."
                 />
               ) : (
                 <div className="overflow-hidden rounded-[4px] border border-border bg-surface">
@@ -209,7 +213,10 @@ export default function DashboardPage() {
               </Link>
             </div>
             {upcomingEvents.length === 0 ? (
-              <EmptyState title="No upcoming events." description="Upcoming published events will appear here." />
+              <EmptyState
+                title="No upcoming events."
+                description="When upcoming events are published to the member catalog, they will show in this widget. A blank list is often intentional."
+              />
             ) : (
               <div className="space-y-2">
                 {upcomingEvents.map((event) => (

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowUpRight, Filter } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { getCapitalDeals, type CapitalDeal, type DealType } from '../../lib/api/capitalMarkets';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
 import { formatCurrency, formatDate, formatPercent } from '../../lib/utils';
 import { typeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
@@ -14,6 +15,7 @@ export default function DealsPage() {
   const [activeFilter, setActiveFilter] = useState<'all' | DealType>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let ignore = false;
@@ -23,10 +25,14 @@ export default function DealsPage() {
       setError(null);
 
       try {
-        const data = await getCapitalDeals();
+        const data = await withTimeout(
+          getCapitalDeals(),
+          CAPITAL_SUPABASE_TIMEOUT_MS,
+          'capital deals'
+        );
         if (!ignore) setDeals(data);
       } catch (err) {
-        if (!ignore) setError(err instanceof Error ? err.message : 'Unable to load capital deals.');
+        if (!ignore) setError(describeCapitalLoadFailure(err, 'Unable to load capital deals.'));
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -37,7 +43,7 @@ export default function DealsPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [reloadNonce]);
 
   const filteredDeals =
     activeFilter === 'all' ? deals : deals.filter((deal) => deal.type === activeFilter);
@@ -89,7 +95,9 @@ export default function DealsPage() {
       </div>
 
       {loading ? <LoadingState label="Loading deals from Supabase..." /> : null}
-      {error ? <ErrorState message={error} /> : null}
+      {error ? (
+        <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} />
+      ) : null}
 
       {!loading && !error ? (
         <>
@@ -113,7 +121,7 @@ export default function DealsPage() {
       {filteredDeals.length === 0 ? (
         <EmptyState
           title="No matching opportunities."
-          description="Published member-visible capital deals from Supabase will appear here."
+          description="Either no deals are published for members yet, or none match this filter. Empty lists are normal until your team publishes rows—not a broken connection."
         />
       ) : (
         <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">

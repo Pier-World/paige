@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Building2, Check, MapPin, Search, TrendingUp } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { getCapitalMembers, type CapitalMember } from '../../lib/api/capitalMarkets';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
 function MemberCard({ member }: { member: CapitalMember }) {
@@ -51,6 +52,7 @@ export default function MembersPage() {
   const [members, setMembers] = useState<CapitalMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let ignore = false;
@@ -60,10 +62,14 @@ export default function MembersPage() {
       setError(null);
 
       try {
-        const data = await getCapitalMembers();
+        const data = await withTimeout(
+          getCapitalMembers(),
+          CAPITAL_SUPABASE_TIMEOUT_MS,
+          'member directory'
+        );
         if (!ignore) setMembers(data);
       } catch (err) {
-        if (!ignore) setError(err instanceof Error ? err.message : 'Unable to load capital member profiles.');
+        if (!ignore) setError(describeCapitalLoadFailure(err, 'Unable to load capital member profiles.'));
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -74,7 +80,7 @@ export default function MembersPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [reloadNonce]);
 
   const gps = members.filter((member) => member.role === 'gp');
   const lps = members.filter((member) => member.role === 'lp');
@@ -105,7 +111,9 @@ export default function MembersPage() {
       </div>
 
       {loading ? <LoadingState label="Loading member profiles from Supabase..." /> : null}
-      {error ? <ErrorState message={error} /> : null}
+      {error ? (
+        <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} />
+      ) : null}
 
       {!loading && !error ? (
         <>
@@ -126,7 +134,10 @@ export default function MembersPage() {
       <section className="mb-10">
         <p className="eyebrow mb-5">General Partners</p>
         {gps.length === 0 ? (
-          <EmptyState title="No GP profiles yet." description="Active GP member profiles from Supabase will appear here." />
+          <EmptyState
+            title="No GP profiles yet."
+            description="GP cards only appear for published member profiles your account can read. If the network is still onboarding, this list may be empty by design."
+          />
         ) : (
           <div className="grid gap-3 xl:grid-cols-2">
             {gps.map((member) => (
@@ -139,7 +150,10 @@ export default function MembersPage() {
       <section>
         <p className="eyebrow mb-5">Limited Partners</p>
         {lps.length === 0 ? (
-          <EmptyState title="No LP profiles yet." description="Active LP member profiles from Supabase will appear here." />
+          <EmptyState
+            title="No LP profiles yet."
+            description="LP cards only appear for published member profiles your account can read. An empty directory is common before data is curated."
+          />
         ) : (
           <div className="grid gap-3 xl:grid-cols-2">
             {lps.map((member) => (

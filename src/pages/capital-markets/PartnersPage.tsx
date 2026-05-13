@@ -9,6 +9,7 @@ import {
   type CapitalPartner,
   type CapitalPartnerIntro,
 } from '../../lib/api/capitalMarkets';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
 import { partnerCategoryLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
@@ -25,6 +26,7 @@ export default function PartnersPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [submittingPartnerId, setSubmittingPartnerId] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let ignore = false;
@@ -34,16 +36,20 @@ export default function PartnersPage() {
       setError(null);
 
       try {
-        const [partnerData, introData] = user?.id
-          ? await Promise.all([getCapitalPartners(), getMyCapitalPartnerIntros(user.id)])
-          : [await getCapitalPartners(), [] as CapitalPartnerIntro[]];
+        const [partnerData, introData] = await withTimeout(
+          user?.id
+            ? Promise.all([getCapitalPartners(), getMyCapitalPartnerIntros(user.id)])
+            : Promise.all([getCapitalPartners(), Promise.resolve([] as CapitalPartnerIntro[])]),
+          CAPITAL_SUPABASE_TIMEOUT_MS,
+          'partners and introductions'
+        );
 
         if (!ignore) {
           setPartners(partnerData);
           setIntros(introData);
         }
       } catch (err) {
-        if (!ignore) setError(err instanceof Error ? err.message : 'Unable to load capital partners.');
+        if (!ignore) setError(describeCapitalLoadFailure(err, 'Unable to load capital partners.'));
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -54,7 +60,7 @@ export default function PartnersPage() {
     return () => {
       ignore = true;
     };
-  }, [user?.id]);
+  }, [user?.id, reloadNonce]);
 
   const featured = partners.filter((partner) => partner.featured);
   const regular = partners.filter((partner) => !partner.featured);
@@ -76,7 +82,11 @@ export default function PartnersPage() {
         partnerId: partner.databaseId,
         memberId: user.id,
       });
-      const updatedIntros = await getMyCapitalPartnerIntros(user.id);
+      const updatedIntros = await withTimeout(
+        getMyCapitalPartnerIntros(user.id),
+        CAPITAL_SUPABASE_TIMEOUT_MS,
+        'partner introductions'
+      );
       setIntros(updatedIntros);
       setSubmitSuccess(`Introduction request submitted for ${partner.name}.`);
     } catch (err) {
@@ -100,7 +110,9 @@ export default function PartnersPage() {
       </div>
 
       {loading ? <LoadingState label="Loading partners from Supabase..." /> : null}
-      {error ? <ErrorState message={error} /> : null}
+      {error ? (
+        <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} />
+      ) : null}
       {submitSuccess ? (
         <div className="mb-6 rounded-[4px] border border-ledger/20 bg-ledger/[0.04] p-4 text-[13px] text-ledger">
           {submitSuccess}
@@ -117,7 +129,10 @@ export default function PartnersPage() {
       <section className="mb-12">
         <p className="eyebrow mb-5">Featured Partners</p>
         {featured.length === 0 ? (
-          <EmptyState title="No featured partners." description="Featured active partners will appear here." />
+          <EmptyState
+            title="No featured partners."
+            description="Featured partners appear when your team marks them in the catalog. If none are configured yet, this section stays empty on purpose."
+          />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             {featured.map((partner) => (
@@ -178,7 +193,10 @@ export default function PartnersPage() {
       <section>
         <p className="eyebrow mb-5">All Partners</p>
         {regular.length === 0 ? (
-          <EmptyState title="No additional partners." description="Active partners from Supabase will appear here." />
+          <EmptyState
+            title="No additional partners."
+            description="No other active partners are visible to your account right now. That can mean the directory is intentionally small—not a connection failure."
+          />
         ) : (
           <div className="grid gap-3">
             {regular.map((partner) => (

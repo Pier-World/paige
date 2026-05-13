@@ -10,6 +10,7 @@ import {
   type CapitalEvent,
   type CapitalEventRsvp,
 } from '../../lib/api/capitalMarkets';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
 import { formatDate } from '../../lib/utils';
 import { eventTypeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
@@ -23,6 +24,7 @@ export default function CapitalMarketsEventsPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [submittingEventId, setSubmittingEventId] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let ignore = false;
@@ -32,9 +34,13 @@ export default function CapitalMarketsEventsPage() {
       setError(null);
 
       try {
-        const [eventData, rsvpData] = user?.id
-          ? await Promise.all([getCapitalEvents(), getMyCapitalEventRsvps(user.id)])
-          : [await getCapitalEvents(), [] as CapitalEventRsvp[]];
+        const [eventData, rsvpData] = await withTimeout(
+          user?.id
+            ? Promise.all([getCapitalEvents(), getMyCapitalEventRsvps(user.id)])
+            : Promise.all([getCapitalEvents(), Promise.resolve([] as CapitalEventRsvp[])]),
+          CAPITAL_SUPABASE_TIMEOUT_MS,
+          'events and RSVPs'
+        );
         const registeredEventIds = new Set(
           rsvpData
             .filter((rsvp) => rsvp.status === 'confirmed' || rsvp.status === 'attended')
@@ -46,7 +52,7 @@ export default function CapitalMarketsEventsPage() {
           setRsvps(rsvpData);
         }
       } catch (err) {
-        if (!ignore) setError(err instanceof Error ? err.message : 'Unable to load capital events.');
+        if (!ignore) setError(describeCapitalLoadFailure(err, 'Unable to load capital events.'));
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -57,7 +63,7 @@ export default function CapitalMarketsEventsPage() {
     return () => {
       ignore = true;
     };
-  }, [user?.id]);
+  }, [user?.id, reloadNonce]);
 
   const upcoming = events.filter((event) => event.upcoming);
   const past = events.filter((event) => !event.upcoming);
@@ -80,7 +86,11 @@ export default function CapitalMarketsEventsPage() {
         memberId: user.id,
         status: waitlist ? 'waitlisted' : 'requested',
       });
-      const [eventData, rsvpData] = await Promise.all([getCapitalEvents(), getMyCapitalEventRsvps(user.id)]);
+      const [eventData, rsvpData] = await withTimeout(
+        Promise.all([getCapitalEvents(), getMyCapitalEventRsvps(user.id)]),
+        CAPITAL_SUPABASE_TIMEOUT_MS,
+        'events and RSVPs'
+      );
       const registeredEventIds = new Set(
         rsvpData
           .filter((rsvp) => rsvp.status === 'confirmed' || rsvp.status === 'attended')
@@ -110,7 +120,9 @@ export default function CapitalMarketsEventsPage() {
       </div>
 
       {loading ? <LoadingState label="Loading events from Supabase..." /> : null}
-      {error ? <ErrorState message={error} /> : null}
+      {error ? (
+        <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} />
+      ) : null}
       {submitSuccess ? (
         <div className="mb-6 rounded-[4px] border border-ledger/20 bg-ledger/[0.04] p-4 text-[13px] text-ledger">
           {submitSuccess}
@@ -129,7 +141,7 @@ export default function CapitalMarketsEventsPage() {
         {upcoming.length === 0 ? (
           <EmptyState
             title="No upcoming events."
-            description="Published upcoming capital events from Supabase will appear here."
+            description="There are no published upcoming events yet, or your account cannot see them. An empty calendar is normal until events are published—not a failed load."
           />
         ) : (
           <div className="grid gap-4">
@@ -230,7 +242,10 @@ export default function CapitalMarketsEventsPage() {
       <section>
         <p className="eyebrow mb-5">Past Events</p>
         {past.length === 0 ? (
-          <EmptyState title="No past events." description="Completed published events will appear here." />
+          <EmptyState
+            title="No past events."
+            description="Completed events you can access will appear here once they exist in the published catalog."
+          />
         ) : (
           <div className="grid gap-3">
             {past.map((event) => (

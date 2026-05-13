@@ -7,24 +7,37 @@ import { ScrollToTop } from './components/layout/ScrollToTop';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationGuard } from './components/NavigationGuard';
 import { CapitalMarketsLayout } from './components/layout/CapitalMarketsLayout';
+import { importWithChunkReloadOnce } from './lib/chunkLoadRetry';
 
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const AllPreferencesPage = lazy(() => import('./pages/AllPreferencesPage'));
-const LoginPage = lazy(() => import('./pages/LoginPage'));
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
-const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
-const ConversationPage = lazy(() => import('./pages/ConversationPage'));
-const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
-const OnboardingPage = lazy(() => import('./pages/onboarding/OnboardingPage'));
-const NewMember = lazy(() => import('./pages/admin/NewMember'));
-const CapitalMarketsDashboardPage = lazy(() => import('./pages/capital-markets/DashboardPage'));
-const CapitalMarketsDealsPage = lazy(() => import('./pages/capital-markets/DealsPage'));
-const CapitalMarketsDealDetailPage = lazy(() => import('./pages/capital-markets/DealDetailPage'));
-const CapitalMarketsEventsPage = lazy(() => import('./pages/capital-markets/CapitalMarketsEventsPage'));
-const CapitalMarketsPartnersPage = lazy(() => import('./pages/capital-markets/PartnersPage'));
-const CapitalMarketsConciergePage = lazy(() => import('./pages/capital-markets/ConciergePage'));
-const CapitalMarketsMembersPage = lazy(() => import('./pages/capital-markets/MembersPage'));
+const ProfilePage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ProfilePage')));
+const AllPreferencesPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/AllPreferencesPage')));
+const LoginPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/LoginPage')));
+const ForgotPasswordPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ForgotPasswordPage')));
+const ResetPasswordPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ResetPasswordPage')));
+const NotFoundPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/NotFoundPage')));
+const ConversationPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ConversationPage')));
+const OAuthCallback = lazy(() => importWithChunkReloadOnce(() => import('./pages/OAuthCallback')));
+const OnboardingPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/onboarding/OnboardingPage')));
+const NewMember = lazy(() => importWithChunkReloadOnce(() => import('./pages/admin/NewMember')));
+const CapitalMarketsDashboardPage = lazy(() =>
+  importWithChunkReloadOnce(() => import('./pages/capital-markets/DashboardPage'))
+);
+const CapitalMarketsDealsPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/capital-markets/DealsPage')));
+const CapitalMarketsDealDetailPage = lazy(() =>
+  importWithChunkReloadOnce(() => import('./pages/capital-markets/DealDetailPage'))
+);
+const CapitalMarketsEventsPage = lazy(() =>
+  importWithChunkReloadOnce(() => import('./pages/capital-markets/CapitalMarketsEventsPage'))
+);
+const CapitalMarketsPartnersPage = lazy(() =>
+  importWithChunkReloadOnce(() => import('./pages/capital-markets/PartnersPage'))
+);
+const CapitalMarketsConciergePage = lazy(() =>
+  importWithChunkReloadOnce(() => import('./pages/capital-markets/ConciergePage'))
+);
+const CapitalMarketsMembersPage = lazy(() =>
+  importWithChunkReloadOnce(() => import('./pages/capital-markets/MembersPage'))
+);
 
 /**
  * Retired full-page routes (components removed from repo; `<Navigate>` aliases remain below):
@@ -41,11 +54,6 @@ const LoadingSpinner = () => (
     <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent"></div>
   </div>
 );
-
-// Wrapper to ensure context is available before rendering
-const RouteWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  return <>{children}</>;
-};
 
 // Protected route component - redirects to onboarding if not completed
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {

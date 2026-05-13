@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PageLayout } from '../components/layout/PageLayout';
 import { useAuth } from '../context/AuthContext';
@@ -7,9 +7,10 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
   User, Edit2, Check, X, MapPin, CreditCard, Link2, 
   Mail, Calendar, LogOut, HelpCircle, ChevronRight, Plus, 
-  Camera, Trash2, Building, Plane, Star, Globe, Award, Eye, Sun, Moon
+  Camera, Trash2, Building, Eye, Sun, Moon
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../lib/async';
 import { ImageWithFallback } from '../components/ui/ImageWithFallback';
 import { MemberCard } from '../components/features/MemberCard';
 import { memberships } from '../data/memberships';
@@ -37,6 +38,32 @@ type CapitalProfileForm = {
   checkSizeMin: string;
   checkSizeMax: string;
   currencyCode: string;
+};
+
+/** Columns needed for Profile "Connected Accounts" only (excludes tokens). */
+const INTEGRATIONS_PROFILE_SELECT = 'id,metadata,created_at';
+
+const GMAIL_CONNECTION_TIMEOUT_MS = 12_000;
+const CALENDAR_INTEGRATION_TIMEOUT_MS = 12_000;
+const CALENDAR_IDS_QUERY_TIMEOUT_MS = 8_000;
+
+/** Races a PostgREST query (thenable); returns `'timeout'` instead of throwing (connected-accounts UX). */
+async function racePromiseOrTimeout<T>(work: PromiseLike<T>, ms: number): Promise<T | 'timeout'> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeoutPromise = new Promise<'timeout'>((resolve) => {
+      timer = setTimeout(() => resolve('timeout'), ms);
+    });
+    return await Promise.race([Promise.resolve(work), timeoutPromise]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+type IntegrationProfileRow = {
+  id: string;
+  metadata: Record<string, unknown> | null;
+  created_at?: string;
 };
 
 const ProfilePage: React.FC = () => {
@@ -69,6 +96,7 @@ const ProfilePage: React.FC = () => {
   const [isSavingCapitalProfile, setIsSavingCapitalProfile] = useState(false);
   const [capitalProfileError, setCapitalProfileError] = useState<string | null>(null);
   const [capitalProfileSuccess, setCapitalProfileSuccess] = useState<string | null>(null);
+  const [capitalProfileReloadKey, setCapitalProfileReloadKey] = useState(0);
   const [capitalProfileForm, setCapitalProfileForm] = useState<CapitalProfileForm>({
     role: 'lp',
     displayName: '',
@@ -150,13 +178,19 @@ const ProfilePage: React.FC = () => {
       setCapitalProfileError(null);
 
       try {
-        const profile = await getMyCapitalMemberProfile(user.id);
+        const profile = await withTimeout(
+          getMyCapitalMemberProfile(user.id),
+          CAPITAL_SUPABASE_TIMEOUT_MS,
+          'capital member profile'
+        );
         if (!ignore) setCapitalProfile(profile);
       } catch (error) {
         console.warn('Error fetching capital profile:', error);
         if (!ignore) {
           setCapitalProfile(null);
-          setCapitalProfileError('Capital profile details are temporarily unavailable.');
+          setCapitalProfileError(
+            describeCapitalLoadFailure(error, 'Capital profile details are temporarily unavailable.')
+          );
         }
       } finally {
         if (!ignore) setIsLoadingCapitalProfile(false);
@@ -168,7 +202,7 @@ const ProfilePage: React.FC = () => {
     return () => {
       ignore = true;
     };
-  }, [user]);
+  }, [user, capitalProfileReloadKey]);
 
   async function loadProfileData() {
     if (!user) return;
@@ -217,126 +251,143 @@ const ProfilePage: React.FC = () => {
   async function checkConnections() {
     if (!user) return;
 
-    try {
-      // Add timeout to prevent hanging (15 seconds for connection check)
-      let timeoutId: NodeJS.Timeout | null = null;
-      const timeoutPromise = new Promise<null>((resolve) => {
-        timeoutId = setTimeout(() => {
-          console.warn('Profile connections check timeout - query taking too long');
-          resolve(null);
-        }, 15000); // 15 seconds for connection check
-      });
+    const uid = user.id;
+    const userEmail = user.email ?? '';
 
-      // Get ALL Gmail integrations (not just one) - with timeout
-      const gmailPromise = supabase
-        .from('integrations')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('provider', 'google_gmail')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(10); // Limit to prevent issues
-
-      // Get calendar integration - with timeout
-      const calendarPromise = supabase
-        .from('integrations')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('provider', 'google_calendar')
-        .eq('is_active', true)
-        .maybeSingle();
-
-      // Race between queries and timeout
-      let timedOut = false;
-      let results: any = null;
-      
+    async function refreshGmailConnections() {
       try {
-        results = await Promise.race([
-          Promise.all([gmailPromise, calendarPromise]),
-          timeoutPromise.then(() => {
-            timedOut = true;
-            return null;
-          })
-        ]);
-      } catch (error) {
-        console.error('Error in Promise.race for connections:', error);
-        timedOut = true;
-      }
-      
-      // Clear timeout
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+        const result = await racePromiseOrTimeout(
+          supabase
+            .from('integrations')
+            .select(INTEGRATIONS_PROFILE_SELECT)
+            .eq('user_id', uid)
+            .eq('provider', 'google_gmail')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(10),
+          GMAIL_CONNECTION_TIMEOUT_MS
+        );
 
-      // If timeout, set empty arrays and return
-      if (timedOut || results === null) {
-        console.error('Profile connections query timed out');
-        setGmailIntegrations([]);
-        setCalendarIntegrations([]);
-        return;
-      }
-
-      const [gmailResult, calendarResult] = results;
-      const { data: gmailInts, error: gmailError } = gmailResult;
-      const { data: calInt, error: calendarError } = calendarResult;
-
-      if (gmailError) {
-        console.error('Error fetching Gmail integrations:', gmailError);
-        setGmailIntegrations([]);
-      } else {
-        // Transform Gmail integrations to include email from metadata
-        const gmailAccounts = (gmailInts || []).map((int: any) => ({
-          ...int,
-          email: int.metadata?.email || user.email,
-          display_name: int.metadata?.email || 'Gmail',
-        }));
-        setGmailIntegrations(gmailAccounts);
-      }
-
-      if (calendarError) {
-        console.error('Error fetching calendar integration:', calendarError);
-        setCalendarIntegrations([]);
-      } else if (calInt) {
-        // Get unique calendar IDs from calendar_events (limit to prevent timeout)
-        // We only need a sample to identify unique calendars, not all events
-        const { data: calendarEvents, error: eventsError } = await supabase
-          .from('calendar_events')
-          .select('gcal_calendar_id')
-          .eq('user_id', user.id)
-          .limit(500); // Reduced to 500 events - should still be more than enough to get all unique calendar IDs
-        
-        if (eventsError) {
-          console.error('Error fetching calendar events for connections:', eventsError);
-          // Still show the integration even if events query fails
-          setCalendarIntegrations([{
-            id: calInt.id,
-            integration_id: calInt.id,
-            calendar_id: 'primary',
-            calendar_name: calInt.metadata?.calendar_name || calInt.metadata?.email || 'Google Calendar',
-            email: calInt.metadata?.email || user.email,
-            metadata: calInt.metadata,
-            ...calInt,
-          }]);
+        if (result === 'timeout') {
+          console.warn('Profile Gmail connection check timed out; showing as disconnected.');
+          setGmailIntegrations([]);
           return;
         }
 
-        // Get unique calendar IDs
-        const uniqueCalendarIds = Array.from(
-          new Set((calendarEvents || []).map((e: any) => e.gcal_calendar_id).filter(Boolean))
+        const { data: gmailInts, error: gmailError } = result;
+        if (gmailError) {
+          console.warn('Error fetching Gmail integrations:', gmailError.message ?? gmailError);
+          setGmailIntegrations([]);
+          return;
+        }
+
+        const gmailAccounts = (gmailInts || []).map((int: IntegrationProfileRow) => {
+          const meta = int.metadata ?? {};
+          const emailFromMeta = typeof meta.email === 'string' ? meta.email : null;
+          return {
+            id: int.id,
+            email: emailFromMeta || userEmail,
+            display_name: emailFromMeta || 'Gmail',
+          };
+        });
+        setGmailIntegrations(gmailAccounts);
+      } catch {
+        console.warn('Error checking Gmail connection.');
+        setGmailIntegrations([]);
+      }
+    }
+
+    async function refreshCalendarConnections() {
+      try {
+        const calRes = await racePromiseOrTimeout(
+          supabase
+            .from('integrations')
+            .select(INTEGRATIONS_PROFILE_SELECT)
+            .eq('user_id', uid)
+            .eq('provider', 'google_calendar')
+            .eq('is_active', true)
+            .maybeSingle(),
+          CALENDAR_INTEGRATION_TIMEOUT_MS
         );
 
-        // Create calendar objects for each unique calendar
-        const calendars = uniqueCalendarIds.map((calendarId: string, index: number) => {
-          // Try to get calendar name from metadata or use a readable name
+        if (calRes === 'timeout') {
+          console.warn('Profile Calendar integration check timed out; showing as disconnected.');
+          setCalendarIntegrations([]);
+          return;
+        }
+
+        const { data: calInt, error: calendarError } = calRes;
+        if (calendarError) {
+          console.warn(
+            'Error fetching calendar integration:',
+            calendarError.message ?? calendarError
+          );
+          setCalendarIntegrations([]);
+          return;
+        }
+
+        if (!calInt) {
+          setCalendarIntegrations([]);
+          return;
+        }
+
+        const meta = calInt.metadata ?? {};
+        const metaEmail = typeof meta.email === 'string' ? meta.email : null;
+        const metaCalName = typeof meta.calendar_name === 'string' ? meta.calendar_name : null;
+        const fallbackEmail = metaEmail || userEmail;
+
+        const primaryRow = () => ({
+          id: calInt.id,
+          integration_id: calInt.id,
+          calendar_id: 'primary',
+          calendar_name: metaCalName || metaEmail || 'Google Calendar',
+          email: fallbackEmail,
+          metadata: calInt.metadata,
+        });
+
+        const eventsRes = await racePromiseOrTimeout(
+          supabase
+            .from('calendar_events')
+            .select('gcal_calendar_id')
+            .eq('user_id', uid)
+            .limit(500),
+          CALENDAR_IDS_QUERY_TIMEOUT_MS
+        );
+
+        if (eventsRes === 'timeout') {
+          console.debug(
+            'Calendar ID list query timed out; defaulting to primary calendar row.'
+          );
+          setCalendarIntegrations([primaryRow()]);
+          return;
+        }
+
+        const { data: calendarEvents, error: eventsError } = eventsRes;
+        if (eventsError) {
+          console.warn(
+            'Error fetching calendar events for connections:',
+            eventsError.message ?? eventsError
+          );
+          setCalendarIntegrations([primaryRow()]);
+          return;
+        }
+
+        const uniqueCalendarIds = Array.from(
+          new Set(
+            (calendarEvents || [])
+              .map((e: { gcal_calendar_id?: string | null }) => e.gcal_calendar_id)
+              .filter((id): id is string => Boolean(id))
+          )
+        );
+
+        let calendars = uniqueCalendarIds.map((calendarId: string, index: number) => {
           let calendarName = calendarId;
           if (calendarId === 'primary') {
-            calendarName = calInt.metadata?.calendar_name || calInt.metadata?.email || 'Primary Calendar';
+            calendarName = metaCalName || metaEmail || 'Primary Calendar';
           } else if (calendarId.includes('@')) {
-            // If it's an email, use it as the name
             calendarName = calendarId;
           } else {
-            // Try to extract a readable name
-            calendarName = calInt.metadata?.calendar_name || `Calendar ${index + 1}`;
+            calendarName = metaCalName || `Calendar ${index + 1}`;
           }
 
           return {
@@ -344,33 +395,23 @@ const ProfilePage: React.FC = () => {
             integration_id: calInt.id,
             calendar_id: calendarId,
             calendar_name: calendarName,
-            email: calInt.metadata?.email || user.email,
+            email: fallbackEmail,
             metadata: calInt.metadata,
-            ...calInt,
           };
         });
 
-        // If no calendar events found, still show the integration
-        if (calendars.length === 0 && calInt) {
-          calendars.push({
-            id: calInt.id,
-            integration_id: calInt.id,
-            calendar_id: 'primary',
-            calendar_name: calInt.metadata?.calendar_name || calInt.metadata?.email || 'Google Calendar',
-            email: calInt.metadata?.email || user.email,
-            metadata: calInt.metadata,
-            ...calInt,
-          });
+        if (calendars.length === 0) {
+          calendars = [primaryRow()];
         }
 
         setCalendarIntegrations(calendars);
-      } else {
+      } catch {
+        console.warn('Error checking Calendar connection.');
         setCalendarIntegrations([]);
       }
-    } catch (error) {
-      console.error('Error checking connections:', error);
-      setCalendarIntegrations([]);
     }
+
+    await Promise.all([refreshGmailConnections(), refreshCalendarConnections()]);
   }
 
   async function disconnectService(provider: 'google_gmail' | 'google_calendar', integrationId?: string) {
@@ -605,7 +646,9 @@ const ProfilePage: React.FC = () => {
       } else if (field === 'phone') {
         const trimmedPhone = tempValue.trim();
         console.log('Updating phone to:', trimmedPhone);
-        const result = await updateProfile({ phone: trimmedPhone || null });
+        const result = await updateProfile({
+          phone: trimmedPhone === '' ? undefined : trimmedPhone,
+        });
         if (result.error) throw result.error;
         setUpdateSuccess('Phone number updated successfully');
       }
@@ -755,12 +798,6 @@ const ProfilePage: React.FC = () => {
     
     const file = e.target.files[0];
     
-    // Validate file type - support all common image formats
-    const validImageTypes = [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 
-      'image/webp', 'image/bmp', 'image/svg+xml', 'image/tiff'
-    ];
-    
     // Check both MIME type and file extension
     const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
     const validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'tiff', 'tif'];
@@ -792,7 +829,7 @@ const ProfilePage: React.FC = () => {
 
     try {
       // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('profile-photos')
         .upload(filePath, file, { 
           upsert: true,
@@ -917,10 +954,19 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // members.created_at via AuthContext; trim/invalid guard + clamp far-future rows (bad seed / skew)
   const formatMemberSince = (createdAt: string | undefined) => {
-    if (!createdAt) return 'N/A';
-    const date = new Date(createdAt);
-    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const raw = createdAt?.trim();
+    if (!raw) return 'N/A';
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+    const now = Date.now();
+    const skewMs = 48 * 60 * 60 * 1000;
+    const display = date.getTime() > now + skewMs ? new Date(now) : date;
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      year: 'numeric',
+    }).format(display);
   };
 
   const getMembershipTierDisplay = (level: string | undefined) => {
@@ -1481,7 +1527,15 @@ const ProfilePage: React.FC = () => {
 
                     {capitalProfileError && (
                       <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-red-400" style={{ fontSize: '13px', fontWeight: 300 }}>
-                        {capitalProfileError}
+                        <p>{capitalProfileError}</p>
+                        <button
+                          type="button"
+                          onClick={() => setCapitalProfileReloadKey((k) => k + 1)}
+                          className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-red-300 transition-colors hover:bg-red-500/20"
+                          style={{ fontSize: '12px', fontWeight: 500 }}
+                        >
+                          Try again
+                        </button>
                       </div>
                     )}
 
@@ -1511,9 +1565,19 @@ const ProfilePage: React.FC = () => {
                     Loading capital profile...
                   </p>
                 ) : capitalProfileError ? (
-                  <p className="text-text-tertiary" style={{ fontSize: '14px', fontWeight: 300 }}>
-                    {capitalProfileError}
-                  </p>
+                  <div className="space-y-3">
+                    <p className="text-text-tertiary" style={{ fontSize: '14px', fontWeight: 300 }}>
+                      {capitalProfileError}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setCapitalProfileReloadKey((k) => k + 1)}
+                      className="rounded-lg border border-border bg-surface-elevated px-4 py-2 text-text-primary transition-colors hover:bg-border"
+                      style={{ fontSize: '13px', fontWeight: 500 }}
+                    >
+                      Try again
+                    </button>
+                  </div>
                 ) : capitalProfile ? (
                   <div className="space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
