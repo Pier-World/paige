@@ -95,43 +95,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const membershipLevel = (userData.membership_level as User['membership_level']) ?? 'Standard';
       const created_at = userData.created_at ?? new Date().toISOString();
 
-      let profileData: any = null;
+      let profileData: {
+        full_name?: string | null;
+        onboarding_completed?: boolean | null;
+        personal_context?: unknown;
+        event_preferences?: Record<string, string> | null;
+        concierge_preferences?: Record<string, string> | null;
+        front_user_hash?: string | null;
+      } | null = null;
       // Prefer onboarding_completed from members (denormalized, always present); fallback to profiles
       let onboardingCompleted = (userData as { onboarding_completed?: boolean })?.onboarding_completed === true;
 
-      if (!onboardingCompleted) {
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('full_name, onboarding_completed, personal_context')
-            .eq('id', userId)
-            .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select(
+            'full_name, onboarding_completed, personal_context, event_preferences, concierge_preferences, front_user_hash'
+          )
+          .eq('id', userId)
+          .maybeSingle();
 
-          if (error) {
-            console.warn('Error fetching profile (may not exist yet):', error.message);
-          } else if (data) {
-            profileData = data;
+        if (error) {
+          console.warn('Error fetching profile (may not exist yet):', error.message);
+        } else if (data) {
+          profileData = data as typeof profileData;
+          if (!onboardingCompleted) {
             if (data.onboarding_completed === true) onboardingCompleted = true;
             else if (data.personal_context && typeof data.personal_context === 'object') {
               const pc = data.personal_context as { name?: string; goals?: unknown[] };
               if (pc.name || (Array.isArray(pc.goals) && pc.goals.length > 0)) onboardingCompleted = true;
             }
           }
-        } catch {
-          console.warn('Profile fetch failed');
         }
-      } else {
-        try {
-          const { data } = await supabase
-            .from('profiles')
-            .select('full_name, personal_context')
-            .eq('id', userId)
-            .maybeSingle();
-          if (data) profileData = data;
-        } catch {
-          // optional profile for display name
-        }
+      } catch {
+        console.warn('Profile fetch failed');
       }
+
+      const memberPrefs =
+        userData.preferences && typeof userData.preferences === 'object'
+          ? (userData.preferences as Record<string, unknown>)
+          : {};
+      const mergedPreferences = {
+        ...memberPrefs,
+        ...(profileData?.event_preferences
+          ? { event_preferences: profileData.event_preferences }
+          : memberPrefs.event_preferences
+            ? { event_preferences: memberPrefs.event_preferences }
+            : {}),
+        ...(profileData?.concierge_preferences
+          ? { concierge_preferences: profileData.concierge_preferences }
+          : memberPrefs.concierge_preferences
+            ? { concierge_preferences: memberPrefs.concierge_preferences }
+            : {}),
+      };
 
       return {
         id: userId,
@@ -141,11 +157,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         role,
         member_id: memberId,
         phone: userData.phone ?? undefined,
-        preferences: userData.preferences ?? undefined,
+        preferences: Object.keys(mergedPreferences).length > 0 ? mergedPreferences : undefined,
         membership_level: membershipLevel,
         created_at,
         full_name: profileData?.full_name || `${firstName} ${lastName}`.trim() || 'Member',
-        front_user_hash: (profileData as any)?.front_user_hash ?? null,
+        front_user_hash: profileData?.front_user_hash ?? null,
         membership_tier: membershipLevel,
         onboarding_completed: onboardingCompleted,
       };
@@ -493,15 +509,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       if (!user) throw new Error('No authenticated user');
 
-      const { error } = await supabase
-        .from('members')
-        .update({
-          phone: data.phone,
-          preferences: data.preferences
-        })
-        .eq('id', user.id);
+      const memberUpdates: Record<string, unknown> = {};
+      if (data.phone !== undefined) memberUpdates.phone = data.phone;
+      if (data.first_name !== undefined) memberUpdates.first_name = data.first_name;
+      if (data.last_name !== undefined) memberUpdates.last_name = data.last_name;
 
-      if (error) throw error;
+      if (data.preferences !== undefined) {
+        const { event_preferences: _e, concierge_preferences: _c, ...memberOnlyPrefs } = data.preferences;
+        memberUpdates.preferences = {
+          ...(user.preferences ?? {}),
+          ...memberOnlyPrefs,
+        };
+      }
+
+      if (Object.keys(memberUpdates).length > 0) {
+        const { error: memberError } = await supabase
+          .from('members')
+          .update(memberUpdates)
+          .eq('id', user.id);
+
+        if (memberError) throw memberError;
+      }
+
+      const profileUpdates: Record<string, unknown> = { id: user.id };
+      let hasProfileUpdates = false;
+
+      if (data.full_name !== undefined) {
+        profileUpdates.full_name = data.full_name.trim() || null;
+        hasProfileUpdates = true;
+      }
+
+      if (data.preferences?.event_preferences !== undefined) {
+        profileUpdates.event_preferences = data.preferences.event_preferences;
+        hasProfileUpdates = true;
+      }
+
+      if (data.preferences?.concierge_preferences !== undefined) {
+        profileUpdates.concierge_preferences = data.preferences.concierge_preferences;
+        hasProfileUpdates = true;
+      }
+
+      if (hasProfileUpdates) {
+        const { error: profileError } = await supabase.from('profiles').upsert(profileUpdates, {
+          onConflict: 'id',
+        });
+
+        if (profileError) throw profileError;
+      }
 
       const updatedProfile = await fetchUserProfile(user.id);
       if (!updatedProfile) throw new Error('Failed to fetch updated profile');

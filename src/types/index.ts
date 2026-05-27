@@ -23,6 +23,18 @@ export interface UserPreferences {
   role_label?: string;
   event_preferences?: Record<string, string>;
   concierge_preferences?: Record<string, string>;
+  member_preferences?: {
+    allow_intro_requests?: boolean;
+    share_event_attendance?: boolean;
+  };
+  notification_preferences?: {
+    deal_flow?: string;
+    events?: string;
+    concierge?: string;
+    partners?: string;
+  };
+  investor_type?: string;
+  accredited_investor?: string;
 }
 
 export interface Perk {
