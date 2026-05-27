@@ -22,7 +22,7 @@ const events = [
   { slug: 'michael-andrews-bespoke-evening-feb-2026', title: 'A Bespoke Evening: Michael Andrews suiting', type: 'dinner', start: '2026-02-12T18:00:00-05:00', end: '2026-02-12T22:30:00-05:00', city: 'New York', loc: 'Manhattan', desc: 'A small-format evening built around craft and fit—tailoring as a lens for how leaders present in rooms that matter. For members who appreciate detail and discretion.', aud: 'GPs & LPs', feat: false },
   { slug: 'rvip-lp-dinner-feb-2026', title: 'RVIP LP Dinner', type: 'dinner', start: '2026-02-19T18:30:00-06:00', end: '2026-02-19T22:00:00-06:00', city: 'Nashville', loc: 'Nashville', desc: 'Allocator-focused dinner in Nashville: candid LP conversation, emerging manager themes, and the kind of introductions that happen after the last pour.', aud: 'LPs and invited guests', feat: false },
   { slug: 'oceans-gun-club-night-mar-2026', title: 'Oceans Gun Club Night', type: 'dinner', start: '2026-03-05T18:30:00-05:00', end: '2026-03-05T22:00:00-05:00', city: 'New York', loc: 'New York City', desc: 'An unconventional Pier night out—precision, discipline, and a relaxed social layer for members who like their networking with a bit of edge.', aud: 'Members', feat: false },
-  { slug: 'sxsw-wellness-house-2026', title: 'SxSW Wellness House', type: 'tour', start: '2026-03-14T09:00:00-05:00', end: '2026-03-16T21:00:00-05:00', city: 'Austin', loc: 'Austin — multi-day activation', desc: 'A Pier presence during South by: daytime programming focused on longevity, performance, and founder stamina—plus serendipitous collisions with the Pier network across the city.', aud: 'Members & guests', feat: false },
+  { slug: 'sxsw-wellness-house-2026', title: 'SxSW Wellness House', type: 'experience', start: '2026-03-14T09:00:00-05:00', end: '2026-03-16T21:00:00-05:00', city: 'Austin', loc: 'Austin — multi-day activation', desc: 'A Pier presence during South by: daytime programming focused on longevity, performance, and founder stamina—plus serendipitous collisions with the Pier network across the city.', aud: 'Members & guests', feat: false },
   { slug: 'gp-lp-event-angellist-mar-2026', title: 'GP & LP Event with Angelist', type: 'roundtable', start: '2026-03-18T18:30:00-04:00', end: '2026-03-18T21:30:00-04:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'Structured GP/LP conversation on early-stage access, pacing, and diligence—designed for serious check-writers and disciplined emerging managers.', aud: 'GPs and LPs', feat: false },
   { slug: 'interesting-persons-dinner-mar-2026', title: 'Interesting Persons Dinner', type: 'dinner', start: '2026-03-24T18:30:00-04:00', end: '2026-03-24T22:30:00-04:00', city: 'New York', loc: 'New York City', desc: 'The Pier tradition: one table, no speeches, only people you will actually want to follow up with. Nomination-led guest list.', aud: 'Invite-only', feat: false },
   { slug: 'otis-ai-cpg-founder-dinner-apr-2026', title: 'Otis AI CPG Founder + Investor Dinner', type: 'dinner', start: '2026-04-15T18:30:00-04:00', end: '2026-04-15T22:00:00-04:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'CPG operators and capital partners in one room—AI-led growth, retail realities, and what diligence looks like when the product is on a shelf.', aud: 'Founders & investors', feat: false },
@@ -31,21 +31,21 @@ const events = [
   { slug: 'series-a-b-dinner-may-2026', title: 'Series A/B Dinner', type: 'dinner', start: '2026-05-13T18:30:00-04:00', end: '2026-05-13T22:30:00-04:00', city: 'New York', loc: 'Carne Mare', desc: 'Growth-stage operators and the capital partners who back them—conversation tuned to scaling teams, boards, and the next financing chapter.', aud: 'Founders & investors', feat: true },
   { slug: 'allocators-wine-tasting-may-2026', title: 'Allocators Wine Tasting Event', type: 'dinner', start: '2026-05-19T18:30:00-04:00', end: '2026-05-19T22:00:00-04:00', city: 'New York', loc: 'The Ned', desc: 'A refined allocator social: structured tasting, unstructured chemistry, and the kind of follow-ups that turn into real mandates.', aud: 'Allocators', feat: true },
   { slug: 'pier-ned-wristcheck-timepieces-may-2026', title: 'Pier x The Ned x Wristcheck Timepieces Event', type: 'dinner', start: '2026-05-20T18:30:00-04:00', end: '2026-05-20T22:00:00-04:00', city: 'New York', loc: 'The Ned', desc: 'Collectors and capital partners—design, provenance, and the discipline of long-term conviction. Invite-only; details to confirmed guests.', aud: 'Watch collectors', feat: false },
-  { slug: 'austin-cota-raceday-may-2026', title: 'Austin COTA Raceday', type: 'tour', start: '2026-05-22T09:00:00-05:00', end: '2026-05-22T19:00:00-05:00', city: 'Austin', loc: 'Circuit of The Americas', desc: 'All-day Pier energy in Austin—sport, hospitality, and the side conversations that happen between sessions on the paddock.', aud: 'Members', feat: false },
+  { slug: 'austin-cota-raceday-may-2026', title: 'Austin COTA Raceday', type: 'experience', start: '2026-05-22T09:00:00-05:00', end: '2026-05-22T19:00:00-05:00', city: 'Austin', loc: 'Circuit of The Americas', desc: 'All-day Pier energy in Austin—sport, hospitality, and the side conversations that happen between sessions on the paddock.', aud: 'Members', feat: false },
   { slug: 'boston-techweek-may-2026', title: 'Boston TechWeek', type: 'summit', start: '2026-05-29T18:30:00-04:00', end: '2026-05-29T22:00:00-04:00', city: 'Boston', loc: 'Boston', desc: 'Pier presence during TechWeek Boston: a hosted dinner connecting founders, operators, and capital with a bias toward durable companies.', aud: 'Partners & members', feat: false },
   { slug: 'right-to-invest-techweek-jun-2026', title: 'Right to Invest - Techweek', type: 'summit', start: '2026-06-01T18:00:00-04:00', end: '2026-06-01T21:30:00-04:00', city: 'New York', loc: 'New York City', desc: 'A TechWeek-adjacent session on access and investor rights—clear frameworks, sharp questions, and Pier-standard hospitality.', aud: 'Members', feat: false },
   { slug: 'foreseeable-future-vip-dinner-jun-2026', title: 'Foreseeable Future VIP Dinner', type: 'dinner', start: '2026-06-08T18:30:00-04:00', end: '2026-06-08T22:30:00-04:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'VIP table ahead of the gala: tighter group, longer conversations, and a focus on relationships that compound.', aud: 'VIP members', feat: false },
   { slug: 'foreseeable-future-gala-jun-2026', title: 'Foreseeable Future Gala', type: 'summit', start: '2026-06-09T18:00:00-04:00', end: '2026-06-09T23:00:00-04:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'The marquee evening—black tie optional, high conviction required. A celebration of the Pier network and the year ahead.', aud: 'Members & guests', feat: true },
   { slug: 'collective-poker-series-jun-2026', title: 'The Collective Poker Series', type: 'dinner', start: '2026-06-11T18:30:00-04:00', end: '2026-06-11T23:00:00-04:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards.', aud: 'Members', feat: false },
-  { slug: 'sweet-honey-farm-rooftop-jun-2026', title: 'Sweet Honey Farm with Rooftop Series', type: 'tour', start: '2026-06-13T16:00:00-04:00', end: '2026-06-13T22:00:00-04:00', city: 'New York', loc: 'Sweet Honey Farm', desc: 'Golden-hour programming: farm setting, rooftop energy, and a cross-section of founders and capital partners outside the usual city rooms.', aud: 'Members', feat: false },
+  { slug: 'sweet-honey-farm-rooftop-jun-2026', title: 'Sweet Honey Farm with Rooftop Series', type: 'experience', start: '2026-06-13T16:00:00-04:00', end: '2026-06-13T22:00:00-04:00', city: 'New York', loc: 'Sweet Honey Farm', desc: 'Golden-hour programming: farm setting, rooftop energy, and a cross-section of founders and capital partners outside the usual city rooms.', aud: 'Members', feat: false },
   { slug: 'abundance-dinner-jun-2026', title: 'Abundance Dinner', type: 'dinner', start: '2026-06-15T18:00:00-04:00', end: '2026-06-15T22:00:00-04:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'Operators and investors exploring how ambitious infrastructure and civic-minded founders intersect—conversation-forward, policy-aware, optimistic.', aud: 'Poli-aware operators & founders', feat: false },
   { slug: 'space-auction-joopiter-jun-2026', title: 'Space Auction with Joopiter', type: 'summit', start: '2026-06-04T18:30:00-04:00', end: '2026-06-04T22:00:00-04:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'Culture meets capital—an auction-adjacent evening for members who collect at the intersection of art, taste, and narrative. Date subject to final venue confirmation.', aud: 'Members', feat: false },
-  { slug: 'gp-labs-amsterdam-trip-jun-2026', title: 'GP Labs Amsterdam Trip', type: 'tour', start: '2026-06-27T08:00:00+02:00', end: '2026-06-30T20:00:00+02:00', city: 'Amsterdam', loc: 'Amsterdam, Netherlands', desc: 'Multi-day Pier travel: curated sessions with local operators and global allocators, plus the unstructured time where real partnerships form.', aud: 'GPs & invited LPs', feat: true },
+  { slug: 'gp-labs-amsterdam-trip-jun-2026', title: 'GP Labs Amsterdam Trip', type: 'experience', start: '2026-06-27T08:00:00+02:00', end: '2026-06-30T20:00:00+02:00', city: 'Amsterdam', loc: 'Amsterdam, Netherlands', desc: 'Multi-day Pier travel: curated sessions with local operators and global allocators, plus the unstructured time where real partnerships form.', aud: 'GPs & invited LPs', feat: true },
   { slug: 'collective-poker-series-jul-2026', title: 'The Collective Poker Series', type: 'dinner', start: '2026-07-09T18:30:00-04:00', end: '2026-07-09T23:00:00-04:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards.', aud: 'Members', feat: false },
   { slug: 'casino-night-jul-2026', title: 'Casino Night', type: 'dinner', start: '2026-07-16T18:30:00-04:00', end: '2026-07-16T23:30:00-04:00', city: 'New York', loc: 'The Portrait Bar & Library at The Public; Maxwell Social', desc: 'A high-energy Pier social across iconic Manhattan rooms—champagne, blackjack, and introductions that do not feel like networking.', aud: 'Members (capacity-limited)', feat: false },
-  { slug: 'hamptons-polo-weekend-jul-2026', title: 'Hamptons Polo Weekend 2', type: 'tour', start: '2026-07-25T12:00:00-04:00', end: '2026-07-25T20:00:00-04:00', city: 'Hamptons', loc: 'East End, Long Island', desc: 'Sun, sport, and allocator small talk—Hamptons programming built for members who want summer to feel like summer.', aud: 'Members & guests', feat: false },
+  { slug: 'hamptons-polo-weekend-jul-2026', title: 'Hamptons Polo Weekend 2', type: 'experience', start: '2026-07-25T12:00:00-04:00', end: '2026-07-25T20:00:00-04:00', city: 'Hamptons', loc: 'East End, Long Island', desc: 'Sun, sport, and allocator small talk—Hamptons programming built for members who want summer to feel like summer.', aud: 'Members & guests', feat: false },
   { slug: 'collective-poker-series-aug-2026', title: 'The Collective Poker Series', type: 'dinner', start: '2026-08-13T18:30:00-04:00', end: '2026-08-13T23:00:00-04:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards.', aud: 'Members', feat: false },
-  { slug: 'chamberlain-art-shelter-island-aug-2026', title: 'Chamberlain Art Shelter Island and Yacht Cruise', type: 'tour', start: '2026-08-14T10:00:00-04:00', end: '2026-08-16T18:00:00-04:00', city: 'Shelter Island', loc: 'Shelter Island, NY — art program & yacht', desc: 'Weekend escape: private art experiences and water time—built for deeper relationships than a single dinner allows.', aud: 'Members', feat: true },
+  { slug: 'chamberlain-art-shelter-island-aug-2026', title: 'Chamberlain Art Shelter Island and Yacht Cruise', type: 'experience', start: '2026-08-14T10:00:00-04:00', end: '2026-08-16T18:00:00-04:00', city: 'Shelter Island', loc: 'Shelter Island, NY — art program & yacht', desc: 'Weekend escape: private art experiences and water time—built for deeper relationships than a single dinner allows.', aud: 'Members', feat: true },
   { slug: 'collective-poker-series-sep-2026', title: 'The Collective Poker Series', type: 'dinner', start: '2026-09-10T18:30:00-04:00', end: '2026-09-10T23:00:00-04:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards.', aud: 'Members', feat: false },
   { slug: 'collective-poker-series-oct-2026', title: 'The Collective Poker Series', type: 'dinner', start: '2026-10-01T18:30:00-04:00', end: '2026-10-01T23:00:00-04:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards.', aud: 'Members', feat: false },
   { slug: 'super-secret-tech-conference-nov-2026', title: 'Super Secret Tech Conference', type: 'summit', start: '2026-11-12T09:00:00-05:00', end: '2026-11-12T19:00:00-05:00', city: 'New York', loc: 'Private Pier venue — details to confirmed guests', desc: 'Members know the drill: off-calendar programming during a major tech week—high signal, invitation-only, details released to confirmed guests only.', aud: 'Members', feat: false },
@@ -58,14 +58,38 @@ function statusFor(e) {
   return t < CUTOFF ? 'completed' : 'upcoming';
 }
 
+function eventType(e) {
+  return e.type === 'tour' ? 'experience' : e.type;
+}
+
+function hostTypeFor(e) {
+  if (e.host === 'partner') return 'partner';
+  if (e.slug.includes('wristcheck') || e.slug.includes('angellist')) return 'partner';
+  return 'pier';
+}
+
+function hostNameFor(e) {
+  if (e.hostName) return e.hostName;
+  if (e.slug.includes('wristcheck')) return 'The Ned × Wristcheck';
+  if (e.slug.includes('angellist')) return 'AngelList';
+  return 'Pier';
+}
+
+function locationIsPublic(loc) {
+  return !/private pier|details to confirmed/i.test(loc);
+}
+
 const eventValues = events
   .map((e, i) => {
     const st = statusFor(e);
-    const recap = st === 'completed' ? 'NULL' : 'NULL'; // no fake recap URLs
+    const recap = st === 'completed' ? 'NULL' : 'NULL';
+    const hostType = hostTypeFor(e);
+    const hostName = hostNameFor(e);
+    const locPublic = locationIsPublic(e.loc);
     return `(
   '${esc(e.slug)}',
   '${esc(e.title)}',
-  '${e.type}',
+  '${eventType(e)}',
   '${st}',
   timestamptz '${e.start}',
   timestamptz '${e.end}',
@@ -73,13 +97,17 @@ const eventValues = events
   '${esc(e.city)}',
   NULL,
   0,
-  '${esc(e.desc + ' Audience: ' + e.aud + '.')}',
+  '${esc(e.desc)}',
   ${recap},
   ${e.feat},
   ${i + 1},
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  '${hostType}',
+  '${esc(e.aud)}',
+  '${esc(hostName)}',
+  ${locPublic}
 )`;
   })
   .join(',\n');
@@ -97,6 +125,8 @@ const header = `/*
   Postgres: ON CONFLICT requires unique constraint. capital_events has UNIQUE(slug).
 
   Strategy: INSERT with ON CONFLICT (slug) DO NOTHING for events; for other tables same.
+
+  Requires migration 20260515130500_capital_markets_ux_fields.sql before this seed file.
 */
 
 `;
@@ -144,6 +174,7 @@ const dealsSql = `
 INSERT INTO public.capital_deals (
   slug, name, manager_name, deal_type, asset_class, status, target_size, raised_size, min_commitment,
   currency_code, close_date, target_irr, moic_target, vintage, geography, sectors, description, thesis,
+  return_metric_type, return_display, holding_period_years, liquidity_note, why_pier_selected,
   contacts, sort_order, published_at
 ) VALUES
 ('illustrative-growth-fund-vii', 'Illustrative Growth Fund VII', 'Harborline Partners', 'fund', 'Venture', 'open',
@@ -151,97 +182,110 @@ INSERT INTO public.capital_deals (
  ARRAY['Software','AI Applications'],
  'A concentrated early growth fund focused on capital-efficient software with enterprise pull. Illustrative listing for member navigation.',
  'Thesis: lead or co-lead where velocity metrics and net retention can be diligenced with customers in the loop.',
+ 'irr', NULL, 7, 'Fund liquidity per standard LP terms', 'Pier diligenced velocity and net retention with customer references in the loop—not slide-deck storytelling.',
  '[{"name":"IR Desk","role":"Investor relations","email":""}]'::jsonb, 1, timezone('utc', now())),
 ('illustrative-co-invest-ai-infra', 'Illustrative Co-Invest: AI Infrastructure', 'Northline Ventures', 'co-invest', 'Venture', 'closing',
  45000000, 38000000, 500000, 'USD', '2026-06-15', 28, 3.2, 2025, 'United States',
  ARRAY['AI Infra','Semiconductors'],
  'Single-asset co-invest alongside a known institutional round—illustrative only, not an offer to subscribe.',
  'Underwrite like a lead: power, cooling, and software margins must clear a stressed case.',
+ 'irr', NULL, 4, 'Typical co-invest hold; exit tied to sponsor timeline', 'Selected after Pier underwrote power, cooling, and software margins under a stressed case—not headline IRR alone.',
  '[{"name":"Deal team","role":"Partner","email":""}]'::jsonb, 2, timezone('utc', now())),
 ('illustrative-spv-secondaries-strip', 'Illustrative SPV: Secondaries Strip', 'Compass Foundry', 'spv', 'Secondaries', 'open',
  12000000, 6200000, 250000, 'USD', '2026-07-01', 16, 1.9, 2024, 'Europe / US',
  ARRAY['Secondaries','Marketplaces'],
  'Small SPV to acquire a strip of secondary interests in a consumer marketplace—illustrative profile for UI testing.',
  'Focus on seller quality and concentration limits; prefer diversified LP sellers.',
+ 'moic', NULL, 3, 'Secondary strip; liquidity event-driven', 'Pier prioritized seller quality and concentration limits over headline pricing.',
  '[{"name":"SPV admin","role":"Administrator","email":""}]'::jsonb, 3, timezone('utc', now())),
 ('illustrative-buyout-fund-v', 'Illustrative Buyout Fund V', 'Lakeshore Capital Partners', 'fund', 'Buyouts', 'closed',
  1800000000, 1800000000, 10000000, 'USD', '2025-12-01', 18, 2.2, 2022, 'North America',
  ARRAY['Industrials','Business Services'],
  'Control buyouts in founder-owned industrials and services—illustrative closed fund entry.',
  'Operational improvement playbook with conservative leverage.',
+ 'irr', NULL, 6, 'Closed fund', 'Operational improvement playbook with conservative leverage—aligned with Pier allocator diligence standards.',
  '[{"name":"Partner","role":"Investor relations","email":""}]'::jsonb, 4, timezone('utc', now())),
 ('illustrative-private-credit-income', 'Illustrative Private Credit Income', 'Meridian Credit Partners', 'fund', 'Credit', 'open',
  400000000, 210000000, 1000000, 'USD', '2026-11-30', 11, 1.45, 2025, 'North America',
  ARRAY['Private Credit','Asset-backed'],
  'Senior secured lending to middle-market operators with covenant-heavy structures—illustrative.',
  'Income-first; avoid cyclical tails without hard collateral.',
+ 'yield', '11% current yield', 5, 'Income-oriented; quarterly distributions', 'Income-first mandate with covenant-heavy structures—Pier screened out cyclical tails without hard collateral.',
  '[{"name":"Capital formation","role":"IR","email":""}]'::jsonb, 5, timezone('utc', now())),
 ('illustrative-co-invest-climate-infra', 'Illustrative Co-Invest: Climate Infrastructure', 'Northline Ventures', 'co-invest', 'Infrastructure', 'open',
  60000000, 12000000, 1000000, 'USD', '2026-08-20', 14, 2.1, 2026, 'United States',
  ARRAY['Climate','Energy'],
  'Project finance adjacent co-invest with contracted revenue—illustrative.',
  'Underwrite offtake, counterparty, and construction risk explicitly.',
+ 'custom', '14% project yield', 10, 'Long-dated infrastructure cash flows', 'Contracted offtake and construction risk were diligenced explicitly before Pier surfaced the opportunity.',
  '[{"name":"Infra lead","role":"Partner","email":""}]'::jsonb, 6, timezone('utc', now())),
 ('illustrative-secondary-fund-iii', 'Illustrative Secondary Fund III', 'Harborline Partners', 'secondary', 'Secondaries', 'closing',
  500000000, 410000000, 5000000, 'USD', '2026-05-30', 15, 1.7, 2024, 'Global',
  ARRAY['Secondaries','Venture'],
  'LP-led secondaries and GP-led continuation vehicles—illustrative.',
  'Price discipline and diversification across vintages.',
+ 'irr', NULL, 8, 'Secondary fund; vintage diversification', 'Price discipline and vintage diversification—not momentum chasing in hot strips.',
  '[{"name":"Secondaries desk","role":"Principal","email":""}]'::jsonb, 7, timezone('utc', now())),
 ('illustrative-spv-consumer-roll-up', 'Illustrative SPV: Consumer Roll-Up', 'Compass Foundry', 'spv', 'Buyouts', 'open',
  35000000, 8000000, 500000, 'EUR', '2026-10-15', 20, 2.4, 2025, 'Western Europe',
  ARRAY['Consumer','Marketplaces'],
  'Single-brand roll-up with a repeatable M&A playbook—illustrative.',
  'Margin expansion through procurement and channel mix.',
+ 'moic', NULL, 4, 'Roll-up; exit via strategic or sponsor sale', 'Repeatable M&A playbook with procurement-led margin expansion—Pier met the operating partner before listing.',
  '[{"name":"Deal partner","role":"Partner","email":""}]'::jsonb, 8, timezone('utc', now()))
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   status = EXCLUDED.status,
   raised_size = EXCLUDED.raised_size,
+  return_metric_type = EXCLUDED.return_metric_type,
+  return_display = EXCLUDED.return_display,
+  why_pier_selected = EXCLUDED.why_pier_selected,
   updated_at = timezone('utc', now());
 `;
 
 const partnersSql = `
 INSERT INTO public.capital_partners (
-  slug, name, category, tagline, benefit, description, website_url, featured, status, sort_order, published_at
+  slug, name, category, tagline, benefit, description, website_url, featured, status, sort_order, published_at, location
 ) VALUES
 ('aman-new-york', 'Aman New York', 'hotels', 'Urban sanctuary above Midtown', 'Preferred arrival experience and Pier-member recognition on eligible stays',
  'Aman New York pairs Japanese minimalism with Manhattan energy. Pier members receive thoughtful recognition at arrival where available, and our concierge can coordinate itineraries that protect time.',
- 'https://www.aman.com/hotels/aman-new-york', true, 'active', 1, timezone('utc', now())),
+ 'https://www.aman.com/hotels/aman-new-york', true, 'active', 1, timezone('utc', now()), 'New York'),
 ('carne-mare', 'Carne Mare', 'restaurants', 'Italian chophouse energy', 'Priority consideration for Pier-hosted member tables on select dates',
  'Carne Mare is built for celebration: prime cuts, seafood towers, and a room that feels like a night out. Requests route through Pier Concierge to align with house capacity.',
- 'https://www.carneramenyc.com/', true, 'active', 2, timezone('utc', now())),
+ 'https://www.carneramenyc.com/', true, 'active', 2, timezone('utc', now()), 'New York'),
 ('blacklane-global', 'Blacklane', 'travel', 'Chauffeured reliability', 'Member routing support for airport and city-to-city transfers',
  'Blacklane focuses on consistent chauffeur quality across global metros. Pier Concierge can help members book with the right vehicle class and meet-and-greet details.',
- 'https://www.blacklane.com/en/', false, 'active', 3, timezone('utc', now())),
+ 'https://www.blacklane.com/en/', false, 'active', 3, timezone('utc', now()), 'Global'),
 ('equinox-plus', 'Equinox', 'health', 'Performance baseline', 'Trial access pathways coordinated through Pier for eligible members',
  'Equinox is a practical partner for members who travel constantly—recovery, training, and routine. Availability varies by market; Pier Concierge confirms eligibility.',
- 'https://www.equinox.com/', false, 'active', 4, timezone('utc', now())),
+ 'https://www.equinox.com/', false, 'active', 4, timezone('utc', now()), 'Global'),
 ('resy-private', 'Resy Private', 'restaurants', 'Hard tables, handled quietly', 'Concierge-assisted routing for high-demand reservations',
  'Resy Private is not a guarantee—it is a better process. Pier Concierge packages member context so restaurants can say yes when capacity exists.',
- 'https://resy.com/', false, 'active', 5, timezone('utc', now())),
+ 'https://resy.com/', false, 'active', 5, timezone('utc', now()), 'Global'),
 ('four-seasons-partner', 'Four Seasons Hotels and Resorts', 'hotels', 'Consistent luxury service', 'Property notes and celebration details passed through concierge',
  'When members need predictable excellence—family travel, roadshows, recovery weekends—Four Seasons remains a default. Pier coordinates preferences without drama.',
- 'https://www.fourseasons.com/', true, 'active', 6, timezone('utc', now())),
+ 'https://www.fourseasons.com/', true, 'active', 6, timezone('utc', now()), 'Global'),
 ('jpm-private-bank-ref', 'Illustrative Private Banking Partner', 'finance', 'Institutional-grade banking context', 'Education-forward introductions where appropriate',
  'Illustrative partner entry for UI seeding—not an endorsement. Pier can coordinate introductions to regulated institutions when members request a banking conversation.',
- 'https://privatebank.jpmorgan.com/', false, 'active', 7, timezone('utc', now())),
+ 'https://privatebank.jpmorgan.com/', false, 'active', 7, timezone('utc', now()), 'Global'),
 ('oura-health', 'Oura', 'health', 'Sleep and readiness signal', 'Member education on readiness metrics and cohort offers when available',
  'Oura is a lightweight signal layer for busy operators. Pier highlights it as a wellness tool—not medical advice—with offers subject to partner campaigns.',
- 'https://ouraring.com/', false, 'active', 8, timezone('utc', now())),
+ 'https://ouraring.com/', false, 'active', 8, timezone('utc', now()), 'Global'),
 ('netjets-partner', 'NetJets', 'travel', 'Fractional aviation', 'Routing to aviation advisors through Pier Concierge',
  'For members who live in three cities a week, aviation time is portfolio time. Pier does not sell fractional shares; we coordinate introductions to authorized advisors.',
- 'https://www.netjets.com/en-us/', false, 'active', 9, timezone('utc', now()))
+ 'https://www.netjets.com/en-us/', false, 'active', 9, timezone('utc', now()), 'Global')
 ON CONFLICT (slug) DO UPDATE SET
   benefit = EXCLUDED.benefit,
   description = EXCLUDED.description,
+  location = EXCLUDED.location,
   updated_at = timezone('utc', now());
 `;
 
 const eventsSql = `
 INSERT INTO public.capital_events (
   slug, title, event_type, status, starts_at, ends_at, location, city, capacity, registered_count,
-  description, recap_url, featured, sort_order, published_at, external_registration_url, external_registration_label
+  description, recap_url, featured, sort_order, published_at, external_registration_url, external_registration_label,
+  host_type, audience, host_name, location_is_public
 ) VALUES
 ${eventValues}
 ON CONFLICT (slug) DO UPDATE SET
@@ -255,6 +299,10 @@ ON CONFLICT (slug) DO UPDATE SET
   description = EXCLUDED.description,
   featured = EXCLUDED.featured,
   sort_order = EXCLUDED.sort_order,
+  host_type = EXCLUDED.host_type,
+  audience = EXCLUDED.audience,
+  host_name = EXCLUDED.host_name,
+  location_is_public = EXCLUDED.location_is_public,
   recap_url = COALESCE(public.capital_events.recap_url, EXCLUDED.recap_url),
   external_registration_url = COALESCE(public.capital_events.external_registration_url, EXCLUDED.external_registration_url),
   external_registration_label = COALESCE(public.capital_events.external_registration_label, EXCLUDED.external_registration_label),

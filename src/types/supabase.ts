@@ -115,6 +115,11 @@ export type Database = {
           sectors: string[];
           description: string;
           thesis: string | null;
+          return_metric_type: 'irr' | 'moic' | 'yield' | 'custom' | 'none';
+          return_display: string | null;
+          holding_period_years: number | null;
+          liquidity_note: string | null;
+          why_pier_selected: string | null;
           contacts: Json;
           sort_order: number;
           published_at: string | null;
@@ -266,7 +271,7 @@ export type Database = {
           id: string;
           slug: string;
           title: string;
-          event_type: 'dinner' | 'summit' | 'roundtable' | 'tour' | 'webinar';
+          event_type: 'dinner' | 'summit' | 'roundtable' | 'experience' | 'webinar';
           status: 'draft' | 'upcoming' | 'completed' | 'cancelled';
           starts_at: string;
           ends_at: string | null;
@@ -278,6 +283,10 @@ export type Database = {
           recap_url: string | null;
           external_registration_url: string | null;
           external_registration_label: string | null;
+          host_type: 'pier' | 'partner';
+          audience: string | null;
+          host_name: string | null;
+          location_is_public: boolean;
           featured: boolean;
           sort_order: number;
           published_at: string | null;
@@ -377,6 +386,7 @@ export type Database = {
           benefit: string;
           description: string;
           website_url: string | null;
+          location: string | null;
           featured: boolean;
           status: 'draft' | 'active' | 'inactive' | 'archived';
           sort_order: number;
@@ -390,6 +400,7 @@ export type Database = {
           name: string;
           category: 'hotels' | 'restaurants' | 'travel' | 'lifestyle' | 'finance' | 'health';
           tagline?: string | null;
+          location?: string | null;
           benefit: string;
           description: string;
           website_url?: string | null;

@@ -122,7 +122,7 @@ export default function MembersPage() {
         </div>
       </div>
 
-      {loading ? <LoadingState label="Loading member profiles from Supabase..." /> : null}
+      {loading ? <LoadingState label="Loading member network..." /> : null}
       {error ? (
         <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} />
       ) : null}

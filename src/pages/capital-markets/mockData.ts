@@ -1,7 +1,7 @@
 export type DealType = 'fund' | 'co-invest' | 'secondary' | 'spv';
 export type DealStatus = 'open' | 'closing' | 'closed' | 'pending';
 export type MemberRole = 'gp' | 'lp';
-export type EventType = 'dinner' | 'summit' | 'roundtable' | 'tour' | 'webinar';
+export type EventType = 'dinner' | 'summit' | 'roundtable' | 'experience' | 'webinar';
 export type PartnerCategory = 'hotels' | 'restaurants' | 'travel' | 'lifestyle' | 'finance' | 'health';
 
 export interface CapitalDeal {
@@ -282,7 +282,7 @@ export const events: CapitalEvent[] = [
   {
     id: 'dubai-tour-apr',
     title: 'MENA Capital Tour - Dubai',
-    type: 'tour',
+    type: 'experience',
     date: '2026-04-09T10:00:00',
     endDate: '2026-04-11T18:00:00',
     location: 'DIFC, Gate District',
@@ -472,7 +472,7 @@ export const eventTypeLabels: Record<EventType, string> = {
   dinner: 'Dinner',
   summit: 'Summit',
   roundtable: 'Roundtable',
-  tour: 'Tour',
+  experience: 'Experience',
   webinar: 'Webinar',
 };
 

@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
-import { Badge } from '../../components/ui/Badge';
+import { useEffect, useMemo, useState } from 'react';
+import { FeaturedPartnerCard, PartnerListRow } from '../../components/capital-markets/PartnerCards';
 import { useAuth } from '../../context/AuthContext';
 import {
   createCapitalPartnerIntro,
@@ -8,14 +7,22 @@ import {
   getMyCapitalPartnerIntros,
   type CapitalPartner,
   type CapitalPartnerIntro,
+  type PartnerCategory,
 } from '../../lib/api/capitalMarkets';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
+import { cn } from '../../lib/utils';
 import { partnerCategoryLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
-function displayWebsite(website: string) {
-  return website.replace(/^https?:\/\//, '') || 'Website pending';
-}
+const categoryFilters: Array<'all' | PartnerCategory> = [
+  'all',
+  'hotels',
+  'restaurants',
+  'travel',
+  'health',
+  'finance',
+  'lifestyle',
+];
 
 export default function PartnersPage() {
   const { user } = useAuth();
@@ -26,6 +33,8 @@ export default function PartnersPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [submittingPartnerId, setSubmittingPartnerId] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<'all' | PartnerCategory>('all');
+  const [search, setSearch] = useState('');
   const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
@@ -62,9 +71,20 @@ export default function PartnersPage() {
     };
   }, [user?.id, reloadNonce]);
 
-  const featured = partners.filter((partner) => partner.featured);
-  const regular = partners.filter((partner) => !partner.featured);
   const introByPartnerId = new Map(intros.map((intro) => [intro.partnerId, intro]));
+  const query = search.trim().toLowerCase();
+
+  const filtered = useMemo(() => {
+    return partners.filter((partner) => {
+      if (categoryFilter !== 'all' && partner.category !== categoryFilter) return false;
+      if (!query) return true;
+      const haystack = `${partner.name} ${partner.description} ${partner.benefit} ${partner.location}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [partners, categoryFilter, query]);
+
+  const featured = filtered.filter((partner) => partner.featured);
+  const regular = filtered.filter((partner) => !partner.featured);
 
   async function handleIntroRequest(partner: CapitalPartner) {
     if (!user) {
@@ -104,15 +124,13 @@ export default function PartnersPage() {
           Member benefits.
         </h1>
         <p className="mt-3 max-w-2xl text-[15px] text-slate">
-          Access and introductions that make the membership valuable beyond capital.
+          Preferred access and trusted introductions across the Pier network.
         </p>
         <div className="gilt-rule mt-6 w-12" />
       </div>
 
-      {loading ? <LoadingState label="Loading partners from Supabase..." /> : null}
-      {error ? (
-        <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} />
-      ) : null}
+      {loading ? <LoadingState label="Loading partners..." /> : null}
+      {error ? <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} /> : null}
       {submitSuccess ? (
         <div className="mb-6 rounded-[4px] border border-ledger/20 bg-ledger/[0.04] p-4 text-[13px] text-ledger">
           {submitSuccess}
@@ -126,131 +144,64 @@ export default function PartnersPage() {
 
       {!loading && !error ? (
         <>
-      <section className="mb-12">
-        <p className="eyebrow mb-5">Featured Partners</p>
-        {featured.length === 0 ? (
-          <EmptyState
-            title="No featured partners."
-            description="Featured partners appear when your team marks them in the catalog. If none are configured yet, this section stays empty on purpose."
-          />
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            {featured.map((partner) => (
-            <div key={partner.id} className="rounded-[4px] border border-border bg-midnight p-7">
-              {(() => {
-                const intro = introByPartnerId.get(partner.databaseId);
-                return (
-                  <>
-              <div className="mb-4 flex items-start justify-between gap-4">
-                <div>
-                  <p className="eyebrow mb-1 text-gilt">{partnerCategoryLabels[partner.category]}</p>
-                  <h2 className="font-display text-[28px] leading-none tracking-[-0.01em] text-parchment">
-                    {partner.name}
-                  </h2>
-                  <p className="mt-1 text-[13px] text-parchment/50">{partner.tagline}</p>
-                </div>
-                <Badge variant="members">Featured</Badge>
-              </div>
-              <p className="mb-5 text-[14px] leading-relaxed text-parchment/70">
-                {partner.description}
-              </p>
-              <div className="rounded-[2px] border border-gilt/20 bg-gilt/[0.08] px-4 py-3">
-                <p className="eyebrow mb-1 text-parchment/60">Member Benefit</p>
-                <p className="text-[13px] text-parchment">{partner.benefit}</p>
-              </div>
-              <div className="mt-4 flex flex-col gap-3 text-[12px] sm:flex-row sm:items-center sm:justify-between">
-                <a
-                  href={partner.website || '#'}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1 text-gilt hover:underline"
-                >
-                  {displayWebsite(partner.website)}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {categoryFilters.map((cat) => (
                 <button
+                  key={cat}
                   type="button"
-                  disabled={submittingPartnerId !== null || Boolean(intro)}
-                  onClick={() => handleIntroRequest(partner)}
-                  className="text-left text-parchment/50 hover:text-gilt disabled:hover:text-parchment/50 sm:text-right"
+                  onClick={() => setCategoryFilter(cat)}
+                  className={cn(
+                    'rounded-full border px-3 py-1.5 text-[12px] transition-colors',
+                    categoryFilter === cat
+                      ? 'border-gilt bg-gilt/15 text-ink'
+                      : 'border-border text-slate hover:border-ink/30 hover:text-ink'
+                  )}
                 >
-                  {submittingPartnerId === partner.databaseId
-                    ? 'Submitting...'
-                    : intro
-                      ? `Intro ${intro.status.replace('_', ' ')}`
-                      : 'Request introduction'}
+                  {cat === 'all' ? 'All' : partnerCategoryLabels[cat]}
                 </button>
-              </div>
-                  </>
-                );
-              })()}
+              ))}
             </div>
-          ))}
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search partners..."
+              className="h-9 w-full max-w-xs rounded-[6px] border border-border bg-surface px-3 text-[13px] text-ink placeholder:text-slate focus:border-ink focus:outline-none"
+            />
           </div>
-        )}
-      </section>
 
-      <section>
-        <p className="eyebrow mb-5">All Partners</p>
-        {regular.length === 0 ? (
-          <EmptyState
-            title="No additional partners."
-            description="No other active partners are visible to your account right now. That can mean the directory is intentionally small—not a connection failure."
-          />
-        ) : (
-          <div className="grid gap-3">
-            {regular.map((partner) => (
-            <div
-              key={partner.id}
-              className="group flex flex-col gap-5 rounded-[4px] border border-border bg-surface p-5 transition-colors hover:border-ink/30 xl:flex-row xl:items-start xl:justify-between"
-            >
-              {(() => {
-                const intro = introByPartnerId.get(partner.databaseId);
-                return (
-                  <>
-              <div className="grid flex-1 gap-5 lg:grid-cols-[180px_1fr_1fr]">
-                <div>
-                  <p className="eyebrow mb-0.5">{partnerCategoryLabels[partner.category]}</p>
-                  <p className="font-medium text-ink">{partner.name}</p>
-                  <p className="mt-0.5 text-[12px] text-slate">{partner.tagline}</p>
-                </div>
-                <p className="text-[13px] leading-relaxed text-slate">{partner.description}</p>
-                <div>
-                  <p className="eyebrow mb-1">Benefit</p>
-                  <p className="text-[13px] text-ink">{partner.benefit}</p>
-                </div>
+          <section className="mb-12">
+            <p className="eyebrow mb-5">Featured partners</p>
+            {featured.length === 0 ? (
+              <EmptyState title="No featured partners match." description="Adjust filters or search." />
+            ) : (
+              <div className="grid gap-4 lg:grid-cols-3">
+                {featured.map((partner) => (
+                  <FeaturedPartnerCard key={partner.id} partner={partner} onIntro={handleIntroRequest} />
+                ))}
               </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href={partner.website || '#'}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex h-8 items-center justify-center rounded-[6px] border border-border bg-parchment px-3 text-[12px] text-slate hover:border-ink/30 hover:text-ink"
-                >
-                  <ExternalLink className="mr-1 h-3 w-3" />
-                  Visit
-                </a>
-                <button
-                  type="button"
-                  disabled={submittingPartnerId !== null || Boolean(intro)}
-                  onClick={() => handleIntroRequest(partner)}
-                  className="flex h-8 items-center justify-center rounded-[6px] border border-ink bg-ink px-3 text-[12px] text-parchment hover:bg-ink/90 disabled:opacity-50"
-                >
-                  {submittingPartnerId === partner.databaseId
-                    ? 'Submitting...'
-                    : intro
-                      ? `Intro ${intro.status.replace('_', ' ')}`
-                      : 'Intro'}
-                </button>
+            )}
+          </section>
+
+          <section>
+            <p className="eyebrow mb-5">All partners</p>
+            {regular.length === 0 ? (
+              <EmptyState title="No additional partners." description="Try a different filter or search term." />
+            ) : (
+              <div className="grid gap-3">
+                {regular.map((partner) => (
+                  <PartnerListRow
+                    key={partner.id}
+                    partner={partner}
+                    intro={introByPartnerId.get(partner.databaseId)}
+                    submitting={submittingPartnerId === partner.databaseId}
+                    onIntro={handleIntroRequest}
+                  />
+                ))}
               </div>
-                  </>
-                );
-              })()}
-            </div>
-          ))}
-          </div>
-        )}
-      </section>
+            )}
+          </section>
         </>
       ) : null}
     </div>

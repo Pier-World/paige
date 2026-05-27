@@ -102,17 +102,18 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="border-t border-border p-3">
-        <div className="flex items-center gap-3 rounded-[6px] px-3 py-2">
+        <Link
+          to="/profile"
+          onClick={onNavigate}
+          className="flex items-center gap-3 rounded-[6px] px-3 py-2 transition-colors hover:bg-ink/[0.05]"
+        >
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-midnight text-[12px] font-medium text-parchment">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-medium text-ink">{displayName}</p>
-            <p className="truncate text-[11px] text-slate">
-              {user?.membership_level || user?.role || 'Member'}
-            </p>
           </div>
-        </div>
+        </Link>
         <button
           type="button"
           onClick={handleSignOut}

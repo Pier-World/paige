@@ -5,7 +5,9 @@ export type DealType = 'fund' | 'co-invest' | 'secondary' | 'spv';
 export type DealStatus = 'open' | 'closing' | 'closed' | 'pending';
 export type CapitalMemberRole = 'gp' | 'lp';
 export type CapitalMemberProfileStatus = 'draft' | 'active' | 'hidden' | 'archived';
-export type EventType = 'dinner' | 'summit' | 'roundtable' | 'tour' | 'webinar';
+export type EventType = 'dinner' | 'summit' | 'roundtable' | 'experience' | 'webinar';
+export type EventHostType = 'pier' | 'partner';
+export type ReturnMetricType = 'irr' | 'moic' | 'yield' | 'custom' | 'none';
 export type PartnerCategory = 'hotels' | 'restaurants' | 'travel' | 'lifestyle' | 'finance' | 'health';
 
 export interface CapitalDeal {
@@ -20,13 +22,19 @@ export interface CapitalDeal {
   raisedSize: number;
   minCommitment: number;
   closeDate: string;
+  publishedAt: string | null;
   targetIrr: number;
   moicTarget: number;
+  returnMetricType: ReturnMetricType;
+  returnDisplay: string;
+  holdingPeriodYears: number | null;
+  liquidityNote: string;
   vintage: number;
   geography: string;
   sectors: string[];
   description: string;
   thesis: string;
+  whyPierSelected: string;
   contacts: Array<{ name: string; role: string; email: string }>;
   documents: Array<{ label: string; type: string; size: string }>;
 }
@@ -37,17 +45,20 @@ export interface CapitalEvent {
   title: string;
   status: 'draft' | 'upcoming' | 'completed' | 'cancelled';
   type: EventType;
+  hostType: EventHostType;
+  hostName: string;
+  audience: string;
   date: string;
   endDate: string;
   location: string;
+  locationIsPublic: boolean;
   city: string;
-  /** Null when capacity is not published (no misleading progress bar). */
   capacity: number | null;
   registeredCount: number;
   registered: boolean;
   description: string;
   upcoming: boolean;
-  /** Off-platform registration (e.g. Luma). Empty when unset. */
+  featured: boolean;
   registrationUrl: string;
   registrationLabel: string;
   recapUrl: string;
@@ -62,6 +73,7 @@ export interface CapitalPartner {
   benefit: string;
   description: string;
   website: string;
+  location: string;
   featured: boolean;
 }
 
@@ -205,7 +217,41 @@ function mapDealDocument(row: CapitalDealDocumentRow): CapitalDeal['documents'][
   };
 }
 
-function mapDeal(row: CapitalDealRow, documents: CapitalDealDocumentRow[] = []): CapitalDeal {
+type CapitalDealRowExtended = CapitalDealRow & {
+  return_metric_type?: ReturnMetricType;
+  return_display?: string | null;
+  holding_period_years?: number | null;
+  liquidity_note?: string | null;
+  why_pier_selected?: string | null;
+};
+
+type CapitalEventRowExtended = CapitalEventRow & {
+  host_type?: EventHostType;
+  audience?: string | null;
+  host_name?: string | null;
+  location_is_public?: boolean;
+  event_type: EventType | 'tour';
+};
+
+type CapitalPartnerRowExtended = CapitalPartnerRow & {
+  location?: string | null;
+};
+
+function mapReturnMetricType(value: string | undefined): ReturnMetricType {
+  if (value === 'moic' || value === 'yield' || value === 'custom' || value === 'none') return value;
+  return 'irr';
+}
+
+function normalizeEventType(value: string): EventType {
+  if (value === 'tour') return 'experience';
+  if (value === 'dinner' || value === 'summit' || value === 'roundtable' || value === 'experience' || value === 'webinar') {
+    return value;
+  }
+  return 'dinner';
+}
+
+function mapDeal(row: CapitalDealRowExtended, documents: CapitalDealDocumentRow[] = []): CapitalDeal {
+  const whyPier = row.why_pier_selected ?? row.thesis ?? row.description;
   return {
     id: row.slug || row.id,
     databaseId: row.id,
@@ -218,41 +264,52 @@ function mapDeal(row: CapitalDealRow, documents: CapitalDealDocumentRow[] = []):
     raisedSize: row.raised_size,
     minCommitment: row.min_commitment ?? 0,
     closeDate: row.close_date ?? row.created_at,
+    publishedAt: row.published_at,
     targetIrr: row.target_irr ?? 0,
     moicTarget: row.moic_target ?? 0,
+    returnMetricType: mapReturnMetricType(row.return_metric_type),
+    returnDisplay: row.return_display ?? '',
+    holdingPeriodYears: row.holding_period_years ?? null,
+    liquidityNote: row.liquidity_note ?? '',
     vintage: row.vintage ?? new Date(row.created_at).getFullYear(),
     geography: row.geography ?? 'Global',
     sectors: row.sectors,
     description: row.description,
     thesis: row.thesis ?? row.description,
+    whyPierSelected: whyPier,
     contacts: parseContacts(row.contacts),
     documents: documents.map(mapDealDocument),
   };
 }
 
-function mapEvent(row: CapitalEventRow): CapitalEvent {
+function mapEvent(row: CapitalEventRowExtended): CapitalEvent {
   return {
     id: row.slug || row.id,
     databaseId: row.id,
     title: row.title,
     status: row.status,
-    type: row.event_type,
+    type: normalizeEventType(row.event_type),
+    hostType: row.host_type === 'partner' ? 'partner' : 'pier',
+    hostName: row.host_name ?? '',
+    audience: row.audience ?? '',
     date: row.starts_at,
     endDate: row.ends_at ?? row.starts_at,
     location: row.location,
+    locationIsPublic: row.location_is_public ?? false,
     city: row.city,
     capacity: row.capacity,
     registeredCount: row.registered_count,
     registered: false,
     description: row.description,
     upcoming: row.status === 'upcoming',
+    featured: row.featured,
     registrationUrl: row.external_registration_url ?? '',
     registrationLabel: (row.external_registration_label ?? '').trim() || 'Register',
     recapUrl: row.recap_url ?? '',
   };
 }
 
-function mapPartner(row: CapitalPartnerRow): CapitalPartner {
+function mapPartner(row: CapitalPartnerRowExtended): CapitalPartner {
   return {
     id: row.slug || row.id,
     databaseId: row.id,
@@ -262,6 +319,7 @@ function mapPartner(row: CapitalPartnerRow): CapitalPartner {
     benefit: row.benefit,
     description: row.description,
     website: normalizeWebsite(row.website_url),
+    location: row.location ?? '',
     featured: row.featured,
   };
 }
@@ -344,8 +402,8 @@ export async function getCapitalDeals(): Promise<CapitalDeal[]> {
     .select('*')
     .not('published_at', 'is', null)
     .in('status', memberVisibleDealStatuses)
-    .order('sort_order', { ascending: true })
-    .order('close_date', { ascending: true });
+    .order('published_at', { ascending: false, nullsFirst: false })
+    .order('sort_order', { ascending: true });
 
   if (error) throw new Error(`Unable to load capital deals: ${error.message}`);
 

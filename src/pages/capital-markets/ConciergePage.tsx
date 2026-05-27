@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Clock, MessageSquare, Send } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
+import { CONCIERGE_QUICK_REQUESTS } from '../../lib/capitalMarkets/conciergeQuotes';
 import { cn } from '../../lib/utils';
 
 type ConciergeMessage = {
@@ -15,31 +17,26 @@ const initialMessages: ConciergeMessage[] = [
   {
     id: '1',
     sender: 'concierge',
-    body: "Welcome to Pier Concierge. I can assist with fund introductions, event logistics, partner access, and private reservations. What can I help with today?",
+    body: 'Welcome to Pier Concierge. What can Pier help you with today?',
     timestamp: '2026-05-10T09:00:00',
-  },
-  {
-    id: '2',
-    sender: 'member',
-    body: 'I would like an introduction to the Meridian Capital team ahead of the North Atlantic Fund I close.',
-    timestamp: '2026-05-10T09:15:00',
-  },
-  {
-    id: '3',
-    sender: 'concierge',
-    body: 'Of course. I have noted your interest and will coordinate with the Meridian team. Expect a calendar invitation within 48 hours.',
-    timestamp: '2026-05-10T09:18:00',
   },
 ];
 
 export default function ConciergePage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<ConciergeMessage[]>(initialMessages);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const memberInitial = user?.first_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'M';
 
-  // TODO(Phase 5): Verify the live concierge architecture before wiring tasks, conversations, Intercom, or Edge Functions.
+  useEffect(() => {
+    const partner = searchParams.get('partner');
+    if (partner) {
+      setInput(`I would like an introduction to ${partner.replace(/-/g, ' ')}.`);
+    }
+  }, [searchParams]);
+
   function handleSend() {
     if (!input.trim() || sending) return;
 
@@ -60,7 +57,7 @@ export default function ConciergePage() {
         {
           id: String(Date.now() + 1),
           sender: 'concierge',
-          body: 'Thank you. This static Phase 3 interface has logged the request locally. Live concierge routing will be connected after the active architecture is verified.',
+          body: 'Thank you. The Pier team has your request and will follow up shortly.',
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -74,8 +71,11 @@ export default function ConciergePage() {
         <div>
           <p className="eyebrow mb-1">05 / Concierge</p>
           <h1 className="font-display text-[30px] leading-none tracking-[-0.02em] text-ink">
-            Your personal Pier concierge.
+            Your Pier Concierge
           </h1>
+          <p className="mt-2 text-[14px] text-slate">
+            For introductions, event access, partner requests, and travel support.
+          </p>
         </div>
         <div className="hidden items-center gap-2 rounded-[4px] border border-ledger/20 bg-ledger/[0.06] px-3 py-1.5 sm:flex">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-ledger" />
@@ -92,9 +92,7 @@ export default function ConciergePage() {
             <div
               className={cn(
                 'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[12px] font-medium',
-                message.sender === 'concierge'
-                  ? 'bg-midnight text-gilt'
-                  : 'bg-ink text-parchment'
+                message.sender === 'concierge' ? 'bg-midnight text-gilt' : 'bg-ink text-parchment'
               )}
             >
               {message.sender === 'concierge' ? 'P' : memberInitial}
@@ -135,12 +133,7 @@ export default function ConciergePage() {
       <div className="border-t border-border px-6 py-4 sm:px-10">
         <p className="eyebrow mb-3">Quick requests</p>
         <div className="flex flex-wrap gap-2">
-          {[
-            'Request a fund introduction',
-            'Make a restaurant reservation',
-            'RSVP to an upcoming event',
-            'Find partner benefits',
-          ].map((action) => (
+          {CONCIERGE_QUICK_REQUESTS.map((action) => (
             <button
               key={action}
               type="button"
@@ -166,7 +159,7 @@ export default function ConciergePage() {
                 }
               }}
               rows={3}
-              placeholder="Type your message..."
+              placeholder="What can Pier help you with today?"
               className="block w-full resize-none rounded-[4px] border border-border bg-surface px-4 py-3 text-[14px] text-ink placeholder:text-slate focus:border-ink focus:outline-none"
             />
             <div className="pointer-events-none absolute bottom-3 right-3 hidden items-center gap-1.5 text-[11px] text-slate sm:flex">

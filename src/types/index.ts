@@ -18,6 +18,11 @@ export interface User {
 export interface UserPreferences {
   preferred_cities?: string[];
   interests?: string[];
+  primary_city?: string;
+  firm?: string;
+  role_label?: string;
+  event_preferences?: Record<string, string>;
+  concierge_preferences?: Record<string, string>;
 }
 
 export interface Perk {

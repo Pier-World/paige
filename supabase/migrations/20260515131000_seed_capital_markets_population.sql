@@ -4,6 +4,8 @@
   Source events: docs/seeds/PIER_Master_Event_Calendar_2026_Events.csv
   Financial columns from the spreadsheet are NOT imported.
 
+  Requires: 20260515130500_capital_markets_ux_fields.sql (return_metric_type, host_type, etc.)
+
   Idempotent: uses ON CONFLICT DO NOTHING on natural keys (slug) where supported.
   For capital_events / deals / partners / profiles: delete by slug then insert (dev-friendly) —
   instead we use INSERT ... ON CONFLICT (slug) DO UPDATE for events only if unique on slug.
@@ -55,6 +57,7 @@ ON CONFLICT (slug) DO UPDATE SET
 INSERT INTO public.capital_deals (
   slug, name, manager_name, deal_type, asset_class, status, target_size, raised_size, min_commitment,
   currency_code, close_date, target_irr, moic_target, vintage, geography, sectors, description, thesis,
+  return_metric_type, return_display, holding_period_years, liquidity_note, why_pier_selected,
   contacts, sort_order, published_at
 ) VALUES
 ('illustrative-growth-fund-vii', 'Illustrative Growth Fund VII', 'Harborline Partners', 'fund', 'Venture', 'open',
@@ -62,95 +65,108 @@ INSERT INTO public.capital_deals (
  ARRAY['Software','AI Applications'],
  'A concentrated early growth fund focused on capital-efficient software with enterprise pull. Illustrative listing for member navigation.',
  'Thesis: lead or co-lead where velocity metrics and net retention can be diligenced with customers in the loop.',
+ 'irr', NULL, 7, 'Fund liquidity per standard LP terms', 'Pier diligenced velocity and net retention with customer references in the loop—not slide-deck storytelling.',
  '[{"name":"IR Desk","role":"Investor relations","email":""}]'::jsonb, 1, timezone('utc', now())),
 ('illustrative-co-invest-ai-infra', 'Illustrative Co-Invest: AI Infrastructure', 'Northline Ventures', 'co-invest', 'Venture', 'closing',
  45000000, 38000000, 500000, 'USD', '2026-06-15', 28, 3.2, 2025, 'United States',
  ARRAY['AI Infra','Semiconductors'],
  'Single-asset co-invest alongside a known institutional round—illustrative only, not an offer to subscribe.',
  'Underwrite like a lead: power, cooling, and software margins must clear a stressed case.',
+ 'irr', NULL, 4, 'Typical co-invest hold; exit tied to sponsor timeline', 'Selected after Pier underwrote power, cooling, and software margins under a stressed case—not headline IRR alone.',
  '[{"name":"Deal team","role":"Partner","email":""}]'::jsonb, 2, timezone('utc', now())),
 ('illustrative-spv-secondaries-strip', 'Illustrative SPV: Secondaries Strip', 'Compass Foundry', 'spv', 'Secondaries', 'open',
  12000000, 6200000, 250000, 'USD', '2026-07-01', 16, 1.9, 2024, 'Europe / US',
  ARRAY['Secondaries','Marketplaces'],
  'Small SPV to acquire a strip of secondary interests in a consumer marketplace—illustrative profile for UI testing.',
  'Focus on seller quality and concentration limits; prefer diversified LP sellers.',
+ 'moic', NULL, 3, 'Secondary strip; liquidity event-driven', 'Pier prioritized seller quality and concentration limits over headline pricing.',
  '[{"name":"SPV admin","role":"Administrator","email":""}]'::jsonb, 3, timezone('utc', now())),
 ('illustrative-buyout-fund-v', 'Illustrative Buyout Fund V', 'Lakeshore Capital Partners', 'fund', 'Buyouts', 'closed',
  1800000000, 1800000000, 10000000, 'USD', '2025-12-01', 18, 2.2, 2022, 'North America',
  ARRAY['Industrials','Business Services'],
  'Control buyouts in founder-owned industrials and services—illustrative closed fund entry.',
  'Operational improvement playbook with conservative leverage.',
+ 'irr', NULL, 6, 'Closed fund', 'Operational improvement playbook with conservative leverage—aligned with Pier allocator diligence standards.',
  '[{"name":"Partner","role":"Investor relations","email":""}]'::jsonb, 4, timezone('utc', now())),
 ('illustrative-private-credit-income', 'Illustrative Private Credit Income', 'Meridian Credit Partners', 'fund', 'Credit', 'open',
  400000000, 210000000, 1000000, 'USD', '2026-11-30', 11, 1.45, 2025, 'North America',
  ARRAY['Private Credit','Asset-backed'],
  'Senior secured lending to middle-market operators with covenant-heavy structures—illustrative.',
  'Income-first; avoid cyclical tails without hard collateral.',
+ 'yield', '11% current yield', 5, 'Income-oriented; quarterly distributions', 'Income-first mandate with covenant-heavy structures—Pier screened out cyclical tails without hard collateral.',
  '[{"name":"Capital formation","role":"IR","email":""}]'::jsonb, 5, timezone('utc', now())),
 ('illustrative-co-invest-climate-infra', 'Illustrative Co-Invest: Climate Infrastructure', 'Northline Ventures', 'co-invest', 'Infrastructure', 'open',
  60000000, 12000000, 1000000, 'USD', '2026-08-20', 14, 2.1, 2026, 'United States',
  ARRAY['Climate','Energy'],
  'Project finance adjacent co-invest with contracted revenue—illustrative.',
  'Underwrite offtake, counterparty, and construction risk explicitly.',
+ 'custom', '14% project yield', 10, 'Long-dated infrastructure cash flows', 'Contracted offtake and construction risk were diligenced explicitly before Pier surfaced the opportunity.',
  '[{"name":"Infra lead","role":"Partner","email":""}]'::jsonb, 6, timezone('utc', now())),
 ('illustrative-secondary-fund-iii', 'Illustrative Secondary Fund III', 'Harborline Partners', 'secondary', 'Secondaries', 'closing',
  500000000, 410000000, 5000000, 'USD', '2026-05-30', 15, 1.7, 2024, 'Global',
  ARRAY['Secondaries','Venture'],
  'LP-led secondaries and GP-led continuation vehicles—illustrative.',
  'Price discipline and diversification across vintages.',
+ 'irr', NULL, 8, 'Secondary fund; vintage diversification', 'Price discipline and vintage diversification—not momentum chasing in hot strips.',
  '[{"name":"Secondaries desk","role":"Principal","email":""}]'::jsonb, 7, timezone('utc', now())),
 ('illustrative-spv-consumer-roll-up', 'Illustrative SPV: Consumer Roll-Up', 'Compass Foundry', 'spv', 'Buyouts', 'open',
  35000000, 8000000, 500000, 'EUR', '2026-10-15', 20, 2.4, 2025, 'Western Europe',
  ARRAY['Consumer','Marketplaces'],
  'Single-brand roll-up with a repeatable M&A playbook—illustrative.',
  'Margin expansion through procurement and channel mix.',
+ 'moic', NULL, 4, 'Roll-up; exit via strategic or sponsor sale', 'Repeatable M&A playbook with procurement-led margin expansion—Pier met the operating partner before listing.',
  '[{"name":"Deal partner","role":"Partner","email":""}]'::jsonb, 8, timezone('utc', now()))
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   status = EXCLUDED.status,
   raised_size = EXCLUDED.raised_size,
+  return_metric_type = EXCLUDED.return_metric_type,
+  return_display = EXCLUDED.return_display,
+  why_pier_selected = EXCLUDED.why_pier_selected,
   updated_at = timezone('utc', now());
 
 
 INSERT INTO public.capital_partners (
-  slug, name, category, tagline, benefit, description, website_url, featured, status, sort_order, published_at
+  slug, name, category, tagline, benefit, description, website_url, featured, status, sort_order, published_at, location
 ) VALUES
 ('aman-new-york', 'Aman New York', 'hotels', 'Urban sanctuary above Midtown', 'Preferred arrival experience and Pier-member recognition on eligible stays',
  'Aman New York pairs Japanese minimalism with Manhattan energy. Pier members receive thoughtful recognition at arrival where available, and our concierge can coordinate itineraries that protect time.',
- 'https://www.aman.com/hotels/aman-new-york', true, 'active', 1, timezone('utc', now())),
+ 'https://www.aman.com/hotels/aman-new-york', true, 'active', 1, timezone('utc', now()), 'New York'),
 ('carne-mare', 'Carne Mare', 'restaurants', 'Italian chophouse energy', 'Priority consideration for Pier-hosted member tables on select dates',
  'Carne Mare is built for celebration: prime cuts, seafood towers, and a room that feels like a night out. Requests route through Pier Concierge to align with house capacity.',
- 'https://www.carneramenyc.com/', true, 'active', 2, timezone('utc', now())),
+ 'https://www.carneramenyc.com/', true, 'active', 2, timezone('utc', now()), 'New York'),
 ('blacklane-global', 'Blacklane', 'travel', 'Chauffeured reliability', 'Member routing support for airport and city-to-city transfers',
  'Blacklane focuses on consistent chauffeur quality across global metros. Pier Concierge can help members book with the right vehicle class and meet-and-greet details.',
- 'https://www.blacklane.com/en/', false, 'active', 3, timezone('utc', now())),
+ 'https://www.blacklane.com/en/', false, 'active', 3, timezone('utc', now()), 'Global'),
 ('equinox-plus', 'Equinox', 'health', 'Performance baseline', 'Trial access pathways coordinated through Pier for eligible members',
  'Equinox is a practical partner for members who travel constantly—recovery, training, and routine. Availability varies by market; Pier Concierge confirms eligibility.',
- 'https://www.equinox.com/', false, 'active', 4, timezone('utc', now())),
+ 'https://www.equinox.com/', false, 'active', 4, timezone('utc', now()), 'Global'),
 ('resy-private', 'Resy Private', 'restaurants', 'Hard tables, handled quietly', 'Concierge-assisted routing for high-demand reservations',
  'Resy Private is not a guarantee—it is a better process. Pier Concierge packages member context so restaurants can say yes when capacity exists.',
- 'https://resy.com/', false, 'active', 5, timezone('utc', now())),
+ 'https://resy.com/', false, 'active', 5, timezone('utc', now()), 'Global'),
 ('four-seasons-partner', 'Four Seasons Hotels and Resorts', 'hotels', 'Consistent luxury service', 'Property notes and celebration details passed through concierge',
  'When members need predictable excellence—family travel, roadshows, recovery weekends—Four Seasons remains a default. Pier coordinates preferences without drama.',
- 'https://www.fourseasons.com/', true, 'active', 6, timezone('utc', now())),
+ 'https://www.fourseasons.com/', true, 'active', 6, timezone('utc', now()), 'Global'),
 ('jpm-private-bank-ref', 'Illustrative Private Banking Partner', 'finance', 'Institutional-grade banking context', 'Education-forward introductions where appropriate',
  'Illustrative partner entry for UI seeding—not an endorsement. Pier can coordinate introductions to regulated institutions when members request a banking conversation.',
- 'https://privatebank.jpmorgan.com/', false, 'active', 7, timezone('utc', now())),
+ 'https://privatebank.jpmorgan.com/', false, 'active', 7, timezone('utc', now()), 'Global'),
 ('oura-health', 'Oura', 'health', 'Sleep and readiness signal', 'Member education on readiness metrics and cohort offers when available',
  'Oura is a lightweight signal layer for busy operators. Pier highlights it as a wellness tool—not medical advice—with offers subject to partner campaigns.',
- 'https://ouraring.com/', false, 'active', 8, timezone('utc', now())),
+ 'https://ouraring.com/', false, 'active', 8, timezone('utc', now()), 'Global'),
 ('netjets-partner', 'NetJets', 'travel', 'Fractional aviation', 'Routing to aviation advisors through Pier Concierge',
  'For members who live in three cities a week, aviation time is portfolio time. Pier does not sell fractional shares; we coordinate introductions to authorized advisors.',
- 'https://www.netjets.com/en-us/', false, 'active', 9, timezone('utc', now()))
+ 'https://www.netjets.com/en-us/', false, 'active', 9, timezone('utc', now()), 'Global')
 ON CONFLICT (slug) DO UPDATE SET
   benefit = EXCLUDED.benefit,
   description = EXCLUDED.description,
+  location = EXCLUDED.location,
   updated_at = timezone('utc', now());
 
 
 INSERT INTO public.capital_events (
   slug, title, event_type, status, starts_at, ends_at, location, city, capacity, registered_count,
-  description, recap_url, featured, sort_order, published_at, external_registration_url, external_registration_label
+  description, recap_url, featured, sort_order, published_at, external_registration_url, external_registration_label,
+  host_type, audience, host_name, location_is_public
 ) VALUES
 (
   'forseeable-future-jan-2026',
@@ -163,13 +179,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Opening salvo of the year: a seated dinner for Pier GPs and LPs to compare notes on allocator priorities and manager selection. Chatham House rules; curated seating. Audience: GPs and LPs.',
+  'Opening salvo of the year: a seated dinner for Pier GPs and LPs to compare notes on allocator priorities and manager selection. Chatham House rules; curated seating.',
   NULL,
   false,
   1,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'GPs and LPs',
+  'Pier',
+  false
 ),
 (
   'michael-andrews-bespoke-evening-feb-2026',
@@ -182,13 +202,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'A small-format evening built around craft and fit—tailoring as a lens for how leaders present in rooms that matter. For members who appreciate detail and discretion. Audience: GPs & LPs.',
+  'A small-format evening built around craft and fit—tailoring as a lens for how leaders present in rooms that matter. For members who appreciate detail and discretion.',
   NULL,
   false,
   2,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'GPs & LPs',
+  'Pier',
+  true
 ),
 (
   'rvip-lp-dinner-feb-2026',
@@ -201,13 +225,17 @@ INSERT INTO public.capital_events (
   'Nashville',
   NULL,
   0,
-  'Allocator-focused dinner in Nashville: candid LP conversation, emerging manager themes, and the kind of introductions that happen after the last pour. Audience: LPs and invited guests.',
+  'Allocator-focused dinner in Nashville: candid LP conversation, emerging manager themes, and the kind of introductions that happen after the last pour.',
   NULL,
   false,
   3,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'LPs and invited guests',
+  'Pier',
+  true
 ),
 (
   'oceans-gun-club-night-mar-2026',
@@ -220,18 +248,22 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'An unconventional Pier night out—precision, discipline, and a relaxed social layer for members who like their networking with a bit of edge. Audience: Members.',
+  'An unconventional Pier night out—precision, discipline, and a relaxed social layer for members who like their networking with a bit of edge.',
   NULL,
   false,
   4,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  true
 ),
 (
   'sxsw-wellness-house-2026',
   'SxSW Wellness House',
-  'tour',
+  'experience',
   'completed',
   timestamptz '2026-03-14T09:00:00-05:00',
   timestamptz '2026-03-16T21:00:00-05:00',
@@ -239,13 +271,17 @@ INSERT INTO public.capital_events (
   'Austin',
   NULL,
   0,
-  'A Pier presence during South by: daytime programming focused on longevity, performance, and founder stamina—plus serendipitous collisions with the Pier network across the city. Audience: Members & guests.',
+  'A Pier presence during South by: daytime programming focused on longevity, performance, and founder stamina—plus serendipitous collisions with the Pier network across the city.',
   NULL,
   false,
   5,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members & guests',
+  'Pier',
+  true
 ),
 (
   'gp-lp-event-angellist-mar-2026',
@@ -258,13 +294,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Structured GP/LP conversation on early-stage access, pacing, and diligence—designed for serious check-writers and disciplined emerging managers. Audience: GPs and LPs.',
+  'Structured GP/LP conversation on early-stage access, pacing, and diligence—designed for serious check-writers and disciplined emerging managers.',
   NULL,
   false,
   6,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'partner',
+  'GPs and LPs',
+  'AngelList',
+  false
 ),
 (
   'interesting-persons-dinner-mar-2026',
@@ -277,13 +317,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'The Pier tradition: one table, no speeches, only people you will actually want to follow up with. Nomination-led guest list. Audience: Invite-only.',
+  'The Pier tradition: one table, no speeches, only people you will actually want to follow up with. Nomination-led guest list.',
   NULL,
   false,
   7,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Invite-only',
+  'Pier',
+  true
 ),
 (
   'otis-ai-cpg-founder-dinner-apr-2026',
@@ -296,13 +340,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'CPG operators and capital partners in one room—AI-led growth, retail realities, and what diligence looks like when the product is on a shelf. Audience: Founders & investors.',
+  'CPG operators and capital partners in one room—AI-led growth, retail realities, and what diligence looks like when the product is on a shelf.',
   NULL,
   false,
   8,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Founders & investors',
+  'Pier',
+  false
 ),
 (
   'right-to-invest-dinner-apr-2026',
@@ -315,13 +363,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'A focused evening on access and alignment—how allocators think about concentration, rights, and long-term incentives in private markets. Audience: Members.',
+  'A focused evening on access and alignment—how allocators think about concentration, rights, and long-term incentives in private markets.',
   NULL,
   false,
   9,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  true
 ),
 (
   'rvip-allocator-intimate-dinner-may-2026',
@@ -334,13 +386,17 @@ INSERT INTO public.capital_events (
   'San Francisco',
   NULL,
   0,
-  'Micro-format allocator dinner: six to eight seats, high signal, zero pageantry. Built for candid portfolio construction conversation. Audience: Allocators.',
+  'Micro-format allocator dinner: six to eight seats, high signal, zero pageantry. Built for candid portfolio construction conversation.',
   NULL,
   false,
   10,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Allocators',
+  'Pier',
+  true
 ),
 (
   'series-a-b-dinner-may-2026',
@@ -353,13 +409,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Growth-stage operators and the capital partners who back them—conversation tuned to scaling teams, boards, and the next financing chapter. Audience: Founders & investors.',
+  'Growth-stage operators and the capital partners who back them—conversation tuned to scaling teams, boards, and the next financing chapter.',
   NULL,
   true,
   11,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Founders & investors',
+  'Pier',
+  true
 ),
 (
   'allocators-wine-tasting-may-2026',
@@ -372,13 +432,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'A refined allocator social: structured tasting, unstructured chemistry, and the kind of follow-ups that turn into real mandates. Audience: Allocators.',
+  'A refined allocator social: structured tasting, unstructured chemistry, and the kind of follow-ups that turn into real mandates.',
   NULL,
   true,
   12,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Allocators',
+  'Pier',
+  true
 ),
 (
   'pier-ned-wristcheck-timepieces-may-2026',
@@ -391,18 +455,22 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Collectors and capital partners—design, provenance, and the discipline of long-term conviction. Invite-only; details to confirmed guests. Audience: Watch collectors.',
+  'Collectors and capital partners—design, provenance, and the discipline of long-term conviction. Invite-only; details to confirmed guests.',
   NULL,
   false,
   13,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'partner',
+  'Watch collectors',
+  'The Ned × Wristcheck',
+  true
 ),
 (
   'austin-cota-raceday-may-2026',
   'Austin COTA Raceday',
-  'tour',
+  'experience',
   'upcoming',
   timestamptz '2026-05-22T09:00:00-05:00',
   timestamptz '2026-05-22T19:00:00-05:00',
@@ -410,13 +478,17 @@ INSERT INTO public.capital_events (
   'Austin',
   NULL,
   0,
-  'All-day Pier energy in Austin—sport, hospitality, and the side conversations that happen between sessions on the paddock. Audience: Members.',
+  'All-day Pier energy in Austin—sport, hospitality, and the side conversations that happen between sessions on the paddock.',
   NULL,
   false,
   14,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  true
 ),
 (
   'boston-techweek-may-2026',
@@ -429,13 +501,17 @@ INSERT INTO public.capital_events (
   'Boston',
   NULL,
   0,
-  'Pier presence during TechWeek Boston: a hosted dinner connecting founders, operators, and capital with a bias toward durable companies. Audience: Partners & members.',
+  'Pier presence during TechWeek Boston: a hosted dinner connecting founders, operators, and capital with a bias toward durable companies.',
   NULL,
   false,
   15,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Partners & members',
+  'Pier',
+  true
 ),
 (
   'right-to-invest-techweek-jun-2026',
@@ -448,13 +524,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'A TechWeek-adjacent session on access and investor rights—clear frameworks, sharp questions, and Pier-standard hospitality. Audience: Members.',
+  'A TechWeek-adjacent session on access and investor rights—clear frameworks, sharp questions, and Pier-standard hospitality.',
   NULL,
   false,
   16,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  true
 ),
 (
   'foreseeable-future-vip-dinner-jun-2026',
@@ -467,13 +547,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'VIP table ahead of the gala: tighter group, longer conversations, and a focus on relationships that compound. Audience: VIP members.',
+  'VIP table ahead of the gala: tighter group, longer conversations, and a focus on relationships that compound.',
   NULL,
   false,
   17,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'VIP members',
+  'Pier',
+  false
 ),
 (
   'foreseeable-future-gala-jun-2026',
@@ -486,13 +570,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'The marquee evening—black tie optional, high conviction required. A celebration of the Pier network and the year ahead. Audience: Members & guests.',
+  'The marquee evening—black tie optional, high conviction required. A celebration of the Pier network and the year ahead.',
   NULL,
   true,
   18,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members & guests',
+  'Pier',
+  false
 ),
 (
   'collective-poker-series-jun-2026',
@@ -505,18 +593,22 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards. Audience: Members.',
+  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards.',
   NULL,
   false,
   19,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  false
 ),
 (
   'sweet-honey-farm-rooftop-jun-2026',
   'Sweet Honey Farm with Rooftop Series',
-  'tour',
+  'experience',
   'upcoming',
   timestamptz '2026-06-13T16:00:00-04:00',
   timestamptz '2026-06-13T22:00:00-04:00',
@@ -524,13 +616,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Golden-hour programming: farm setting, rooftop energy, and a cross-section of founders and capital partners outside the usual city rooms. Audience: Members.',
+  'Golden-hour programming: farm setting, rooftop energy, and a cross-section of founders and capital partners outside the usual city rooms.',
   NULL,
   false,
   20,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  true
 ),
 (
   'abundance-dinner-jun-2026',
@@ -543,13 +639,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Operators and investors exploring how ambitious infrastructure and civic-minded founders intersect—conversation-forward, policy-aware, optimistic. Audience: Poli-aware operators & founders.',
+  'Operators and investors exploring how ambitious infrastructure and civic-minded founders intersect—conversation-forward, policy-aware, optimistic.',
   NULL,
   false,
   21,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Poli-aware operators & founders',
+  'Pier',
+  false
 ),
 (
   'space-auction-joopiter-jun-2026',
@@ -562,18 +662,22 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Culture meets capital—an auction-adjacent evening for members who collect at the intersection of art, taste, and narrative. Date subject to final venue confirmation. Audience: Members.',
+  'Culture meets capital—an auction-adjacent evening for members who collect at the intersection of art, taste, and narrative. Date subject to final venue confirmation.',
   NULL,
   false,
   22,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  false
 ),
 (
   'gp-labs-amsterdam-trip-jun-2026',
   'GP Labs Amsterdam Trip',
-  'tour',
+  'experience',
   'upcoming',
   timestamptz '2026-06-27T08:00:00+02:00',
   timestamptz '2026-06-30T20:00:00+02:00',
@@ -581,13 +685,17 @@ INSERT INTO public.capital_events (
   'Amsterdam',
   NULL,
   0,
-  'Multi-day Pier travel: curated sessions with local operators and global allocators, plus the unstructured time where real partnerships form. Audience: GPs & invited LPs.',
+  'Multi-day Pier travel: curated sessions with local operators and global allocators, plus the unstructured time where real partnerships form.',
   NULL,
   true,
   23,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'GPs & invited LPs',
+  'Pier',
+  true
 ),
 (
   'collective-poker-series-jul-2026',
@@ -600,13 +708,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards. Audience: Members.',
+  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards.',
   NULL,
   false,
   24,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  false
 ),
 (
   'casino-night-jul-2026',
@@ -619,18 +731,22 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'A high-energy Pier social across iconic Manhattan rooms—champagne, blackjack, and introductions that do not feel like networking. Audience: Members (capacity-limited).',
+  'A high-energy Pier social across iconic Manhattan rooms—champagne, blackjack, and introductions that do not feel like networking.',
   NULL,
   false,
   25,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members (capacity-limited)',
+  'Pier',
+  true
 ),
 (
   'hamptons-polo-weekend-jul-2026',
   'Hamptons Polo Weekend 2',
-  'tour',
+  'experience',
   'upcoming',
   timestamptz '2026-07-25T12:00:00-04:00',
   timestamptz '2026-07-25T20:00:00-04:00',
@@ -638,13 +754,17 @@ INSERT INTO public.capital_events (
   'Hamptons',
   NULL,
   0,
-  'Sun, sport, and allocator small talk—Hamptons programming built for members who want summer to feel like summer. Audience: Members & guests.',
+  'Sun, sport, and allocator small talk—Hamptons programming built for members who want summer to feel like summer.',
   NULL,
   false,
   26,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members & guests',
+  'Pier',
+  true
 ),
 (
   'collective-poker-series-aug-2026',
@@ -657,18 +777,22 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards. Audience: Members.',
+  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards.',
   NULL,
   false,
   27,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  false
 ),
 (
   'chamberlain-art-shelter-island-aug-2026',
   'Chamberlain Art Shelter Island and Yacht Cruise',
-  'tour',
+  'experience',
   'upcoming',
   timestamptz '2026-08-14T10:00:00-04:00',
   timestamptz '2026-08-16T18:00:00-04:00',
@@ -676,13 +800,17 @@ INSERT INTO public.capital_events (
   'Shelter Island',
   NULL,
   0,
-  'Weekend escape: private art experiences and water time—built for deeper relationships than a single dinner allows. Audience: Members.',
+  'Weekend escape: private art experiences and water time—built for deeper relationships than a single dinner allows.',
   NULL,
   true,
   28,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  true
 ),
 (
   'collective-poker-series-sep-2026',
@@ -695,13 +823,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards. Audience: Members.',
+  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards.',
   NULL,
   false,
   29,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  false
 ),
 (
   'collective-poker-series-oct-2026',
@@ -714,13 +846,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards. Audience: Members.',
+  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards.',
   NULL,
   false,
   30,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  false
 ),
 (
   'super-secret-tech-conference-nov-2026',
@@ -733,13 +869,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Members know the drill: off-calendar programming during a major tech week—high signal, invitation-only, details released to confirmed guests only. Audience: Members.',
+  'Members know the drill: off-calendar programming during a major tech week—high signal, invitation-only, details released to confirmed guests only.',
   NULL,
   false,
   31,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  false
 ),
 (
   'collective-poker-series-nov-2026',
@@ -752,13 +892,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards. Audience: Members.',
+  'Friendly stakes and serious operators—an informal Pier tradition for members who prefer their networking with a deck of cards.',
   NULL,
   false,
   32,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Members',
+  'Pier',
+  false
 ),
 (
   'collective-poker-invitational-dec-2026',
@@ -771,13 +915,17 @@ INSERT INTO public.capital_events (
   'New York',
   NULL,
   0,
-  'Season closer: invitational table, elevated format, and the members who have shown up all year. Audience: Invited members.',
+  'Season closer: invitational table, elevated format, and the members who have shown up all year.',
   NULL,
   true,
   33,
   timezone('utc', now()),
   NULL,
-  NULL
+  NULL,
+  'pier',
+  'Invited members',
+  'Pier',
+  false
 )
 ON CONFLICT (slug) DO UPDATE SET
   title = EXCLUDED.title,
@@ -790,6 +938,10 @@ ON CONFLICT (slug) DO UPDATE SET
   description = EXCLUDED.description,
   featured = EXCLUDED.featured,
   sort_order = EXCLUDED.sort_order,
+  host_type = EXCLUDED.host_type,
+  audience = EXCLUDED.audience,
+  host_name = EXCLUDED.host_name,
+  location_is_public = EXCLUDED.location_is_public,
   recap_url = COALESCE(public.capital_events.recap_url, EXCLUDED.recap_url),
   external_registration_url = COALESCE(public.capital_events.external_registration_url, EXCLUDED.external_registration_url),
   external_registration_label = COALESCE(public.capital_events.external_registration_label, EXCLUDED.external_registration_label),

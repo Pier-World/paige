@@ -9,8 +9,6 @@ import { NavigationGuard } from './components/NavigationGuard';
 import { CapitalMarketsLayout } from './components/layout/CapitalMarketsLayout';
 import { importWithChunkReloadOnce } from './lib/chunkLoadRetry';
 
-const ProfilePage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ProfilePage')));
-const AllPreferencesPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/AllPreferencesPage')));
 const LoginPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/LoginPage')));
 const ForgotPasswordPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ForgotPasswordPage')));
 const ResetPasswordPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ResetPasswordPage')));
@@ -37,6 +35,9 @@ const CapitalMarketsConciergePage = lazy(() =>
 );
 const CapitalMarketsMembersPage = lazy(() =>
   importWithChunkReloadOnce(() => import('./pages/capital-markets/MembersPage'))
+);
+const CapitalProfilePage = lazy(() =>
+  importWithChunkReloadOnce(() => import('./pages/capital-markets/CapitalProfilePage'))
 );
 
 /**
@@ -271,19 +272,12 @@ function App() {
             <Route
               path="/profile"
               element={
-                <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
+                <CapitalMarketsRoute>
+                  <CapitalProfilePage />
+                </CapitalMarketsRoute>
               }
             />
-            <Route
-              path="/preferences/all"
-              element={
-                <ProtectedRoute>
-                  <AllPreferencesPage />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/preferences/all" element={<Navigate to="/profile" replace />} />
             <Route
               path="/conversation/:taskId?"
               element={

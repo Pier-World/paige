@@ -58,3 +58,35 @@ export function formatDate(
 export function truncate(str: string, length: number): string {
   return str.length <= length ? str : `${str.slice(0, length).trimEnd()}...`;
 }
+
+export function formatDealReturn(
+  metricType: 'irr' | 'moic' | 'yield' | 'custom' | 'none',
+  targetIrr: number,
+  moicTarget: number,
+  returnDisplay: string
+): string {
+  if (metricType === 'custom' && returnDisplay.trim()) return returnDisplay.trim();
+  if (metricType === 'moic' && moicTarget > 0) return `${moicTarget.toFixed(1)}x MOIC`;
+  if (metricType === 'yield' && returnDisplay.trim()) return returnDisplay.trim();
+  if (metricType === 'irr' && targetIrr > 0) return `${targetIrr}%`;
+  if (metricType === 'none') return '—';
+  if (returnDisplay.trim()) return returnDisplay.trim();
+  if (targetIrr > 0) return `${targetIrr}%`;
+  if (moicTarget > 0) return `${moicTarget.toFixed(1)}x`;
+  return '—';
+}
+
+export const GUEST_ONLY_LOCATION_COPY = 'Location shared with confirmed guests';
+
+export function formatEventLocation(event: {
+  location: string;
+  locationIsPublic: boolean;
+  city: string;
+}): string {
+  if (event.locationIsPublic && event.location.trim()) return event.location.trim();
+  return GUEST_ONLY_LOCATION_COPY;
+}
+
+export function formatEventTime(date: string): string {
+  return new Date(date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, MapPin } from 'lucide-react';
+import { DealProgressAside } from '../../components/capital-markets/DealProgressAside';
+import { DealReturnCell } from '../../components/capital-markets/DealReturnCell';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
@@ -13,7 +15,7 @@ import {
   type CapitalDealInterestRequestType,
 } from '../../lib/api/capitalMarkets';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
-import { formatCurrency, formatDate, formatPercent } from '../../lib/utils';
+import { formatCurrency, formatDate, formatDealReturn } from '../../lib/utils';
 import { typeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
@@ -87,7 +89,7 @@ export default function DealDetailPage() {
           <ArrowLeft className="h-3.5 w-3.5" />
           Deal Flow
         </Link>
-        <LoadingState label="Loading deal from Supabase..." />
+        <LoadingState label="Loading opportunity..." />
       </div>
     );
   }
@@ -113,15 +115,17 @@ export default function DealDetailPage() {
         </Link>
         <p className="eyebrow mb-2">Deal not found</p>
         <h1 className="font-display text-[36px] leading-none text-ink">This opportunity is unavailable.</h1>
-        <p className="mt-4 text-[14px] text-slate">
-          No published deal matched this URL. That usually means the listing was unpublished or the link is wrong—not a temporary outage.
-        </p>
       </div>
     );
   }
 
-  const progress = deal.targetSize > 0 ? Math.min(100, Math.round((deal.raisedSize / deal.targetSize) * 100)) : 0;
   const submittedRequestTypes = new Set(interests.map((interest) => interest.requestType));
+  const returnValue = formatDealReturn(
+    deal.returnMetricType,
+    deal.targetIrr,
+    deal.moicTarget,
+    deal.returnDisplay
+  );
 
   async function handleDealRequest(requestType: CapitalDealInterestRequestType) {
     if (!user) {
@@ -129,10 +133,7 @@ export default function DealDetailPage() {
       setRequestError('Please sign in before submitting a deal request.');
       return;
     }
-    if (!deal) {
-      setRequestError('Deal data is not available. Try refreshing the page.');
-      return;
-    }
+    if (!deal) return;
 
     setSubmittingRequest(requestType);
     setRequestError(null);
@@ -151,9 +152,11 @@ export default function DealDetailPage() {
       );
       setInterests(updatedInterests);
       setRequestSuccess(
-        requestType === 'schedule_call'
-          ? 'Call request submitted. The Pier team will follow up.'
-          : 'Interest submitted. The Pier team will follow up.'
+        requestType === 'request_documents'
+          ? 'Materials request submitted. The Pier team will follow up.'
+          : requestType === 'schedule_call'
+            ? 'Call request submitted. The Pier team will follow up.'
+            : 'Interest submitted. The Pier team will follow up.'
       );
     } catch (err) {
       setRequestError(err instanceof Error ? err.message : 'Unable to submit this request.');
@@ -162,6 +165,21 @@ export default function DealDetailPage() {
     }
   }
 
+  const metricRows = [
+    { label: 'Min. commitment', value: formatCurrency(deal.minCommitment, 'USD', true) },
+    { label: 'Return', value: returnValue },
+    ...(deal.returnMetricType === 'irr' && deal.moicTarget > 0
+      ? [{ label: 'Target MOIC', value: `${deal.moicTarget}x` }]
+      : []),
+    { label: 'Close date', value: formatDate(deal.closeDate, 'long') },
+    { label: 'Vintage', value: deal.vintage.toString() },
+    { label: 'Geography', value: deal.geography },
+    ...(deal.holdingPeriodYears
+      ? [{ label: 'Holding period', value: `~${deal.holdingPeriodYears} years` }]
+      : []),
+    ...(deal.liquidityNote ? [{ label: 'Liquidity', value: deal.liquidityNote }] : []),
+  ];
+
   return (
     <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
       <Link to="/deals" className="mb-8 flex items-center gap-1.5 text-[13px] text-slate hover:text-ink">
@@ -169,57 +187,39 @@ export default function DealDetailPage() {
         Deal Flow
       </Link>
 
-      <div className="mb-10 grid gap-10 xl:grid-cols-[1fr_340px]">
-        <div>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <Badge variant={deal.status}>{deal.status}</Badge>
-            <span className="eyebrow">{deal.assetClass}</span>
-            <span className="eyebrow">{typeLabels[deal.type]}</span>
-          </div>
-          <h1 className="font-display text-[36px] leading-[1] tracking-[-0.02em] text-ink">
-            {deal.name}
-          </h1>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display text-[36px] leading-[1] tracking-[-0.02em] text-ink">{deal.name}</h1>
           <p className="mt-1.5 text-[15px] text-slate">
             {deal.manager} / {deal.geography}
           </p>
-          <div className="gilt-rule mt-6 w-12" />
-          <p className="mt-6 max-w-3xl text-[15px] leading-relaxed text-ink/80">{deal.description}</p>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Badge variant={deal.status}>{deal.status}</Badge>
+          <span className="eyebrow">{deal.assetClass}</span>
+          <span className="eyebrow">{typeLabels[deal.type]}</span>
+        </div>
+      </div>
+
+      <div className="gilt-rule mb-10 w-12" />
+
+      <div className="mb-10 grid gap-10 xl:grid-cols-[1fr_340px]">
+        <div>
+          <p className="max-w-3xl text-[15px] leading-relaxed text-ink/80">{deal.description}</p>
         </div>
 
         <aside className="rounded-[4px] border border-border bg-surface p-6">
-          <p className="eyebrow mb-4">Raise Progress</p>
-          <p className="font-mono-data text-[28px] font-medium leading-none text-ink">
-            {formatCurrency(deal.raisedSize, 'USD', true)}
-          </p>
-          <p className="mt-1 text-[12px] text-slate">
-            of {formatCurrency(deal.targetSize, 'USD', true)} target
-          </p>
-
-          <div className="mt-4 h-0.5 w-full rounded-full bg-border">
-            <div className="h-full rounded-full bg-gilt" style={{ width: `${progress}%` }} />
-          </div>
-          <p className="mt-1.5 text-right text-[12px] font-medium text-ink">{progress}% raised</p>
-
+          <DealProgressAside deal={deal} />
           <div className="divider my-5" />
-
           <div className="space-y-3 text-[13px]">
-            {[
-              { label: 'Min. Commitment', value: formatCurrency(deal.minCommitment, 'USD', true) },
-              { label: 'Target IRR', value: formatPercent(deal.targetIrr, 0) },
-              { label: 'Target MOIC', value: `${deal.moicTarget}x` },
-              { label: 'Close Date', value: formatDate(deal.closeDate, 'long') },
-              { label: 'Vintage', value: deal.vintage.toString() },
-              { label: 'Geography', value: deal.geography },
-            ].map(({ label, value }) => (
+            {metricRows.map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between gap-4">
                 <span className="text-slate">{label}</span>
                 <span className="font-mono-data text-right font-medium text-ink">{value}</span>
               </div>
             ))}
           </div>
-
           <div className="divider my-5" />
-
           <div className="flex flex-col gap-2">
             <Button
               className="w-full"
@@ -227,16 +227,18 @@ export default function DealDetailPage() {
               disabled={submittingRequest !== null || submittedRequestTypes.has('express_interest')}
               onClick={() => handleDealRequest('express_interest')}
             >
-              {submittedRequestTypes.has('express_interest') ? 'Interest Submitted' : 'Express Interest'}
+              {submittedRequestTypes.has('express_interest') ? 'Interest submitted' : 'Express interest'}
             </Button>
             <Button
               variant="secondary"
               className="w-full"
-              loading={submittingRequest === 'schedule_call'}
-              disabled={submittingRequest !== null || submittedRequestTypes.has('schedule_call')}
-              onClick={() => handleDealRequest('schedule_call')}
+              loading={submittingRequest === 'request_documents'}
+              disabled={submittingRequest !== null || submittedRequestTypes.has('request_documents')}
+              onClick={() => handleDealRequest('request_documents')}
             >
-              {submittedRequestTypes.has('schedule_call') ? 'Call Requested' : 'Schedule a call'}
+              {submittedRequestTypes.has('request_documents')
+                ? 'Materials requested'
+                : 'Request materials'}
             </Button>
           </div>
           {!user ? (
@@ -249,15 +251,15 @@ export default function DealDetailPage() {
 
       <section className="mb-10">
         <div className="mb-4 flex items-center gap-4">
-          <p className="eyebrow">Investment Thesis</p>
+          <p className="eyebrow">Why Pier selected this</p>
           <div className="divider flex-1" />
         </div>
-        <p className="max-w-3xl text-[15px] leading-relaxed text-ink/80">{deal.thesis}</p>
+        <p className="max-w-3xl text-[15px] leading-relaxed text-ink/80">{deal.whyPierSelected}</p>
       </section>
 
       <section className="mb-10">
         <div className="mb-4 flex items-center gap-4">
-          <p className="eyebrow">Focus Sectors</p>
+          <p className="eyebrow">Focus sectors</p>
           <div className="divider flex-1" />
         </div>
         <div className="flex flex-wrap gap-2">
@@ -276,8 +278,8 @@ export default function DealDetailPage() {
         </div>
         {deal.documents.length === 0 ? (
           <EmptyState
-            title="No member-access documents yet."
-            description="Documents returned by Supabase for this deal will appear here."
+            title="No documents available"
+            description="Documents are locked until the Pier team approves your request for materials."
           />
         ) : (
           <div className="grid max-w-3xl gap-3 md:grid-cols-3">
@@ -303,18 +305,20 @@ export default function DealDetailPage() {
       <section className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div>
           <div className="mb-4 flex items-center gap-4">
-            <p className="eyebrow">Key Contacts</p>
+            <p className="eyebrow">Key contacts</p>
             <div className="divider flex-1" />
           </div>
           {deal.contacts.length === 0 ? (
-            <EmptyState title="No contacts listed." description="Key contacts will appear when added to the deal row." />
+            <EmptyState title="No contacts listed." description="Key contacts will appear when added to the deal." />
           ) : (
             <div className="grid gap-3 md:grid-cols-2">
               {deal.contacts.map((contact) => (
                 <div key={`${contact.email}-${contact.name}`} className="rounded-[4px] border border-border bg-surface p-4">
                   <p className="font-medium text-ink">{contact.name || 'Deal contact'}</p>
                   <p className="mt-0.5 text-[13px] text-slate">{contact.role || 'Capital markets'}</p>
-                  <p className="mt-2 font-mono-data text-[11px] text-slate">{contact.email || 'Contact via concierge'}</p>
+                  <p className="mt-2 font-mono-data text-[11px] text-slate">
+                    {contact.email || 'Contact via concierge'}
+                  </p>
                 </div>
               ))}
             </div>
