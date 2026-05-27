@@ -188,7 +188,7 @@ export default function CapitalMarketsEventsPage() {
   return (
     <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
       <div className="mb-10">
-        <p className="eyebrow mb-2">03 / Events</p>
+        <p className="eyebrow mb-2">Events</p>
         <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.02em] text-ink">
           Invite-only gatherings.
         </h1>

@@ -69,7 +69,7 @@ export default function ConciergePage() {
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-6 py-5 sm:px-10">
         <div>
-          <p className="eyebrow mb-1">05 / Concierge</p>
+          <p className="eyebrow mb-1">Concierge</p>
           <h1 className="font-display text-[30px] leading-none tracking-[-0.02em] text-ink">
             Your Pier Concierge
           </h1>

@@ -33,9 +33,6 @@ const CapitalMarketsPartnersPage = lazy(() =>
 const CapitalMarketsConciergePage = lazy(() =>
   importWithChunkReloadOnce(() => import('./pages/capital-markets/ConciergePage'))
 );
-const CapitalMarketsMembersPage = lazy(() =>
-  importWithChunkReloadOnce(() => import('./pages/capital-markets/MembersPage'))
-);
 const CapitalProfilePage = lazy(() =>
   importWithChunkReloadOnce(() => import('./pages/capital-markets/CapitalProfilePage'))
 );
@@ -232,14 +229,7 @@ function App() {
                 </CapitalMarketsRoute>
               }
             />
-            <Route
-              path="/members"
-              element={
-                <CapitalMarketsRoute>
-                  <CapitalMarketsMembersPage />
-                </CapitalMarketsRoute>
-              }
-            />
+            <Route path="/members" element={<Navigate to="/dashboard" replace />} />
 
             {/* Default: capital markets dashboard */}
             <Route

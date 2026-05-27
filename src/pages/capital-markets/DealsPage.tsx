@@ -52,7 +52,7 @@ export default function DealsPage() {
   return (
     <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
       <div className="mb-10">
-        <p className="eyebrow mb-2">02 / Deal Flow</p>
+        <p className="eyebrow mb-2">Deal Flow</p>
         <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.02em] text-ink">
           Curated opportunities.
         </h1>

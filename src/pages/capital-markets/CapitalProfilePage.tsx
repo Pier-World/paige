@@ -407,7 +407,7 @@ export default function CapitalProfilePage() {
   return (
     <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
       <div className="mb-10">
-        <p className="eyebrow mb-2">06 / Profile</p>
+        <p className="eyebrow mb-2">Profile</p>
         <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.02em] text-ink">Your profile.</h1>
         <p className="mt-3 max-w-2xl text-[15px] text-slate">
           Manage your identity, preferences, and access across Pier.

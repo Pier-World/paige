@@ -92,8 +92,6 @@ export default function DashboardPage() {
       delta: `${members.length} verified in directory`,
       note: 'GPs, LPs, and allocators',
       icon: Users,
-      href: '/members',
-      cta: 'Member network',
     },
     {
       label: 'Active opportunities',
@@ -119,15 +117,13 @@ export default function DashboardPage() {
       delta: 'Across Pier',
       note: 'Allocator and manager relationships',
       icon: DollarSign,
-      href: '/members',
-      cta: 'Browse network',
     },
   ];
 
   return (
     <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
       <div className="mb-10">
-        <p className="eyebrow mb-2">01 / Dashboard</p>
+        <p className="eyebrow mb-2">Dashboard</p>
         <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.02em] text-ink">
           {greeting}, {firstName}.
         </h1>
@@ -160,12 +156,14 @@ export default function DashboardPage() {
                   <p className="font-mono-data text-[28px] font-medium leading-none text-ink">{kpi.value}</p>
                   <p className="mt-2 text-[12px] font-medium text-ledger">{kpi.delta}</p>
                   <p className="mt-1 text-[12px] text-slate">{kpi.note}</p>
-                  <Link
-                    to={kpi.href}
-                    className="mt-4 text-[12px] font-medium text-ink underline-offset-4 hover:underline"
-                  >
-                    {kpi.cta} →
-                  </Link>
+                  {'href' in kpi && kpi.href && 'cta' in kpi && kpi.cta ? (
+                    <Link
+                      to={kpi.href}
+                      className="mt-4 text-[12px] font-medium text-ink underline-offset-4 hover:underline"
+                    >
+                      {kpi.cta} →
+                    </Link>
+                  ) : null}
                 </div>
               );
             })}
@@ -304,12 +302,6 @@ export default function DashboardPage() {
                     {members.length}
                   </p>
                   <p className="mt-1.5 text-[12px] text-parchment/60">Verified GPs & LPs</p>
-                  <Link
-                    to="/members"
-                    className="mt-5 flex h-8 w-full items-center justify-center rounded-[6px] border border-parchment/20 text-[13px] text-parchment transition-colors hover:border-parchment/40 hover:bg-parchment/[0.08]"
-                  >
-                    Browse network
-                  </Link>
                 </div>
               </section>
             </aside>

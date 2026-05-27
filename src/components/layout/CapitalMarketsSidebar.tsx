@@ -10,7 +10,6 @@ import {
   MessageSquare,
   TrendingUp,
   User,
-  Users,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -23,7 +22,6 @@ const navItems = [
   { label: 'Events', path: '/events', icon: Calendar },
   { label: 'Partners', path: '/partners', icon: Building2 },
   { label: 'Concierge', path: '/concierge', icon: MessageSquare },
-  { label: 'Members', path: '/members', icon: Users },
   { label: 'Profile', path: '/profile', icon: User },
 ];
 
