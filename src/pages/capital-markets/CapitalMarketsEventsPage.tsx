@@ -4,14 +4,13 @@ import { EventCard } from '../../components/capital-markets/EventCard';
 import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 import {
-  createCapitalEventRsvp,
   getCapitalEvents,
   getMyCapitalEventRsvps,
   type CapitalEvent,
   type CapitalEventRsvp,
 } from '../../lib/api/capitalMarkets';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
-import { cn } from '../../lib/utils';
+import { cn, formatEventDate } from '../../lib/utils';
 import { eventTypeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
@@ -56,15 +55,30 @@ function matchesFilter(event: CapitalEvent, filter: EventFilter): boolean {
   return matchesAudienceFilter(event, filter);
 }
 
+function getLocalStartOfToday(): number {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+}
+
+function getEventTime(event: CapitalEvent): number {
+  return new Date(event.date).getTime();
+}
+
+function isPastEvent(event: CapitalEvent, localStartOfToday: number): boolean {
+  return getEventTime(event) < localStartOfToday;
+}
+
+function getEventMonthDay(event: CapitalEvent): { month: string; day: string } {
+  const [month, day] = formatEventDate(event.date, 'month-day', event.city).split(' ');
+  return { month, day };
+}
+
 export default function CapitalMarketsEventsPage() {
   const { user } = useAuth();
   const [events, setEvents] = useState<CapitalEvent[]>([]);
   const [rsvps, setRsvps] = useState<CapitalEventRsvp[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
-  const [submittingEventId, setSubmittingEventId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<EventFilter>('all');
   const [reloadNonce, setReloadNonce] = useState(0);
 
@@ -113,52 +127,23 @@ export default function CapitalMarketsEventsPage() {
   }, [user?.id, reloadNonce]);
 
   const rsvpByEventId = new Map(rsvps.map((rsvp) => [rsvp.eventId, rsvp]));
+  const localStartOfToday = getLocalStartOfToday();
 
   const upcoming = useMemo(() => {
-    const list = events.filter((event) => event.upcoming && matchesFilter(event, activeFilter));
-    return list;
-  }, [events, activeFilter]);
+    return events
+      .filter((event) => !isPastEvent(event, localStartOfToday) && matchesFilter(event, activeFilter))
+      .slice()
+      .sort((a, b) => getEventTime(a) - getEventTime(b));
+  }, [events, activeFilter, localStartOfToday]);
 
   const pierUpcoming = upcoming.filter((e) => e.hostType === 'pier');
   const partnerUpcoming = upcoming.filter((e) => e.hostType === 'partner');
-  const past = events.filter((event) => !event.upcoming && matchesFilter(event, activeFilter));
-
-  async function handleRsvp(event: CapitalEvent, waitlist: boolean) {
-    if (!user) {
-      setSubmitSuccess(null);
-      setSubmitError('Please sign in before requesting an RSVP.');
-      return;
-    }
-
-    setSubmittingEventId(event.databaseId);
-    setSubmitError(null);
-    setSubmitSuccess(null);
-
-    try {
-      await createCapitalEventRsvp({
-        eventId: event.databaseId,
-        memberId: user.id,
-        status: waitlist ? 'waitlisted' : 'requested',
-      });
-      const [eventData, rsvpData] = await withTimeout(
-        Promise.all([getCapitalEvents(), getMyCapitalEventRsvps(user.id)]),
-        CAPITAL_SUPABASE_TIMEOUT_MS,
-        'events and RSVPs'
-      );
-      const registeredEventIds = new Set(
-        rsvpData
-          .filter((rsvp) => rsvp.status === 'confirmed' || rsvp.status === 'attended')
-          .map((rsvp) => rsvp.eventId)
-      );
-      setEvents(eventData.map((item) => ({ ...item, registered: registeredEventIds.has(item.databaseId) })));
-      setRsvps(rsvpData);
-      setSubmitSuccess(waitlist ? 'Waitlist request submitted.' : 'RSVP request submitted.');
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Unable to submit RSVP request.');
-    } finally {
-      setSubmittingEventId(null);
-    }
-  }
+  const past = useMemo(() => {
+    return events
+      .filter((event) => isPastEvent(event, localStartOfToday) && matchesFilter(event, activeFilter))
+      .slice()
+      .sort((a, b) => getEventTime(b) - getEventTime(a));
+  }, [events, activeFilter, localStartOfToday]);
 
   function renderEventList(list: CapitalEvent[]) {
     if (list.length === 0) {
@@ -177,8 +162,6 @@ export default function CapitalMarketsEventsPage() {
             key={event.id}
             event={event}
             rsvp={rsvpByEventId.get(event.databaseId)}
-            submitting={submittingEventId === event.databaseId}
-            onRequestRsvp={user ? handleRsvp : undefined}
           />
         ))}
       </div>
@@ -200,16 +183,6 @@ export default function CapitalMarketsEventsPage() {
 
       {loading ? <LoadingState label="Loading events..." /> : null}
       {error ? <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} /> : null}
-      {submitSuccess ? (
-        <div className="mb-6 rounded-[4px] border border-ledger/20 bg-ledger/[0.04] p-4 text-[13px] text-ledger">
-          {submitSuccess}
-        </div>
-      ) : null}
-      {submitError ? (
-        <div className="mb-6 rounded-[4px] border border-danger/20 bg-danger/[0.04] p-4 text-[13px] text-danger">
-          {submitError}
-        </div>
-      ) : null}
 
       {!loading && !error ? (
         <>
@@ -248,44 +221,46 @@ export default function CapitalMarketsEventsPage() {
             ) : (
               <div className="grid gap-3">
                 {past.map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex flex-col gap-4 rounded-[4px] border border-border bg-surface px-5 py-4 opacity-70 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="text-center">
-                        <p className="font-mono-data text-[13px] font-medium text-ink">
-                          {new Date(event.date).toLocaleString('en-US', { month: 'short' })}
-                        </p>
-                        <p className="font-mono-data text-[20px] font-medium leading-none text-ink">
-                          {new Date(event.date).getDate()}
-                        </p>
+                  (() => {
+                    const { month, day } = getEventMonthDay(event);
+
+                    return (
+                      <div
+                        key={event.id}
+                        className="flex flex-col gap-4 rounded-[4px] border border-border bg-surface px-5 py-4 opacity-70 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="text-center">
+                            <p className="font-mono-data text-[13px] font-medium text-ink">{month}</p>
+                            <p className="font-mono-data text-[20px] font-medium leading-none text-ink">{day}</p>
+                          </div>
+                          <div className="w-px self-stretch bg-border" />
+                          <div>
+                            <p className="font-medium text-ink">{event.title}</p>
+                            <p className="mt-0.5 text-[13px] text-slate">
+                              {event.city}
+                              {event.audience ? ` · ${event.audience}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          {event.registered ? <Badge variant="muted">Attended</Badge> : null}
+                          <Badge variant="closed">{eventTypeLabels[event.type]}</Badge>
+                          {event.recapUrl?.trim() ? (
+                            <a
+                              href={event.recapUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink underline-offset-4 hover:underline"
+                            >
+                              Recap
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          ) : null}
+                        </div>
                       </div>
-                      <div className="w-px self-stretch bg-border" />
-                      <div>
-                        <p className="font-medium text-ink">{event.title}</p>
-                        <p className="mt-0.5 text-[13px] text-slate">
-                          {event.city}
-                          {event.audience ? ` · ${event.audience}` : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      {event.registered ? <Badge variant="muted">Attended</Badge> : null}
-                      <Badge variant="closed">{eventTypeLabels[event.type]}</Badge>
-                      {event.recapUrl?.trim() ? (
-                        <a
-                          href={event.recapUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink underline-offset-4 hover:underline"
-                        >
-                          Recap
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
+                    );
+                  })()
                 ))}
               </div>
             )}

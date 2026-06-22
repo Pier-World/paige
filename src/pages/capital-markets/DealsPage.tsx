@@ -48,6 +48,17 @@ export default function DealsPage() {
 
   const filteredDeals =
     activeFilter === 'all' ? deals : deals.filter((deal) => deal.type === activeFilter);
+  const aggregateCurrency =
+    deals.length > 0 && deals.every((deal) => deal.currencyCode === deals[0].currencyCode)
+      ? deals[0].currencyCode
+      : null;
+  const aggregateTarget = aggregateCurrency
+    ? formatCurrency(
+        deals.reduce((sum, deal) => sum + deal.targetSize, 0),
+        aggregateCurrency,
+        true
+      )
+    : 'Mixed currencies';
 
   return (
     <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
@@ -72,11 +83,7 @@ export default function DealsPage() {
           },
           {
             label: 'Aggregate target',
-            value: formatCurrency(
-              deals.reduce((sum, deal) => sum + deal.targetSize, 0),
-              'USD',
-              true
-            ),
+            value: aggregateTarget,
           },
         ].map((stat) => (
           <div key={stat.label} className="rounded-[4px] border border-border bg-surface px-4 py-3">
@@ -145,14 +152,14 @@ export default function DealsPage() {
                 <div>
                   <p className="eyebrow mb-0.5">Target Size</p>
                   <p className="font-mono-data text-ink">
-                    {formatCurrency(deal.targetSize, 'USD', true)}
+                    {formatCurrency(deal.targetSize, deal.currencyCode, true)}
                   </p>
                 </div>
                 <DealReturnCell deal={deal} label className="text-[13px]" />
                 <div>
                   <p className="eyebrow mb-0.5">Min. Commit</p>
                   <p className="font-mono-data text-ink">
-                    {formatCurrency(deal.minCommitment, 'USD', true)}
+                    {formatCurrency(deal.minCommitment, deal.currencyCode, true)}
                   </p>
                 </div>
                 <div>

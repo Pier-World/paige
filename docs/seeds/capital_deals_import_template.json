@@ -1,0 +1,60 @@
+{
+  "records": [
+    {
+      "source_record_id": "replace-with-internal-id",
+      "slug": "replace-with-fund-slug",
+      "name": "Fund or Opportunity Name",
+      "manager_name": "Manager Name",
+      "deal_type": "fund",
+      "asset_class": "Venture",
+      "target_size": 0,
+      "raised_size": 0,
+      "allocation_subscribed_percent": 0,
+      "min_commitment": 0,
+      "currency_code": "USD",
+      "close_date": "2026-12-31",
+      "target_irr": null,
+      "moic_target": null,
+      "return_metric_type": "irr",
+      "return_display": "",
+      "vintage": 2026,
+      "geography": "North America",
+      "sectors": "Software, AI",
+      "description": "Concise member-facing overview.",
+      "thesis": "Internal or member-facing investment thesis.",
+      "why_pier_selected": "Why Pier is surfacing this opportunity.",
+      "liquidity_note": "Expected liquidity profile or subscription terms.",
+      "contacts_json": [
+        {
+          "name": "IR Contact",
+          "role": "Investor relations",
+          "email": "ir@example.com"
+        }
+      ],
+      "source_materials_json": [
+        {
+          "label": "Original overview notes",
+          "material_type": "overview",
+          "overview": "Paste internal notes or rough overview text here."
+        },
+        {
+          "label": "Source deck",
+          "material_type": "deck",
+          "file_path": "./relative/path/to/source-deck.pdf"
+        }
+      ],
+      "documents_json": [
+        {
+          "label": "Member Tearsheet",
+          "document_type": "tearsheet",
+          "file_path": "./relative/path/to/member-tearsheet.pdf",
+          "access_level": "approved_interest"
+        }
+      ],
+      "generated_summary": "",
+      "disclaimer": "",
+      "jurisdiction": "US",
+      "eligible_investor_requirements": "Qualified purchaser or other eligibility requirements."
+    }
+  ]
+}

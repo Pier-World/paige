@@ -2,7 +2,22 @@ export type DealType = 'fund' | 'co-invest' | 'secondary' | 'spv';
 export type DealStatus = 'open' | 'closing' | 'closed' | 'pending';
 export type MemberRole = 'gp' | 'lp';
 export type EventType = 'dinner' | 'summit' | 'roundtable' | 'experience' | 'webinar';
-export type PartnerCategory = 'hotels' | 'restaurants' | 'travel' | 'lifestyle' | 'finance' | 'health';
+export type PartnerCategory =
+  | 'hotels'
+  | 'dining'
+  | 'dining-platform'
+  | 'travel'
+  | 'transportation'
+  | 'wellness'
+  | 'business'
+  | 'coworking'
+  | 'experiences'
+  | 'retail'
+  | 'services'
+  | 'lifestyle'
+  | 'restaurants'
+  | 'finance'
+  | 'health';
 
 export interface CapitalDeal {
   id: string;
@@ -478,8 +493,17 @@ export const eventTypeLabels: Record<EventType, string> = {
 
 export const partnerCategoryLabels: Record<PartnerCategory, string> = {
   hotels: 'Hotels',
+  dining: 'Dining',
+  'dining-platform': 'Dining Platforms',
   restaurants: 'Restaurants',
   travel: 'Travel',
+  transportation: 'Transportation',
+  wellness: 'Wellness',
+  business: 'Business',
+  coworking: 'Coworking',
+  experiences: 'Experiences',
+  retail: 'Retail',
+  services: 'Services',
   lifestyle: 'Lifestyle',
   finance: 'Finance',
   health: 'Health',

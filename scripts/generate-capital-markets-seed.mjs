@@ -177,62 +177,62 @@ INSERT INTO public.capital_deals (
   return_metric_type, return_display, holding_period_years, liquidity_note, why_pier_selected,
   contacts, sort_order, published_at
 ) VALUES
-('illustrative-growth-fund-vii', 'Illustrative Growth Fund VII', 'Harborline Partners', 'fund', 'Venture', 'open',
+('illustrative-growth-fund-vii', 'Illustrative Growth Fund VII', 'Harborline Partners', 'fund', 'Venture', 'pending',
  250000000, 142000000, 2500000, 'USD', '2026-09-30', 22, 2.8, 2026, 'North America',
  ARRAY['Software','AI Applications'],
  'A concentrated early growth fund focused on capital-efficient software with enterprise pull. Illustrative listing for member navigation.',
  'Thesis: lead or co-lead where velocity metrics and net retention can be diligenced with customers in the loop.',
  'irr', NULL, 7, 'Fund liquidity per standard LP terms', 'Pier diligenced velocity and net retention with customer references in the loop—not slide-deck storytelling.',
- '[{"name":"IR Desk","role":"Investor relations","email":""}]'::jsonb, 1, timezone('utc', now())),
-('illustrative-co-invest-ai-infra', 'Illustrative Co-Invest: AI Infrastructure', 'Northline Ventures', 'co-invest', 'Venture', 'closing',
+ '[{"name":"IR Desk","role":"Investor relations","email":""}]'::jsonb, 1, NULL),
+('illustrative-co-invest-ai-infra', 'Illustrative Co-Invest: AI Infrastructure', 'Northline Ventures', 'co-invest', 'Venture', 'pending',
  45000000, 38000000, 500000, 'USD', '2026-06-15', 28, 3.2, 2025, 'United States',
  ARRAY['AI Infra','Semiconductors'],
  'Single-asset co-invest alongside a known institutional round—illustrative only, not an offer to subscribe.',
  'Underwrite like a lead: power, cooling, and software margins must clear a stressed case.',
  'irr', NULL, 4, 'Typical co-invest hold; exit tied to sponsor timeline', 'Selected after Pier underwrote power, cooling, and software margins under a stressed case—not headline IRR alone.',
- '[{"name":"Deal team","role":"Partner","email":""}]'::jsonb, 2, timezone('utc', now())),
-('illustrative-spv-secondaries-strip', 'Illustrative SPV: Secondaries Strip', 'Compass Foundry', 'spv', 'Secondaries', 'open',
+ '[{"name":"Deal team","role":"Partner","email":""}]'::jsonb, 2, NULL),
+('illustrative-spv-secondaries-strip', 'Illustrative SPV: Secondaries Strip', 'Compass Foundry', 'spv', 'Secondaries', 'pending',
  12000000, 6200000, 250000, 'USD', '2026-07-01', 16, 1.9, 2024, 'Europe / US',
  ARRAY['Secondaries','Marketplaces'],
  'Small SPV to acquire a strip of secondary interests in a consumer marketplace—illustrative profile for UI testing.',
  'Focus on seller quality and concentration limits; prefer diversified LP sellers.',
  'moic', NULL, 3, 'Secondary strip; liquidity event-driven', 'Pier prioritized seller quality and concentration limits over headline pricing.',
- '[{"name":"SPV admin","role":"Administrator","email":""}]'::jsonb, 3, timezone('utc', now())),
-('illustrative-buyout-fund-v', 'Illustrative Buyout Fund V', 'Lakeshore Capital Partners', 'fund', 'Buyouts', 'closed',
+ '[{"name":"SPV admin","role":"Administrator","email":""}]'::jsonb, 3, NULL),
+('illustrative-buyout-fund-v', 'Illustrative Buyout Fund V', 'Lakeshore Capital Partners', 'fund', 'Buyouts', 'pending',
  1800000000, 1800000000, 10000000, 'USD', '2025-12-01', 18, 2.2, 2022, 'North America',
  ARRAY['Industrials','Business Services'],
  'Control buyouts in founder-owned industrials and services—illustrative closed fund entry.',
  'Operational improvement playbook with conservative leverage.',
  'irr', NULL, 6, 'Closed fund', 'Operational improvement playbook with conservative leverage—aligned with Pier allocator diligence standards.',
- '[{"name":"Partner","role":"Investor relations","email":""}]'::jsonb, 4, timezone('utc', now())),
-('illustrative-private-credit-income', 'Illustrative Private Credit Income', 'Meridian Credit Partners', 'fund', 'Credit', 'open',
+ '[{"name":"Partner","role":"Investor relations","email":""}]'::jsonb, 4, NULL),
+('illustrative-private-credit-income', 'Illustrative Private Credit Income', 'Meridian Credit Partners', 'fund', 'Credit', 'pending',
  400000000, 210000000, 1000000, 'USD', '2026-11-30', 11, 1.45, 2025, 'North America',
  ARRAY['Private Credit','Asset-backed'],
  'Senior secured lending to middle-market operators with covenant-heavy structures—illustrative.',
  'Income-first; avoid cyclical tails without hard collateral.',
  'yield', '11% current yield', 5, 'Income-oriented; quarterly distributions', 'Income-first mandate with covenant-heavy structures—Pier screened out cyclical tails without hard collateral.',
- '[{"name":"Capital formation","role":"IR","email":""}]'::jsonb, 5, timezone('utc', now())),
-('illustrative-co-invest-climate-infra', 'Illustrative Co-Invest: Climate Infrastructure', 'Northline Ventures', 'co-invest', 'Infrastructure', 'open',
+ '[{"name":"Capital formation","role":"IR","email":""}]'::jsonb, 5, NULL),
+('illustrative-co-invest-climate-infra', 'Illustrative Co-Invest: Climate Infrastructure', 'Northline Ventures', 'co-invest', 'Infrastructure', 'pending',
  60000000, 12000000, 1000000, 'USD', '2026-08-20', 14, 2.1, 2026, 'United States',
  ARRAY['Climate','Energy'],
  'Project finance adjacent co-invest with contracted revenue—illustrative.',
  'Underwrite offtake, counterparty, and construction risk explicitly.',
  'custom', '14% project yield', 10, 'Long-dated infrastructure cash flows', 'Contracted offtake and construction risk were diligenced explicitly before Pier surfaced the opportunity.',
- '[{"name":"Infra lead","role":"Partner","email":""}]'::jsonb, 6, timezone('utc', now())),
-('illustrative-secondary-fund-iii', 'Illustrative Secondary Fund III', 'Harborline Partners', 'secondary', 'Secondaries', 'closing',
+ '[{"name":"Infra lead","role":"Partner","email":""}]'::jsonb, 6, NULL),
+('illustrative-secondary-fund-iii', 'Illustrative Secondary Fund III', 'Harborline Partners', 'secondary', 'Secondaries', 'pending',
  500000000, 410000000, 5000000, 'USD', '2026-05-30', 15, 1.7, 2024, 'Global',
  ARRAY['Secondaries','Venture'],
  'LP-led secondaries and GP-led continuation vehicles—illustrative.',
  'Price discipline and diversification across vintages.',
  'irr', NULL, 8, 'Secondary fund; vintage diversification', 'Price discipline and vintage diversification—not momentum chasing in hot strips.',
- '[{"name":"Secondaries desk","role":"Principal","email":""}]'::jsonb, 7, timezone('utc', now())),
-('illustrative-spv-consumer-roll-up', 'Illustrative SPV: Consumer Roll-Up', 'Compass Foundry', 'spv', 'Buyouts', 'open',
+ '[{"name":"Secondaries desk","role":"Principal","email":""}]'::jsonb, 7, NULL),
+('illustrative-spv-consumer-roll-up', 'Illustrative SPV: Consumer Roll-Up', 'Compass Foundry', 'spv', 'Buyouts', 'pending',
  35000000, 8000000, 500000, 'EUR', '2026-10-15', 20, 2.4, 2025, 'Western Europe',
  ARRAY['Consumer','Marketplaces'],
  'Single-brand roll-up with a repeatable M&A playbook—illustrative.',
  'Margin expansion through procurement and channel mix.',
  'moic', NULL, 4, 'Roll-up; exit via strategic or sponsor sale', 'Repeatable M&A playbook with procurement-led margin expansion—Pier met the operating partner before listing.',
- '[{"name":"Deal partner","role":"Partner","email":""}]'::jsonb, 8, timezone('utc', now()))
+ '[{"name":"Deal partner","role":"Partner","email":""}]'::jsonb, 8, NULL)
 ON CONFLICT (slug) DO UPDATE SET
   name = EXCLUDED.name,
   status = EXCLUDED.status,
@@ -240,46 +240,11 @@ ON CONFLICT (slug) DO UPDATE SET
   return_metric_type = EXCLUDED.return_metric_type,
   return_display = EXCLUDED.return_display,
   why_pier_selected = EXCLUDED.why_pier_selected,
+  published_at = EXCLUDED.published_at,
   updated_at = timezone('utc', now());
 `;
 
-const partnersSql = `
-INSERT INTO public.capital_partners (
-  slug, name, category, tagline, benefit, description, website_url, featured, status, sort_order, published_at, location
-) VALUES
-('aman-new-york', 'Aman New York', 'hotels', 'Urban sanctuary above Midtown', 'Preferred arrival experience and Pier-member recognition on eligible stays',
- 'Aman New York pairs Japanese minimalism with Manhattan energy. Pier members receive thoughtful recognition at arrival where available, and our concierge can coordinate itineraries that protect time.',
- 'https://www.aman.com/hotels/aman-new-york', true, 'active', 1, timezone('utc', now()), 'New York'),
-('carne-mare', 'Carne Mare', 'restaurants', 'Italian chophouse energy', 'Priority consideration for Pier-hosted member tables on select dates',
- 'Carne Mare is built for celebration: prime cuts, seafood towers, and a room that feels like a night out. Requests route through Pier Concierge to align with house capacity.',
- 'https://www.carneramenyc.com/', true, 'active', 2, timezone('utc', now()), 'New York'),
-('blacklane-global', 'Blacklane', 'travel', 'Chauffeured reliability', 'Member routing support for airport and city-to-city transfers',
- 'Blacklane focuses on consistent chauffeur quality across global metros. Pier Concierge can help members book with the right vehicle class and meet-and-greet details.',
- 'https://www.blacklane.com/en/', false, 'active', 3, timezone('utc', now()), 'Global'),
-('equinox-plus', 'Equinox', 'health', 'Performance baseline', 'Trial access pathways coordinated through Pier for eligible members',
- 'Equinox is a practical partner for members who travel constantly—recovery, training, and routine. Availability varies by market; Pier Concierge confirms eligibility.',
- 'https://www.equinox.com/', false, 'active', 4, timezone('utc', now()), 'Global'),
-('resy-private', 'Resy Private', 'restaurants', 'Hard tables, handled quietly', 'Concierge-assisted routing for high-demand reservations',
- 'Resy Private is not a guarantee—it is a better process. Pier Concierge packages member context so restaurants can say yes when capacity exists.',
- 'https://resy.com/', false, 'active', 5, timezone('utc', now()), 'Global'),
-('four-seasons-partner', 'Four Seasons Hotels and Resorts', 'hotels', 'Consistent luxury service', 'Property notes and celebration details passed through concierge',
- 'When members need predictable excellence—family travel, roadshows, recovery weekends—Four Seasons remains a default. Pier coordinates preferences without drama.',
- 'https://www.fourseasons.com/', true, 'active', 6, timezone('utc', now()), 'Global'),
-('jpm-private-bank-ref', 'Illustrative Private Banking Partner', 'finance', 'Institutional-grade banking context', 'Education-forward introductions where appropriate',
- 'Illustrative partner entry for UI seeding—not an endorsement. Pier can coordinate introductions to regulated institutions when members request a banking conversation.',
- 'https://privatebank.jpmorgan.com/', false, 'active', 7, timezone('utc', now()), 'Global'),
-('oura-health', 'Oura', 'health', 'Sleep and readiness signal', 'Member education on readiness metrics and cohort offers when available',
- 'Oura is a lightweight signal layer for busy operators. Pier highlights it as a wellness tool—not medical advice—with offers subject to partner campaigns.',
- 'https://ouraring.com/', false, 'active', 8, timezone('utc', now()), 'Global'),
-('netjets-partner', 'NetJets', 'travel', 'Fractional aviation', 'Routing to aviation advisors through Pier Concierge',
- 'For members who live in three cities a week, aviation time is portfolio time. Pier does not sell fractional shares; we coordinate introductions to authorized advisors.',
- 'https://www.netjets.com/en-us/', false, 'active', 9, timezone('utc', now()), 'Global')
-ON CONFLICT (slug) DO UPDATE SET
-  benefit = EXCLUDED.benefit,
-  description = EXCLUDED.description,
-  location = EXCLUDED.location,
-  updated_at = timezone('utc', now());
-`;
+const partnersSql = '';
 
 const eventsSql = `
 INSERT INTO public.capital_events (
@@ -309,7 +274,7 @@ ON CONFLICT (slug) DO UPDATE SET
   updated_at = timezone('utc', now());
 `;
 
-const sql = `${header}${membersSql}\n${dealsSql}\n${partnersSql}\n${eventsSql}\n`;
+const sql = `${header}${membersSql}\n${dealsSql}\n${eventsSql}\n`;
 
 writeFileSync(out, sql, 'utf8');
 console.log('Wrote', out);

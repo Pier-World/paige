@@ -17,6 +17,7 @@ const ConversationPage = lazy(() => importWithChunkReloadOnce(() => import('./pa
 const OAuthCallback = lazy(() => importWithChunkReloadOnce(() => import('./pages/OAuthCallback')));
 const OnboardingPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/onboarding/OnboardingPage')));
 const NewMember = lazy(() => importWithChunkReloadOnce(() => import('./pages/admin/NewMember')));
+const CapitalDealsAdmin = lazy(() => importWithChunkReloadOnce(() => import('./pages/admin/CapitalDealsAdmin')));
 const CapitalMarketsDashboardPage = lazy(() =>
   importWithChunkReloadOnce(() => import('./pages/capital-markets/DashboardPage'))
 );
@@ -283,6 +284,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <NewMember />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/deals"
+              element={
+                <ProtectedRoute>
+                  <CapitalDealsAdmin />
                 </ProtectedRoute>
               }
             />

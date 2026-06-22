@@ -31,9 +31,15 @@ export default function ConciergePage() {
   const memberInitial = user?.first_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'M';
 
   useEffect(() => {
+    const message = searchParams.get('message');
     const partner = searchParams.get('partner');
-    if (partner) {
-      setInput(`I would like an introduction to ${partner.replace(/-/g, ' ')}.`);
+    const source = searchParams.get('source');
+
+    if (message) {
+      setInput(message);
+    } else if (partner) {
+      const requestType = source === 'hotel' ? 'hotel support for' : source === 'perk' ? 'help redeeming' : 'an introduction to';
+      setInput(`I would like ${requestType} ${partner}.`);
     }
   }, [searchParams]);
 

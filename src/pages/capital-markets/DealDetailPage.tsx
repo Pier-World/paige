@@ -2,15 +2,16 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, MapPin } from 'lucide-react';
 import { DealProgressAside } from '../../components/capital-markets/DealProgressAside';
-import { DealReturnCell } from '../../components/capital-markets/DealReturnCell';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import {
   createCapitalDealInterest,
+  getCapitalDealDocumentUrl,
   getCapitalDealBySlugOrId,
   getMyCapitalDealInterests,
   type CapitalDeal,
+  type CapitalDealDocument,
   type CapitalDealInterest,
   type CapitalDealInterestRequestType,
 } from '../../lib/api/capitalMarkets';
@@ -29,6 +30,7 @@ export default function DealDetailPage() {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
   const [submittingRequest, setSubmittingRequest] = useState<CapitalDealInterestRequestType | null>(null);
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
@@ -165,8 +167,22 @@ export default function DealDetailPage() {
     }
   }
 
+  async function handleOpenDocument(document: CapitalDealDocument) {
+    setOpeningDocumentId(document.id);
+    setRequestError(null);
+
+    try {
+      const url = await getCapitalDealDocumentUrl(document);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      setRequestError(err instanceof Error ? err.message : 'Unable to open this document.');
+    } finally {
+      setOpeningDocumentId(null);
+    }
+  }
+
   const metricRows = [
-    { label: 'Min. commitment', value: formatCurrency(deal.minCommitment, 'USD', true) },
+    { label: 'Min. commitment', value: formatCurrency(deal.minCommitment, deal.currencyCode, true) },
     { label: 'Return', value: returnValue },
     ...(deal.returnMetricType === 'irr' && deal.moicTarget > 0
       ? [{ label: 'Target MOIC', value: `${deal.moicTarget}x` }]
@@ -271,6 +287,29 @@ export default function DealDetailPage() {
         </div>
       </section>
 
+      {deal.eligibleInvestorRequirements || deal.disclaimer ? (
+        <section className="mb-10">
+          <div className="mb-4 flex items-center gap-4">
+            <p className="eyebrow">Investor information</p>
+            <div className="divider flex-1" />
+          </div>
+          <div className="grid max-w-4xl gap-4 md:grid-cols-2">
+            {deal.eligibleInvestorRequirements ? (
+              <div className="rounded-[4px] border border-border bg-surface p-4">
+                <p className="eyebrow mb-2">Eligibility</p>
+                <p className="text-[13px] leading-relaxed text-slate">{deal.eligibleInvestorRequirements}</p>
+              </div>
+            ) : null}
+            {deal.disclaimer ? (
+              <div className="rounded-[4px] border border-border bg-surface p-4">
+                <p className="eyebrow mb-2">Important note</p>
+                <p className="text-[13px] leading-relaxed text-slate">{deal.disclaimer}</p>
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
       <section className="mb-10">
         <div className="mb-4 flex items-center gap-4">
           <p className="eyebrow">Documents</p>
@@ -285,17 +324,22 @@ export default function DealDetailPage() {
           <div className="grid max-w-3xl gap-3 md:grid-cols-3">
             {deal.documents.map((document) => (
               <button
-                key={document.label}
+                key={document.id}
                 type="button"
-                disabled
-                className="group flex items-center justify-between rounded-[4px] border border-border bg-midnight p-4 text-left opacity-80"
+                disabled={openingDocumentId !== null}
+                onClick={() => handleOpenDocument(document)}
+                className="group flex items-center justify-between rounded-[4px] border border-border bg-midnight p-4 text-left transition-colors hover:border-gilt disabled:opacity-80"
               >
                 <div>
                   <p className="eyebrow mb-1 text-parchment/60">{document.type}</p>
                   <p className="text-[13px] font-medium text-parchment">{document.label}</p>
                   <p className="mt-0.5 text-[11px] text-parchment/40">{document.size}</p>
                 </div>
-                <Download className="h-4 w-4 text-gilt opacity-60" />
+                {openingDocumentId === document.id ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-gilt border-t-transparent" />
+                ) : (
+                  <Download className="h-4 w-4 text-gilt opacity-60" />
+                )}
               </button>
             ))}
           </div>

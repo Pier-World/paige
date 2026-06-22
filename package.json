@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "import:capital-deals": "node scripts/import-capital-deals.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -55,6 +55,26 @@ export function formatDate(
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+export function formatEventDate(
+  date: string | Date,
+  format: 'short' | 'long' | 'month-day' = 'short',
+  city?: string
+): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const eventTimeZone = getEventTimeZone(city);
+  const options: Intl.DateTimeFormatOptions =
+    format === 'long'
+      ? { year: 'numeric', month: 'long', day: 'numeric' }
+      : format === 'month-day'
+        ? { month: 'short', day: 'numeric' }
+        : { year: 'numeric', month: 'short', day: 'numeric' };
+
+  return d.toLocaleDateString('en-US', {
+    ...options,
+    timeZone: eventTimeZone?.timeZone,
+  });
+}
+
 export function truncate(str: string, length: number): string {
   return str.length <= length ? str : `${str.slice(0, length).trimEnd()}...`;
 }
@@ -87,6 +107,54 @@ export function formatEventLocation(event: {
   return GUEST_ONLY_LOCATION_COPY;
 }
 
-export function formatEventTime(date: string): string {
-  return new Date(date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+type EventTimeZone = {
+  timeZone: string;
+  label?: string;
+};
+
+function getEventTimeZone(city?: string): EventTimeZone | undefined {
+  const normalizedCity = city?.trim().toLowerCase();
+
+  if (!normalizedCity) return undefined;
+
+  const eventTimeZones: Record<string, EventTimeZone> = {
+    amsterdam: { timeZone: 'Europe/Amsterdam' },
+    austin: { timeZone: 'America/Chicago', label: 'CT' },
+    boston: { timeZone: 'America/New_York', label: 'ET' },
+    chicago: { timeZone: 'America/Chicago', label: 'CT' },
+    hamptons: { timeZone: 'America/New_York', label: 'ET' },
+    nashville: { timeZone: 'America/Chicago', label: 'CT' },
+    'new york': { timeZone: 'America/New_York', label: 'ET' },
+    'new york city': { timeZone: 'America/New_York', label: 'ET' },
+    'san francisco': { timeZone: 'America/Los_Angeles', label: 'PT' },
+    'shelter island': { timeZone: 'America/New_York', label: 'ET' },
+  };
+
+  return eventTimeZones[normalizedCity];
+}
+
+function getShortTimeZoneLabel(date: Date, timeZone: string): string {
+  const timeZoneName = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    timeZoneName: 'short',
+  })
+    .formatToParts(date)
+    .find((part) => part.type === 'timeZoneName')?.value;
+
+  return timeZoneName ?? '';
+}
+
+export function formatEventTime(date: string, city?: string): string {
+  const eventTimeZone = getEventTimeZone(city);
+  const parsedDate = new Date(date);
+  const time = parsedDate.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: eventTimeZone?.timeZone,
+  });
+  const label = eventTimeZone
+    ? eventTimeZone.label ?? getShortTimeZoneLabel(parsedDate, eventTimeZone.timeZone)
+    : '';
+
+  return [time, label].filter(Boolean).join(' ');
 }
