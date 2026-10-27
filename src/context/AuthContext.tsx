@@ -8,6 +8,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { ANALYTICS_EVENTS, captureAnalytics } from '../lib/analytics';
 import { isOnboardingMarkedComplete } from '../lib/capitalOnboarding';
+import { composeFullName, resolveFullName, splitFullName } from '../lib/memberName';
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -171,7 +172,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         preferences: Object.keys(mergedPreferences).length > 0 ? mergedPreferences : undefined,
         membership_level: membershipLevel,
         created_at,
-        full_name: profileData?.full_name || `${firstName} ${lastName}`.trim() || 'Member',
+        full_name:
+          resolveFullName({
+            fullName: profileData?.full_name,
+            firstName,
+            lastName,
+            email,
+          }) || 'Member',
         front_user_hash: profileData?.front_user_hash ?? null,
         membership_tier: membershipLevel,
         onboarding_completed: onboardingCompleted,
@@ -587,10 +594,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const memberUpdates: Record<string, unknown> = {};
       if (data.phone !== undefined) memberUpdates.phone = data.phone;
-      if (data.first_name !== undefined) memberUpdates.first_name = data.first_name;
-      if (data.last_name !== undefined) memberUpdates.last_name = data.last_name;
       if (data.onboarding_completed !== undefined) {
         memberUpdates.onboarding_completed = data.onboarding_completed;
+      }
+
+      if (data.full_name !== undefined) {
+        const parts = splitFullName(data.full_name);
+        memberUpdates.first_name = parts.first_name || user.first_name;
+        memberUpdates.last_name = parts.last_name;
+      } else if (data.first_name !== undefined || data.last_name !== undefined) {
+        if (data.first_name !== undefined) memberUpdates.first_name = data.first_name;
+        if (data.last_name !== undefined) memberUpdates.last_name = data.last_name;
       }
 
       if (data.preferences !== undefined) {
@@ -617,6 +631,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (data.full_name !== undefined) {
         profileUpdates.full_name = data.full_name.trim() || null;
+        hasProfileUpdates = true;
+      } else if (data.first_name !== undefined || data.last_name !== undefined) {
+        const nextFirst =
+          data.first_name !== undefined ? data.first_name : user.first_name;
+        const nextLast = data.last_name !== undefined ? data.last_name : user.last_name;
+        profileUpdates.full_name = composeFullName(nextFirst, nextLast) || null;
         hasProfileUpdates = true;
       }
 
@@ -693,7 +713,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           id: user.id,
           onboarding_completed: true,
           personal_context: payload.personalContext as import('../types/supabase').Json,
-          full_name: user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || null,
+          full_name:
+            resolveFullName({
+              fullName: user.full_name,
+              firstName: user.first_name,
+              lastName: user.last_name,
+              email: user.email,
+            }) || null,
         },
         { onConflict: 'id' }
       );

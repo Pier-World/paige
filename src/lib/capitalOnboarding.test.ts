@@ -12,7 +12,9 @@ import {
   displayEventAudience,
   emptyOnboardingData,
   eventMatchesCapitalRole,
+  intentsForRole,
   isOnboardingMarkedComplete,
+  normalizeIntentIds,
   parseOnboardingDraft,
   postAuthPath,
   profileNeedsOnboardingDetails,
@@ -39,7 +41,7 @@ test('complete payload stores capital role and strips travel interests', () => {
     firm: 'Harbor Family Office',
     title: 'Principal',
     city: 'New York',
-    intents: ['dinners', 'emerging-managers'],
+    intents: ['gatherings', 'emerging-managers'],
     allowIntroRequests: false,
     shareEventAttendance: false,
   };
@@ -50,18 +52,18 @@ test('complete payload stores capital role and strips travel interests', () => {
   assert.equal(prefs.capital_role, 'lp');
   assert.equal(prefs.firm, 'Harbor Family Office');
   assert.equal(prefs.primary_city, 'New York');
-  assert.deepEqual(prefs.interests, ['Dinners and member gatherings', 'Emerging managers']);
+  assert.deepEqual(prefs.interests, ['Gatherings worldwide', 'Emerging managers']);
   assert.equal(prefs.member_preferences?.allow_intro_requests, false);
   assert.equal(prefs.member_preferences?.share_event_attendance, false);
 });
 
 test('GP opt-in is persisted when enabled', () => {
   const selected = applyRoleChange(emptyOnboardingData(), 'gp');
-  const data = { ...selected, shareEventAttendance: true, intents: ['meet-allocators'] };
+  const data = { ...selected, shareEventAttendance: true, intents: ['network'] };
   const prefs = buildOnboardingMemberPreferences(data);
   assert.equal(prefs.capital_role, 'gp');
   assert.equal(prefs.member_preferences?.share_event_attendance, true);
-  assert.deepEqual(prefs.interests, ['Meet allocators']);
+  assert.deepEqual(prefs.interests, ['The membership']);
 });
 
 test('reselecting the same role does not wipe privacy opt-in', () => {
@@ -178,6 +180,7 @@ test('profile completeness and draft parsing', () => {
   assert.equal(draft?.data.capitalRole, 'gp');
   assert.equal(draft?.data.firm, 'Pier');
   assert.equal(draft?.data.allowIntroRequests, true);
+  assert.deepEqual(draft?.data.intents, ['gatherings']);
   assert.equal(draft?.step, 3);
   assert.equal(parseOnboardingDraft('not-json'), null);
   assert.equal(clampOnboardingStep(3, null), 1);
@@ -224,6 +227,46 @@ test('onboarding ends on a skippable accreditation step', () => {
   assert.match(step, /verify later in Profile/);
   assert.match(profile, /AccreditationField/);
   assert.doesNotMatch(profile, /<option value="Yes">Yes<\/option>/);
+});
+
+test('legacy intent ids map onto the current set', () => {
+  assert.deepEqual(normalizeIntentIds(['dinners', 'meet-allocators', 'co-invests', 'dinners']), [
+    'gatherings',
+    'network',
+    'co-invests',
+  ]);
+  assert.deepEqual(normalizeIntentIds(['credit-real-assets', 'list-opportunity']), [
+    'exclusive-funds',
+  ]);
+});
+
+test('help-first options are role-aware modules with the same keys', () => {
+  const lp = intentsForRole('lp');
+  const gp = intentsForRole('gp');
+  assert.deepEqual(
+    lp.map((option) => option.id),
+    gp.map((option) => option.id)
+  );
+  assert.equal(lp.length, 5);
+  assert.ok(lp.every((option) => option.title && option.description));
+  assert.notEqual(lp[0].title, gp[0].title);
+  const step = readFileSync(join(root, 'src/pages/onboarding/steps/IntentStep.tsx'), 'utf8');
+  assert.match(step, /option\.description/);
+  assert.doesNotMatch(step, /flex-wrap/);
+});
+
+test('finishing onboarding queues a one-time membership reveal', () => {
+  const page = readFileSync(join(root, 'src/pages/onboarding/OnboardingPage.tsx'), 'utf8');
+  const dash = readFileSync(join(root, 'src/pages/capital-markets/DashboardPage.tsx'), 'utf8');
+  const reveal = readFileSync(
+    join(root, 'src/components/capital-markets/MembershipReveal.tsx'),
+    'utf8'
+  );
+  assert.match(page, /markMembershipRevealPending/);
+  assert.match(page, /fromOnboarding: true/);
+  assert.match(dash, /MembershipReveal/);
+  assert.match(reveal, /You.re in/);
+  assert.match(reveal, /prefers-reduced-motion/);
 });
 
 test('skip copy does not imply the wizard will resume', () => {

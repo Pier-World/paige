@@ -13,6 +13,7 @@ import { PageFrame } from '../../components/layout/PageFrame';
 import { Chip } from '../../components/ui/Chip';
 import { useAuth } from '../../context/AuthContext';
 import { isPierPlus } from '../../lib/membership';
+import { resolveFullName } from '../../lib/memberName';
 import {
   ProfileField,
   ProfileInput,
@@ -197,7 +198,14 @@ export default function CapitalProfilePage() {
   function hydrateFromUser(profile: CapitalMemberProfile | null) {
     if (!user) return;
 
-    setFullName(user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim());
+    setFullName(
+      resolveFullName({
+        fullName: user.full_name,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email,
+      })
+    );
     setPhone(user.phone || '');
     setFirm(profile?.firm || user.preferences?.firm || '');
     setRoleLabel(profile?.title || user.preferences?.role_label || '');

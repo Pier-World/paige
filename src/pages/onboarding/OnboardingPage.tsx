@@ -6,12 +6,14 @@ import {
   buildOnboardingMemberPreferences,
   buildPersonalContext,
   clampOnboardingStep,
+  markMembershipRevealPending,
   ONBOARDING_STEP_COUNT,
   onboardingDraftKey,
   parseOnboardingDraft,
   prefillOnboardingFromUser,
   serializeOnboardingDraft,
 } from '../../lib/capitalOnboarding';
+import { resolveFullName } from '../../lib/memberName';
 import type { OnboardingData } from '../../types/onboarding';
 import { OnboardingShell } from './OnboardingShell';
 import { AccreditationStep } from './steps/AccreditationStep';
@@ -65,7 +67,12 @@ export default function OnboardingPage() {
         preferences: buildOnboardingMemberPreferences(payload, user.preferences),
         personalContext: buildPersonalContext(
           payload,
-          user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          resolveFullName({
+            fullName: user.full_name,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            email: user.email,
+          }),
           skipped
         ),
       });
@@ -75,7 +82,8 @@ export default function OnboardingPage() {
         return;
       }
       sessionStorage.removeItem(onboardingDraftKey(user.id));
-      navigate('/dashboard', { replace: true });
+      markMembershipRevealPending(user.id);
+      navigate('/dashboard', { replace: true, state: { fromOnboarding: true } });
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Unable to finish onboarding.');
       setBusy(false);

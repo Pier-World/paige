@@ -302,3 +302,79 @@
     animation: none;
   }
 }
+
+.pier-reveal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--parchment);
+  cursor: pointer;
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.pier-reveal-copy {
+  animation: pier-reveal-copy 800ms ease-out both;
+}
+
+.pier-reveal-copy-late {
+  animation: pier-reveal-copy 800ms ease-out 180ms both;
+}
+
+.pier-reveal-line {
+  transform-origin: center;
+  animation: pier-reveal-line 900ms ease-out 120ms both;
+}
+
+.pier-reveal.is-leaving {
+  animation: pier-reveal-veil 700ms ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes pier-reveal-copy {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pier-reveal-line {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pier-reveal-veil {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pier-reveal-copy,
+  .pier-reveal-copy-late,
+  .pier-reveal-line {
+    animation: none;
+  }
+
+  .pier-reveal.is-leaving {
+    animation: none;
+    opacity: 0;
+  }
+}

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { DealReturnCell } from '../../components/capital-markets/DealReturnCell';
 import { AnonymizedDealPreview } from '../../components/capital-markets/AnonymizedDealPreview';
 import { GetOrientedCard, type OrientedStep } from '../../components/capital-markets/GetOrientedCard';
+import { MembershipReveal } from '../../components/capital-markets/MembershipReveal';
 import { PageFrame } from '../../components/layout/PageFrame';
 import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../context/AuthContext';
@@ -15,7 +16,11 @@ import {
   type CapitalEvent,
   type CapitalEventRsvp,
 } from '../../lib/api/capitalMarkets';
-import { dashboardIntroKey, eventMatchesCapitalRole } from '../../lib/capitalOnboarding';
+import {
+  consumeMembershipReveal,
+  dashboardIntroKey,
+  eventMatchesCapitalRole,
+} from '../../lib/capitalOnboarding';
 import { isPierPlus } from '../../lib/membership';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
 import { useCapitalLoad } from '../../lib/useCapitalLoad';
@@ -75,9 +80,16 @@ function eventMonthDay(event: CapitalEvent) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const fromOnboarding =
+    (location.state as { fromOnboarding?: boolean } | null)?.fromOnboarding === true;
   const pierPlus = isPierPlus(user);
   const capitalRole = user?.preferences?.capital_role;
   const [introDismissed, setIntroDismissed] = useState(() => readIntroDismissed(user?.id));
+  const [showReveal, setShowReveal] = useState(() =>
+    consumeMembershipReveal(user?.id, fromOnboarding)
+  );
   const loaded = useCapitalLoad(
     `dashboard:${user?.id ?? 'anon'}:${pierPlus ? 'plus' : 'community'}`,
     () => loadDashboard(pierPlus, user?.id),
@@ -92,6 +104,11 @@ export default function DashboardPage() {
   useEffect(() => {
     setIntroDismissed(readIntroDismissed(user?.id));
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!fromOnboarding) return;
+    navigate('.', { replace: true, state: {} });
+  }, [fromOnboarding, navigate]);
 
   const firstName = user?.first_name || user?.full_name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
@@ -199,6 +216,7 @@ export default function DashboardPage() {
 
   return (
     <PageFrame>
+      {showReveal ? <MembershipReveal onComplete={() => setShowReveal(false)} /> : null}
       <div className="mb-10">
         <p className="eyebrow mb-2">Dashboard</p>
         <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.02em] text-ink">

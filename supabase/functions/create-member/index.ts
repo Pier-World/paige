@@ -89,9 +89,16 @@ Deno.serve(async (req) => {
       );
     }
 
+    const fullName = [memberData.firstName, memberData.lastName].filter(Boolean).join(' ') || memberData.email;
+
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: memberData.email,
       email_confirm: true,
+      user_metadata: {
+        first_name: memberData.firstName,
+        last_name: memberData.lastName,
+        full_name: fullName,
+      },
     });
 
     if (authError) {
@@ -152,7 +159,6 @@ Deno.serve(async (req) => {
 
     // Create profile so onboarding_completed and personal_context exist (id = auth user id)
     const now = new Date().toISOString();
-    const fullName = [memberData.firstName, memberData.lastName].filter(Boolean).join(' ') || memberData.email;
     const personalContext = {
       interests: memberData.interests || [],
       preferred_cities: memberData.preferredCities || [],

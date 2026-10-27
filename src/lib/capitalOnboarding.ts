@@ -10,29 +10,106 @@ import type { CapitalRole, OnboardingData } from '../types/onboarding';
 
 export const ONBOARDING_STEP_COUNT = 5;
 
-export const LP_INTENT_OPTIONS = [
-  { id: 'dinners', label: 'Dinners and member gatherings' },
-  { id: 'emerging-managers', label: 'Emerging managers' },
-  { id: 'co-invests', label: 'Co-investments' },
-  { id: 'credit-real-assets', label: 'Credit and real assets' },
-] as const;
+export type IntentOption = {
+  id: string;
+  title: string;
+  description: string;
+};
 
-export const GP_INTENT_OPTIONS = [
-  { id: 'meet-allocators', label: 'Meet allocators' },
-  { id: 'dinners', label: 'Dinners and member gatherings' },
-  { id: 'coverage', label: 'Be considered for Pier coverage' },
-  { id: 'list-opportunity', label: 'Share a fund with Pier later' },
-] as const;
+export const LP_INTENT_OPTIONS: IntentOption[] = [
+  {
+    id: 'exclusive-funds',
+    title: 'Exclusive funds',
+    description: 'Funds Pier brings to members — managers you will not find on a public listing.',
+  },
+  {
+    id: 'co-invests',
+    title: 'Directs and co-investments',
+    description: 'Co-invests and directs alongside other members, when the fit is right.',
+  },
+  {
+    id: 'network',
+    title: 'Other LPs and GPs',
+    description: 'Meet managers and fellow allocators. Introductions stay Pier-mediated.',
+  },
+  {
+    id: 'gatherings',
+    title: 'Gatherings worldwide',
+    description: 'Invitations to select dinners and gatherings in cities that matter.',
+  },
+  {
+    id: 'emerging-managers',
+    title: 'Emerging managers',
+    description: 'Newer funds and first-time managers, with context before you take a call.',
+  },
+];
+
+export const GP_INTENT_OPTIONS: IntentOption[] = [
+  {
+    id: 'exclusive-funds',
+    title: 'Fund circulation',
+    description: 'Have your fund considered for Pier’s private circulation to allocators.',
+  },
+  {
+    id: 'co-invests',
+    title: 'Directs and co-investments',
+    description: 'Share co-invests and directs with allocators in the network.',
+  },
+  {
+    id: 'network',
+    title: 'Allocators in the room',
+    description: 'Meet allocators and other managers. Introductions stay Pier-mediated.',
+  },
+  {
+    id: 'gatherings',
+    title: 'Gatherings worldwide',
+    description: 'Invitations to select dinners and gatherings in cities that matter.',
+  },
+  {
+    id: 'emerging-managers',
+    title: 'Being considered',
+    description: 'Be included when Pier briefs allocators on managers worth a look.',
+  },
+];
 
 export const INTENT_LABELS: Record<string, string> = {
-  dinners: 'Dinners and member gatherings',
+  'exclusive-funds': 'Exclusive funds',
+  'co-invests': 'Directs and co-investments',
+  network: 'The membership',
+  gatherings: 'Gatherings worldwide',
   'emerging-managers': 'Emerging managers',
-  'co-invests': 'Co-investments',
-  'credit-real-assets': 'Credit and real assets',
-  'meet-allocators': 'Meet allocators',
-  coverage: 'Pier coverage',
-  'list-opportunity': 'Share a fund with Pier later',
+  dinners: 'Gatherings worldwide',
+  'meet-allocators': 'The membership',
+  coverage: 'Emerging managers',
+  'list-opportunity': 'Exclusive funds',
+  'credit-real-assets': 'Exclusive funds',
 };
+
+const INTENT_ALIASES: Record<string, string> = {
+  dinners: 'gatherings',
+  'meet-allocators': 'network',
+  coverage: 'emerging-managers',
+  'list-opportunity': 'exclusive-funds',
+  'credit-real-assets': 'exclusive-funds',
+};
+
+const CANONICAL_INTENT_IDS = new Set([
+  'exclusive-funds',
+  'co-invests',
+  'network',
+  'gatherings',
+  'emerging-managers',
+]);
+
+export function normalizeIntentIds(ids: string[]): string[] {
+  const next: string[] = [];
+  for (const raw of ids) {
+    const mapped = INTENT_ALIASES[raw] || raw;
+    if (!CANONICAL_INTENT_IDS.has(mapped)) continue;
+    if (!next.includes(mapped)) next.push(mapped);
+  }
+  return next;
+}
 
 const LEGACY_TRAVEL_INTERESTS = new Set([
   'Points Maximization',
@@ -97,7 +174,7 @@ export function buildOnboardingMemberPreferences(
   existing?: UserPreferences | null
 ): UserPreferences {
   const existingInterests = Array.isArray(existing?.interests) ? existing.interests : [];
-  const intentLabels = data.intents.map((id) => INTENT_LABELS[id] || id);
+  const intentLabels = normalizeIntentIds(data.intents).map((id) => INTENT_LABELS[id] || id);
   const mergedInterests = Array.from(
     new Set([
       ...existingInterests.filter((item) => !LEGACY_TRAVEL_INTERESTS.has(item)),
@@ -140,7 +217,7 @@ export function buildPersonalContext(
     firm: data.firm.trim() || null,
     title: data.title.trim() || null,
     city: data.city.trim() || null,
-    intents: data.intents,
+    intents: normalizeIntentIds(data.intents),
     skipped,
     ...(accreditation?.accreditation
       ? {
@@ -216,6 +293,34 @@ export function dashboardIntroKey(userId: string): string {
   return `pier_get_oriented_dismissed_${userId}`;
 }
 
+export function membershipRevealKey(userId: string): string {
+  return `pier_membership_reveal_${userId}`;
+}
+
+export function markMembershipRevealPending(userId: string): void {
+  try {
+    sessionStorage.setItem(membershipRevealKey(userId), 'pending');
+  } catch {
+    /* private mode */
+  }
+}
+
+export function consumeMembershipReveal(userId?: string, fromOnboarding = false): boolean {
+  if (!userId) return false;
+  try {
+    const key = membershipRevealKey(userId);
+    const current = sessionStorage.getItem(key);
+    if (current === 'shown') return false;
+    if (current === 'pending' || fromOnboarding) {
+      sessionStorage.setItem(key, 'shown');
+      return true;
+    }
+    return false;
+  } catch {
+    return fromOnboarding;
+  }
+}
+
 export function clampOnboardingStep(step: number, role: CapitalRole | null): number {
   const max = ONBOARDING_STEP_COUNT - 1;
   const safe = Number.isInteger(step) ? Math.max(0, Math.min(max, step)) : 0;
@@ -233,7 +338,9 @@ export function parseOnboardingDraft(raw: string | null): { data: OnboardingData
       firm: typeof parsed.firm === 'string' ? parsed.firm : '',
       title: typeof parsed.title === 'string' ? parsed.title : '',
       city: typeof parsed.city === 'string' ? parsed.city : '',
-      intents: Array.isArray(parsed.intents) ? parsed.intents.filter((item) => typeof item === 'string') : [],
+      intents: normalizeIntentIds(
+        Array.isArray(parsed.intents) ? parsed.intents.filter((item) => typeof item === 'string') : []
+      ),
       allowIntroRequests: parsed.allowIntroRequests === true,
       shareEventAttendance: parsed.shareEventAttendance === true,
       accreditation: parseAccreditationDraft(
