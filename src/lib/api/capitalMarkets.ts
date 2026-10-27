@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import type { Database, Json } from '../../types/supabase';
+import { capitalAbortSignal } from '../async';
 import { conciergeMailto } from '../conciergeMailto';
 
 export type DealType = 'fund' | 'co-invest' | 'secondary' | 'spv';
@@ -858,18 +859,40 @@ export async function getCapitalDealDocumentUrl(document: CapitalDealDocument): 
   return data.signedUrl;
 }
 
+const listMemo = new Map<string, unknown>();
+const listInflight = new Map<string, Promise<unknown>>();
+
+function memoCapitalList<T>(key: string, run: () => Promise<T>): Promise<T> {
+  if (listMemo.has(key)) return Promise.resolve(listMemo.get(key) as T);
+  const pending = listInflight.get(key);
+  if (pending) return pending as Promise<T>;
+  const promise = run()
+    .then((data) => {
+      listMemo.set(key, data);
+      return data;
+    })
+    .finally(() => {
+      listInflight.delete(key);
+    });
+  listInflight.set(key, promise);
+  return promise;
+}
+
 export async function getCapitalDeals(): Promise<CapitalDeal[]> {
-  const { data, error } = await supabase
-    .from('capital_deals')
-    .select('*')
-    .not('published_at', 'is', null)
-    .in('status', memberVisibleDealStatuses)
-    .order('published_at', { ascending: false, nullsFirst: false })
-    .order('sort_order', { ascending: true });
+  return memoCapitalList('deals', async () => {
+    const { data, error } = await supabase
+      .from('capital_deals')
+      .select('*')
+      .not('published_at', 'is', null)
+      .in('status', memberVisibleDealStatuses)
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .order('sort_order', { ascending: true })
+      .abortSignal(capitalAbortSignal());
 
-  if (error) throw new Error(`Unable to load capital deals: ${error.message}`);
+    if (error) throw new Error(`Unable to load capital deals: ${error.message}`);
 
-  return (data ?? []).map((deal) => mapDeal(deal));
+    return (data ?? []).map((deal) => mapDeal(deal));
+  });
 }
 
 export async function getCapitalDealBySlugOrId(identifier: string): Promise<CapitalDeal | null> {
@@ -902,19 +925,22 @@ export async function getCapitalDealBySlugOrId(identifier: string): Promise<Capi
 }
 
 export async function getCapitalEvents(): Promise<CapitalEvent[]> {
-  const { data, error } = await supabase
-    .from('capital_events')
-    .select('*')
-    .not('published_at', 'is', null)
-    .in('status', ['upcoming', 'completed'])
-    .order('starts_at', { ascending: true });
+  return memoCapitalList('events', async () => {
+    const { data, error } = await supabase
+      .from('capital_events')
+      .select('*')
+      .not('published_at', 'is', null)
+      .in('status', ['upcoming', 'completed'])
+      .order('starts_at', { ascending: true })
+      .abortSignal(capitalAbortSignal());
 
-  if (error) throw new Error(`Unable to load capital events: ${error.message}`);
+    if (error) throw new Error(`Unable to load capital events: ${error.message}`);
 
-  const now = Date.now();
-  return (data ?? [])
-    .map(mapEvent)
-    .filter((event) => isUpcomingCapitalEvent(event, now) || isRecentCapitalEvent(event, now));
+    const now = Date.now();
+    return (data ?? [])
+      .map(mapEvent)
+      .filter((event) => isUpcomingCapitalEvent(event, now) || isRecentCapitalEvent(event, now));
+  });
 }
 
 export async function getCapitalEventsForMember(memberId: string): Promise<CapitalEvent[]> {
@@ -935,17 +961,20 @@ export async function getCapitalEventsForMember(memberId: string): Promise<Capit
 }
 
 export async function getCapitalPartners(): Promise<CapitalPartner[]> {
-  const { data, error } = await supabase
-    .from('perks')
-    .select(
-      'id,title,short_description,partner_description,benefits,image_url,category,city,tags,featured,minimum_level,redemption_instructions,external_link,reservation_integration,created_at,updated_at'
-    )
-    .order('featured', { ascending: false })
-    .order('created_at', { ascending: false });
+  return memoCapitalList('partners', async () => {
+    const { data, error } = await supabase
+      .from('perks')
+      .select(
+        'id,title,short_description,partner_description,benefits,image_url,category,city,tags,featured,minimum_level,redemption_instructions,external_link,reservation_integration,created_at,updated_at'
+      )
+      .order('featured', { ascending: false })
+      .order('created_at', { ascending: false })
+      .abortSignal(capitalAbortSignal());
 
-  if (error) throw new Error(`Unable to load partners: ${error.message}`);
+    if (error) throw new Error(`Unable to load partners: ${error.message}`);
 
-  return (data ?? []).map(mapPerkPartner).sort(sortPartners);
+    return (data ?? []).map(mapPerkPartner).sort(sortPartners);
+  });
 }
 
 export async function getCapitalMembers(): Promise<CapitalMember[]> {
@@ -1028,15 +1057,18 @@ export async function createCapitalDealInterest(input: {
 }
 
 export async function getMyCapitalEventRsvps(memberId: string): Promise<CapitalEventRsvp[]> {
-  const { data, error } = await supabase
-    .from('capital_event_rsvps')
-    .select('*')
-    .eq('member_id', memberId)
-    .order('created_at', { ascending: false });
+  return memoCapitalList(`rsvps:${memberId}`, async () => {
+    const { data, error } = await supabase
+      .from('capital_event_rsvps')
+      .select('*')
+      .eq('member_id', memberId)
+      .order('created_at', { ascending: false })
+      .abortSignal(capitalAbortSignal());
 
-  if (error) throw new Error(`Unable to load your event RSVPs: ${error.message}`);
+    if (error) throw new Error(`Unable to load your event RSVPs: ${error.message}`);
 
-  return (data ?? []).map(mapEventRsvp);
+    return (data ?? []).map(mapEventRsvp);
+  });
 }
 
 export async function createCapitalEventRsvp(input: {
@@ -1053,6 +1085,7 @@ export async function createCapitalEventRsvp(input: {
     });
 
   if (error) throw capitalWriteError(`Unable to submit event RSVP: ${error.message}`);
+  listMemo.delete(`rsvps:${input.memberId}`);
 }
 
 export async function getMyCapitalPartnerIntros(memberId: string): Promise<CapitalPartnerIntro[]> {

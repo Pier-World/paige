@@ -15,7 +15,7 @@ import {
   type CapitalEvent,
   type CapitalEventRsvp,
 } from '../../lib/api/capitalMarkets';
-import { dashboardIntroKey } from '../../lib/capitalOnboarding';
+import { dashboardIntroKey, eventMatchesCapitalRole } from '../../lib/capitalOnboarding';
 import { isPierPlus } from '../../lib/membership';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
 import { useCapitalLoad } from '../../lib/useCapitalLoad';
@@ -25,6 +25,16 @@ import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
 const THREE_WEEKS_MS = 21 * 24 * 60 * 60 * 1000;
 const ACTIVE_RSVP = new Set(['confirmed', 'requested', 'waitlisted', 'attended']);
+const PROFILE_PERSONAL_HREF = '/profile?edit=personal#personal';
+
+function readIntroDismissed(userId?: string) {
+  if (!userId) return false;
+  try {
+    return window.localStorage.getItem(dashboardIntroKey(userId)) === '1';
+  } catch {
+    return false;
+  }
+}
 
 async function loadDashboard(pierPlus: boolean, memberId?: string) {
   const rsvps = memberId
@@ -67,8 +77,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const pierPlus = isPierPlus(user);
   const capitalRole = user?.preferences?.capital_role;
-  const [introReady, setIntroReady] = useState(false);
-  const [introDismissed, setIntroDismissed] = useState(false);
+  const [introDismissed, setIntroDismissed] = useState(() => readIntroDismissed(user?.id));
   const loaded = useCapitalLoad(
     `dashboard:${user?.id ?? 'anon'}:${pierPlus ? 'plus' : 'community'}`,
     () => loadDashboard(pierPlus, user?.id),
@@ -81,9 +90,7 @@ export default function DashboardPage() {
   const error = loaded.error;
 
   useEffect(() => {
-    if (!user?.id) return;
-    setIntroDismissed(window.localStorage.getItem(dashboardIntroKey(user.id)) === '1');
-    setIntroReady(true);
+    setIntroDismissed(readIntroDismissed(user?.id));
   }, [user?.id]);
 
   const firstName = user?.first_name || user?.full_name?.split(' ')[0] || 'there';
@@ -96,14 +103,15 @@ export default function DashboardPage() {
     const now = Date.now();
     return events
       .filter((event) => event.upcoming)
+      .filter((event) => eventMatchesCapitalRole(event.audience, capitalRole))
       .filter((event) => {
         const t = new Date(event.date).getTime();
         return t >= now && t - now <= THREE_WEEKS_MS;
       })
       .slice(0, 5);
-  }, [events]);
+  }, [events, capitalRole]);
   const nextEvent = upcomingEvents[0] ?? events.find((event) => event.upcoming);
-  const showIntro = Boolean(user?.id) && introReady && !introDismissed;
+  const showIntro = Boolean(user?.id) && !introDismissed;
   const roleDone = capitalRole === 'gp' || capitalRole === 'lp';
   const firm = user?.preferences?.firm?.trim() || '';
   const city = user?.preferences?.primary_city?.trim() || '';
@@ -170,14 +178,14 @@ export default function DashboardPage() {
           ? 'You’re set as a general partner.'
           : 'You’re set as an allocator.'
         : 'Tell Pier whether you allocate or manage capital.',
-      href: '/profile',
-      state: roleDone ? 'done' : 'open',
-    },
-    {
-      id: 'place',
-      title: 'Add firm and city',
-      detail: placeDone ? `${firm} · ${city}` : 'Where you work, and the city you want to be invited in.',
-      href: '/profile',
+        href: PROFILE_PERSONAL_HREF,
+        state: roleDone ? 'done' : 'open',
+      },
+      {
+        id: 'place',
+        title: 'Add firm and city',
+        detail: placeDone ? `${firm} · ${city}` : 'Where you work, and the city you want to be invited in.',
+        href: PROFILE_PERSONAL_HREF,
       state: placeDone ? 'done' : 'open',
     },
     gathering,

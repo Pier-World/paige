@@ -42,13 +42,15 @@ export function useCapitalLoad<T>(key: string, load: () => Promise<T>, fallback:
   }
 
   useEffect(() => {
+    if (cache.has(key)) return;
+
     let ignore = false;
 
     loadRef
       .current()
       .then((value) => {
-        if (ignore) return;
         cache.set(key, value);
+        if (ignore) return;
         setBucket((current) => {
           if (current.key !== key || current.nonce !== nonce) return current;
           return { ...current, data: value, loading: false, error: null };

@@ -43,12 +43,13 @@ export default function CapitalMarketsEventsPage() {
   const loaded = useCapitalLoad(
     `events:${user?.id ?? 'anon'}`,
     async () => {
+      const rsvps = user?.id
+        ? getMyCapitalEventRsvps(user.id).catch(() => [] as CapitalEventRsvp[])
+        : Promise.resolve([] as CapitalEventRsvp[]);
       const [eventData, rsvpData] = await withTimeout(
-        user?.id
-          ? Promise.all([getCapitalEvents(), getMyCapitalEventRsvps(user.id)])
-          : Promise.all([getCapitalEvents(), Promise.resolve([] as CapitalEventRsvp[])]),
+        Promise.all([getCapitalEvents(), rsvps]),
         CAPITAL_SUPABASE_TIMEOUT_MS,
-        'events and RSVPs'
+        'events'
       );
       const registeredEventIds = new Set(
         rsvpData

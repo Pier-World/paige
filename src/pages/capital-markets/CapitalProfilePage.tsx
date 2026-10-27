@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Bell,
   Building2,
@@ -75,6 +76,7 @@ function displayBool(value: boolean | undefined) {
 
 export default function CapitalProfilePage() {
   const { user, updateProfile } = useAuth();
+  const [searchParams] = useSearchParams();
   const pierPlus = isPierPlus(user);
   const [capitalProfile, setCapitalProfile] = useState<CapitalMemberProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,17 +152,21 @@ export default function CapitalProfilePage() {
         return;
       }
 
+      if (!pierPlus) {
+        hydrateFromUser(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
 
       try {
-        const profile = pierPlus
-          ? await withTimeout(
-              getMyCapitalMemberProfile(user.id),
-              CAPITAL_SUPABASE_TIMEOUT_MS,
-              'capital profile'
-            )
-          : null;
+        const profile = await withTimeout(
+          getMyCapitalMemberProfile(user.id),
+          CAPITAL_SUPABASE_TIMEOUT_MS,
+          'capital profile'
+        );
         if (ignore) return;
 
         setCapitalProfile(profile);
@@ -183,6 +189,23 @@ export default function CapitalProfilePage() {
     if (!user?.id || loading) return;
     hydrateFromUser(capitalProfile);
   }, [user, capitalProfile, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+    const edit = searchParams.get('edit');
+    if (
+      edit === 'personal' ||
+      edit === 'events' ||
+      edit === 'member' ||
+      edit === 'notifications' ||
+      (edit === 'capital' && pierPlus)
+    ) {
+      setEditingSection(edit);
+    }
+    const id = window.location.hash.replace(/^#/, '');
+    if (!id) return;
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading, searchParams, pierPlus]);
 
 
   function showSuccess(text: string) {
@@ -401,6 +424,7 @@ export default function CapitalProfilePage() {
       {!loading && !error && user ? (
         <div className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
+            <div id="personal" className="scroll-mt-6">
             <ProfileSectionCard
               icon={User}
               title="Personal Information"
@@ -453,6 +477,7 @@ export default function CapitalProfilePage() {
                 </div>
               )}
             </ProfileSectionCard>
+            </div>
 
             {pierPlus ? (
             <ProfileSectionCard

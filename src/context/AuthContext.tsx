@@ -175,103 +175,120 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     let mounted = true;
-    let authSubscription: any = null;
+    let authSubscription: { unsubscribe: () => void } | null = null;
     let timeoutId: NodeJS.Timeout | null = null;
+    let restoreCeilingId: NodeJS.Timeout | null = null;
 
     const SAFETY_TIMEOUT_MS = 6000;
-    const SESSION_FETCH_TIMEOUT_MS = 5000;
-    const PROFILE_FETCH_TIMEOUT_MS = 5000;
+    const RESTORE_CEILING_MS = 15000;
+    const PROFILE_FETCH_TIMEOUT_MS = 8000;
+
+    const hasStoredSession = () => {
+      try {
+        return Boolean(window.localStorage.getItem('pier_auth_token'));
+      } catch {
+        return false;
+      }
+    };
 
     const setLoadingFalse = () => {
       if (timeoutId) {
         clearTimeout(timeoutId);
         timeoutId = null;
       }
+      if (restoreCeilingId) {
+        clearTimeout(restoreCeilingId);
+        restoreCeilingId = null;
+      }
       if (mounted) setIsLoading(false);
     };
 
-    // Safety net: if init doesn't finish in time, show login so user isn't stuck
-    timeoutId = setTimeout(() => {
-      if (mounted) {
-        console.warn('Auth initialization timeout - setting loading to false');
+    const applySessionUser = async (userId: string) => {
+      const profile = await Promise.race([
+        fetchUserProfile(userId),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), PROFILE_FETCH_TIMEOUT_MS)),
+      ]);
+      if (!mounted) return;
+      if (profile) {
+        setUser(profile);
         setLoadingFalse();
+        return;
       }
+      const retry = await fetchUserProfile(userId).catch(() => null);
+      if (!mounted) return;
+      if (retry) setUser(retry);
+      setLoadingFalse();
+    };
+
+    // Safety net: only drop into the logged-out shell when there is no stored session.
+    // A stored token keeps the splash up while getSession recovers; a longer
+    // ceiling still unblocks the UI if the session read never returns.
+    timeoutId = setTimeout(() => {
+      if (!mounted) return;
+      if (hasStoredSession()) return;
+      console.warn('Auth initialization timeout - setting loading to false');
+      setLoadingFalse();
     }, SAFETY_TIMEOUT_MS);
+
+    restoreCeilingId = setTimeout(() => {
+      if (mounted) setLoadingFalse();
+    }, RESTORE_CEILING_MS);
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        clearAuthData();
+        setLoadingFalse();
+        return;
+      }
+
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        await applySessionUser(session.user.id);
+      }
+    });
+    authSubscription = listener.subscription;
 
     const initializeAuth = async () => {
       try {
-        const raced = await Promise.race([
-          supabase.auth.getSession().then((r) => ({ tag: 'session' as const, ...r })),
-          new Promise<{ tag: 'timeout' }>((resolve) =>
-            setTimeout(() => resolve({ tag: 'timeout' }), SESSION_FETCH_TIMEOUT_MS)
-          ),
-        ]);
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        if (!mounted) return;
 
-        if (raced.tag === 'timeout') {
-          if (mounted) setLoadingFalse();
-        } else {
-          const { data, error: sessionError } = raced;
-          if (sessionError?.message && shouldClearLocalSessionOnInitError(sessionError.message)) {
-            try {
-              await supabase.auth.signOut({ scope: 'local' });
-            } catch {
-              /* ignore */
-            }
-            clearAuthData();
+        if (sessionError?.message && shouldClearLocalSessionOnInitError(sessionError.message)) {
+          try {
+            await supabase.auth.signOut({ scope: 'local' });
+          } catch {
+            /* ignore */
           }
-
-          const session = data?.session ?? null;
-
-          if (session?.user && mounted) {
-            try {
-              const profile = await Promise.race([
-                fetchUserProfile(session.user.id),
-                new Promise<null>((resolve) =>
-                  setTimeout(() => resolve(null), PROFILE_FETCH_TIMEOUT_MS)
-                ),
-              ]);
-              if (mounted) {
-                setLoadingFalse();
-                if (profile) setUser(profile);
-              }
-            } catch (profileError) {
-              console.error('Error fetching user profile:', profileError);
-              setLoadingFalse();
-            }
-          } else if (mounted) {
-            setLoadingFalse();
-          }
+          clearAuthData();
+          setUser(null);
+          setLoadingFalse();
+          return;
         }
+
+        const session = data?.session ?? null;
+        if (session?.user) {
+          await applySessionUser(session.user.id);
+          return;
+        }
+
+        if (!hasStoredSession()) setLoadingFalse();
       } catch (error) {
         console.error('Error initializing auth:', error);
-        setLoadingFalse();
+        if (!hasStoredSession()) setLoadingFalse();
       }
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          if (!mounted) return;
-
-          if (event === 'SIGNED_IN' && session?.user) {
-            const profile = await fetchUserProfile(session.user.id);
-            if (profile && mounted) {
-              setUser(profile);
-            }
-          } else if (event === 'SIGNED_OUT') {
-            setUser(null);
-            clearAuthData();
-          }
-        }
-      );
-
-      authSubscription = subscription;
     };
 
-    initializeAuth();
+    void initializeAuth();
 
     return () => {
       mounted = false;
       if (timeoutId) {
         clearTimeout(timeoutId);
+      }
+      if (restoreCeilingId) {
+        clearTimeout(restoreCeilingId);
       }
       if (authSubscription) {
         authSubscription.unsubscribe();

@@ -1,5 +1,9 @@
-/** Client-side ceiling for PostgREST reads so UI never spins unbounded (see Workstream B). */
-export const CAPITAL_SUPABASE_TIMEOUT_MS = 25_000;
+/** Client-side ceiling for PostgREST reads so UI never spins unbounded. */
+export const CAPITAL_SUPABASE_TIMEOUT_MS = 12_000;
+
+export function capitalAbortSignal(ms = CAPITAL_SUPABASE_TIMEOUT_MS): AbortSignal {
+  return AbortSignal.timeout(ms);
+}
 
 export class AsyncTimeoutError extends Error {
   readonly label: string;

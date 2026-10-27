@@ -29,6 +29,11 @@ export function CapitalMarketsLayout() {
         <Suspense
           fallback={
             <div className="page-frame">
+              <div className="mb-10 space-y-3">
+                <div className="skeleton-shimmer h-3 w-20 rounded-md" />
+                <div className="skeleton-shimmer h-8 w-64 max-w-full rounded-md" />
+                <div className="gilt-rule mt-6 w-12" />
+              </div>
               <LoadingState label="Loading page" />
             </div>
           }
