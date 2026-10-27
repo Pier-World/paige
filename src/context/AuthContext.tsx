@@ -5,6 +5,7 @@ import {
   shouldClearLocalSessionOnInitError,
 } from '../lib/authErrors';
 import { supabase } from '../lib/supabase';
+import { isOnboardingMarkedComplete } from '../lib/capitalOnboarding';
 import type { User } from '../types';
 
 interface AuthContextType {
@@ -29,13 +30,14 @@ interface AuthContextType {
     error: Error | null;
     data: User | null;
   }>;
+  refreshUser: () => Promise<User | null>;
+  completeOnboarding: (payload: {
+    preferences: User['preferences'];
+    personalContext: Record<string, unknown>;
+  }) => Promise<{ error: Error | null; data: User | null }>;
   updateEmail: (newEmail: string, password: string) => Promise<{
     error: Error | null;
     data: any | null;
-  }>;
-  updateMembershipLevel: (level: 'Standard' | 'Premium' | 'Executive' | 'Founding Member') => Promise<{
-    error: Error | null;
-    data: User | null;
   }>;
 }
 
@@ -120,11 +122,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         } else if (data) {
           profileData = data as typeof profileData;
           if (!onboardingCompleted) {
-            if (data.onboarding_completed === true) onboardingCompleted = true;
-            else if (data.personal_context && typeof data.personal_context === 'object') {
-              const pc = data.personal_context as { name?: string; goals?: unknown[] };
-              if (pc.name || (Array.isArray(pc.goals) && pc.goals.length > 0)) onboardingCompleted = true;
-            }
+            onboardingCompleted = isOnboardingMarkedComplete({
+              profileCompleted: data.onboarding_completed,
+              personalContext: data.personal_context,
+            });
           }
         }
       } catch {
@@ -513,6 +514,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (data.phone !== undefined) memberUpdates.phone = data.phone;
       if (data.first_name !== undefined) memberUpdates.first_name = data.first_name;
       if (data.last_name !== undefined) memberUpdates.last_name = data.last_name;
+      if (data.onboarding_completed !== undefined) {
+        memberUpdates.onboarding_completed = data.onboarding_completed;
+      }
 
       if (data.preferences !== undefined) {
         const { event_preferences: _e, concierge_preferences: _c, ...memberOnlyPrefs } = data.preferences;
@@ -536,6 +540,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (data.full_name !== undefined) {
         profileUpdates.full_name = data.full_name.trim() || null;
+        hasProfileUpdates = true;
+      }
+
+      if (data.onboarding_completed !== undefined) {
+        profileUpdates.onboarding_completed = data.onboarding_completed;
         hasProfileUpdates = true;
       }
 
@@ -570,6 +579,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const refreshUser = async (): Promise<User | null> => {
+    if (!user?.id) return null;
+    const updatedProfile = await fetchUserProfile(user.id);
+    if (updatedProfile) setUser(updatedProfile);
+    return updatedProfile;
+  };
+
+  const completeOnboarding = async (payload: {
+    preferences: User['preferences'];
+    personalContext: Record<string, unknown>;
+  }): Promise<{ error: Error | null; data: User | null }> => {
+    try {
+      if (!user) throw new Error('No authenticated user');
+
+      const memberPrefs = {
+        ...(user.preferences ?? {}),
+        ...(payload.preferences ?? {}),
+      };
+      const { event_preferences: _e, concierge_preferences: _c, ...memberOnlyPrefs } = memberPrefs;
+
+      const { error: memberError } = await supabase
+        .from('members')
+        .update({
+          onboarding_completed: true,
+          preferences: memberOnlyPrefs,
+        })
+        .eq('id', user.id);
+
+      if (memberError) throw memberError;
+
+      const { error: profileError } = await supabase.from('profiles').upsert(
+        {
+          id: user.id,
+          onboarding_completed: true,
+          personal_context: payload.personalContext,
+          full_name: user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || null,
+        },
+        { onConflict: 'id' }
+      );
+
+      if (profileError) {
+        console.warn('Onboarding profile upsert failed:', profileError.message);
+      }
+
+      const updatedProfile = await fetchUserProfile(user.id);
+      if (!updatedProfile) throw new Error('Failed to fetch updated profile');
+
+      setUser({ ...updatedProfile, onboarding_completed: true });
+      return { data: { ...updatedProfile, onboarding_completed: true }, error: null };
+    } catch (error) {
+      return {
+        data: null,
+        error: error instanceof Error ? error : new Error('Failed to complete onboarding'),
+      };
+    }
+  };
+
   const updateEmail = async (newEmail: string, password: string) => {
     try {
       if (!user) throw new Error('No authenticated user');
@@ -599,45 +665,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const updateMembershipLevel = async (level: 'Standard' | 'Premium' | 'Executive' | 'Founding Member') => {
-    try {
-      if (!user) throw new Error('No authenticated user');
-
-      const { error } = await supabase
-        .from('members')
-        .update({
-          membership_level: level
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      // Log membership change
-      const { error: logError } = await supabase
-        .from('membership_changes')
-        .insert({
-          user_id: user.id,
-          previous_level: user.membership_level,
-          new_level: level
-        });
-
-      if (logError) {
-        // Silently handle log error
-      }
-
-      const updatedProfile = await fetchUserProfile(user.id);
-      if (!updatedProfile) throw new Error('Failed to fetch updated profile');
-
-      setUser(updatedProfile);
-      return { data: updatedProfile, error: null };
-    } catch (error) {
-      return {
-        data: null,
-        error: error instanceof Error ? error : new Error('Failed to update membership level')
-      };
-    }
-  };
-
   const value = {
     user,
     profile: user,
@@ -648,8 +675,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     signOut,
     resetPassword,
     updateProfile,
+    refreshUser,
+    completeOnboarding,
     updateEmail,
-    updateMembershipLevel
   };
 
   return (

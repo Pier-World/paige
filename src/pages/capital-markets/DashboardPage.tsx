@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Calendar, ChevronRight, DollarSign, TrendingUp, Users } from 'lucide-react';
 import { DashboardConciergeTeaser } from '../../components/capital-markets/DashboardConciergeTeaser';
 import { DealReturnCell } from '../../components/capital-markets/DealReturnCell';
+import { BlurredUpgradeTeaser } from '../../components/capital-markets/UpgradePrompt';
 import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -13,6 +14,7 @@ import {
   type CapitalEvent,
   type CapitalMember,
 } from '../../lib/api/capitalMarkets';
+import { isPierPlus } from '../../lib/membership';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import { eventTypeLabels, typeLabels } from './mockData';
@@ -22,6 +24,7 @@ const THREE_WEEKS_MS = 21 * 24 * 60 * 60 * 1000;
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const pierPlus = isPierPlus(user);
   const [deals, setDeals] = useState<CapitalDeal[]>([]);
   const [events, setEvents] = useState<CapitalEvent[]>([]);
   const [members, setMembers] = useState<CapitalMember[]>([]);
@@ -37,16 +40,30 @@ export default function DashboardPage() {
       setError(null);
 
       try {
-        const [dealData, eventData, memberData] = await withTimeout(
-          Promise.all([getCapitalDeals(), getCapitalEvents(), getCapitalMembers()]),
-          CAPITAL_SUPABASE_TIMEOUT_MS,
-          'dashboard summary'
-        );
+        if (!pierPlus) {
+          // Standard: events only. Do not call getCapitalDeals or getCapitalMembers.
+          const eventData = await withTimeout(
+            getCapitalEvents(),
+            CAPITAL_SUPABASE_TIMEOUT_MS,
+            'dashboard events'
+          );
+          if (!ignore) {
+            setDeals([]);
+            setEvents(eventData);
+            setMembers([]);
+          }
+        } else {
+          const [dealData, eventData, memberData] = await withTimeout(
+            Promise.all([getCapitalDeals(), getCapitalEvents(), getCapitalMembers()]),
+            CAPITAL_SUPABASE_TIMEOUT_MS,
+            'dashboard summary'
+          );
 
-        if (!ignore) {
-          setDeals(dealData);
-          setEvents(eventData);
-          setMembers(memberData);
+          if (!ignore) {
+            setDeals(dealData);
+            setEvents(eventData);
+            setMembers(memberData);
+          }
         }
       } catch (err) {
         if (!ignore) {
@@ -64,7 +81,7 @@ export default function DashboardPage() {
     return () => {
       ignore = true;
     };
-  }, [reloadNonce]);
+  }, [reloadNonce, pierPlus]);
 
   const firstName = user?.first_name || user?.full_name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
@@ -89,18 +106,20 @@ export default function DashboardPage() {
     {
       label: 'Members',
       value: '4,800+',
-      delta: `${members.length} verified in directory`,
+      delta: pierPlus ? `${members.length} verified in directory` : 'Directory included with Pier+',
       note: 'GPs, LPs, and allocators',
       icon: Users,
+      locked: !pierPlus,
     },
     {
       label: 'Active opportunities',
-      value: openDeals.length.toString(),
-      delta: `${deals.length} total listings`,
+      value: pierPlus ? openDeals.length.toString() : '—',
+      delta: pierPlus ? `${deals.length} total listings` : 'Deal Flow included with Pier+',
       note: 'Funds, SPVs, and co-invests',
       icon: TrendingUp,
-      href: '/deals',
-      cta: 'View opportunities',
+      href: pierPlus ? '/deals' : undefined,
+      cta: pierPlus ? 'View opportunities' : undefined,
+      locked: !pierPlus,
     },
     {
       label: 'Upcoming events',
@@ -110,6 +129,7 @@ export default function DashboardPage() {
       icon: Calendar,
       href: '/events',
       cta: 'View events',
+      locked: false,
     },
     {
       label: 'Network AUM',
@@ -117,6 +137,7 @@ export default function DashboardPage() {
       delta: 'Across Pier',
       note: 'Allocator and manager relationships',
       icon: DollarSign,
+      locked: false,
     },
   ];
 
@@ -148,15 +169,28 @@ export default function DashboardPage() {
             {kpis.map((kpi) => {
               const Icon = kpi.icon;
               return (
-                <div key={kpi.label} className="flex flex-col rounded-[4px] border border-border bg-surface p-5">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="eyebrow">{kpi.label}</p>
-                    <Icon className="h-4 w-4 stroke-[1.25] text-slate" />
+                <div
+                  key={kpi.label}
+                  className={
+                    kpi.locked
+                      ? 'relative flex flex-col overflow-hidden rounded-[4px] border border-border bg-surface p-5'
+                      : 'flex flex-col rounded-[4px] border border-border bg-surface p-5'
+                  }
+                >
+                  <div className={kpi.locked ? 'pointer-events-none select-none blur-[5px]' : undefined}>
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="eyebrow">{kpi.label}</p>
+                      <Icon className="h-4 w-4 stroke-[1.25] text-slate" />
+                    </div>
+                    <p className="font-mono-data text-[28px] font-medium leading-none text-ink">{kpi.value}</p>
+                    <p className="mt-2 text-[12px] font-medium text-ledger">{kpi.delta}</p>
+                    <p className="mt-1 text-[12px] text-slate">{kpi.note}</p>
                   </div>
-                  <p className="font-mono-data text-[28px] font-medium leading-none text-ink">{kpi.value}</p>
-                  <p className="mt-2 text-[12px] font-medium text-ledger">{kpi.delta}</p>
-                  <p className="mt-1 text-[12px] text-slate">{kpi.note}</p>
-                  {'href' in kpi && kpi.href && 'cta' in kpi && kpi.cta ? (
+                  {kpi.locked ? (
+                    <p className="absolute inset-x-5 bottom-5 text-[12px] font-medium text-ink">
+                      Included with Pier+
+                    </p>
+                  ) : 'href' in kpi && kpi.href && 'cta' in kpi && kpi.cta ? (
                     <Link
                       to={kpi.href}
                       className="mt-4 text-[12px] font-medium text-ink underline-offset-4 hover:underline"
@@ -173,14 +207,32 @@ export default function DashboardPage() {
             <section>
               <div className="mb-4 flex items-center justify-between">
                 <p className="eyebrow">New Deal Flow</p>
+                {pierPlus ? (
                 <Link
                   to="/deals"
                   className="flex items-center gap-1 text-[12px] text-slate transition-colors hover:text-ink"
                 >
                   View all <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
+                ) : null}
               </div>
-              {deals.length === 0 ? (
+              {!pierPlus ? (
+                <BlurredUpgradeTeaser label="Deal Flow is included with Pier+">
+                  <div className="p-5">
+                    <div className="space-y-3">
+                      {['Opportunity', 'Co-invest', 'Secondary'].map((label) => (
+                        <div key={label} className="flex items-center justify-between border-b border-border pb-3 last:border-0">
+                          <div>
+                            <p className="font-medium text-ink">{label}</p>
+                            <p className="mt-0.5 text-[12px] text-slate">Manager</p>
+                          </div>
+                          <p className="font-mono-data text-slate">—</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </BlurredUpgradeTeaser>
+              ) : deals.length === 0 ? (
                 <EmptyState
                   title="No published opportunities yet."
                   description="The deal table can be empty until listings are published for members."
@@ -289,10 +341,11 @@ export default function DashboardPage() {
                 )}
               </section>
 
-              <DashboardConciergeTeaser />
+              <DashboardConciergeTeaser locked={!pierPlus} />
 
               <section>
                 <p className="eyebrow mb-3">Network</p>
+                {pierPlus ? (
                 <div className="rounded-[4px] border border-border bg-midnight p-5">
                   <div className="mb-4 flex items-center gap-2">
                     <Users className="h-4 w-4 stroke-[1.25] text-gilt" />
@@ -303,6 +356,15 @@ export default function DashboardPage() {
                   </p>
                   <p className="mt-1.5 text-[12px] text-parchment/60">Verified GPs & LPs</p>
                 </div>
+                ) : (
+                  <BlurredUpgradeTeaser label="Directory is included with Pier+">
+                    <div className="rounded-[4px] bg-midnight p-5">
+                      <p className="eyebrow text-parchment/60">Member network</p>
+                      <p className="mt-4 font-mono-data text-[32px] font-medium text-parchment">—</p>
+                      <p className="mt-1.5 text-[12px] text-parchment/60">Verified GPs & LPs</p>
+                    </div>
+                  </BlurredUpgradeTeaser>
+                )}
               </section>
             </aside>
           </div>

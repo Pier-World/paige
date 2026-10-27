@@ -3159,6 +3159,14 @@ export type Database = {
           updated_at: string
         }[]
       }
+      is_pier_plus: { Args: { p_user_id?: string }; Returns: boolean }
+      membership_is_pier_plus: {
+        Args: { p_level: string; p_role: string }
+        Returns: boolean
+      }
+      validate_member_invite: { Args: { p_token: string }; Returns: Json }
+      consume_member_invite: { Args: { p_token: string }; Returns: Json }
+      hash_member_invite_token: { Args: { p_token: string }; Returns: string }
       should_profile_exist: { Args: { profile_id: string }; Returns: boolean }
       update_my_capital_member_profile: {
         Args: {

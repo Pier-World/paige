@@ -69,7 +69,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    const memberData: MemberData = await req.json();
+    const body = await req.json();
+    const memberData: MemberData = body;
+    // Default true so the admin UI keeps sending. Do NOT use this function for bulk
+    // import (still requires Stripe; unknown tier still maps to Premium).
+    const sendAccessEmail = body.sendAccessEmail !== false;
 
     if (!memberData.email || !memberData.firstName || !memberData.lastName || !memberData.stripeCustomerId) {
       return new Response(
@@ -192,20 +196,26 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { error: otpError } = await supabaseAdmin.auth.signInWithOtp({
-      email: memberData.email,
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: `${frontendUrl}/`,
-      },
-    });
+    let otpError: { message?: string } | null = null;
+    if (sendAccessEmail) {
+      const otpResult = await supabaseAdmin.auth.signInWithOtp({
+        email: memberData.email,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${frontendUrl}/`,
+        },
+      });
+      otpError = otpResult.error;
+    }
 
-    const otpSent = !otpError;
+    const otpSent = sendAccessEmail && !otpError;
     if (otpError) {
       console.error('Failed to send OTP:', otpError);
     }
 
-    const message = otpSent
+    const message = !sendAccessEmail
+      ? `Member created (ID ${memberId}). Access email skipped.`
+      : otpSent
       ? `Member created successfully! Access code sent to ${memberData.email}`
       : `Member created (ID ${memberId}), but the sign-in email could not be sent. Send a code manually or check Auth logs. ${otpError?.message ?? ''}`;
 

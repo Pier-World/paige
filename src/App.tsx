@@ -7,7 +7,10 @@ import { ScrollToTop } from './components/layout/ScrollToTop';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationGuard } from './components/NavigationGuard';
 import { CapitalMarketsLayout } from './components/layout/CapitalMarketsLayout';
+import { PierPlusGate } from './components/capital-markets/PierPlusGate';
 import { importWithChunkReloadOnce } from './lib/chunkLoadRetry';
+
+const WelcomePage = lazy(() => importWithChunkReloadOnce(() => import('./pages/WelcomePage')));
 
 const LoginPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/LoginPage')));
 const ForgotPasswordPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ForgotPasswordPage')));
@@ -167,6 +170,7 @@ function App() {
             {/* Recovery links from email; must not use PublicRoute (would bounce authed session to /) */}
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/auth/callback" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/welcome" element={<WelcomePage />} />
             
             {/* OAuth Callback Route (public - handles OAuth redirects) */}
             <Route path="/oauth-callback" element={<OAuthCallback />} />
@@ -194,7 +198,12 @@ function App() {
               path="/deals"
               element={
                 <CapitalMarketsRoute>
-                  <CapitalMarketsDealsPage />
+                  <PierPlusGate
+                    title="Deal Flow is included with Pier+"
+                    description="Curated funds, co-investments, and SPVs are available to Pier+ members. Request an upgrade and the Pier team will follow up."
+                  >
+                    <CapitalMarketsDealsPage />
+                  </PierPlusGate>
                 </CapitalMarketsRoute>
               }
             />
@@ -202,7 +211,12 @@ function App() {
               path="/deals/:id"
               element={
                 <CapitalMarketsRoute>
-                  <CapitalMarketsDealDetailPage />
+                  <PierPlusGate
+                    title="Deal Flow is included with Pier+"
+                    description="Opportunity details and materials are available to Pier+ members. Request an upgrade and the Pier team will follow up."
+                  >
+                    <CapitalMarketsDealDetailPage />
+                  </PierPlusGate>
                 </CapitalMarketsRoute>
               }
             />
@@ -226,7 +240,12 @@ function App() {
               path="/concierge"
               element={
                 <CapitalMarketsRoute>
-                  <CapitalMarketsConciergePage />
+                  <PierPlusGate
+                    title="Concierge is included with Pier+"
+                    description="Pier Concierge is available to Pier+ members. Request an upgrade and the Pier team will follow up."
+                  >
+                    <CapitalMarketsConciergePage />
+                  </PierPlusGate>
                 </CapitalMarketsRoute>
               }
             />
@@ -273,7 +292,12 @@ function App() {
               path="/conversation/:taskId?"
               element={
                 <ProtectedRoute>
-                  <ConversationPage />
+                  <PierPlusGate
+                    title="Concierge is included with Pier+"
+                    description="Pier Concierge is available to Pier+ members. Request an upgrade and the Pier team will follow up."
+                  >
+                    <ConversationPage />
+                  </PierPlusGate>
                 </ProtectedRoute>
               }
             />

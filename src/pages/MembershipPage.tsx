@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { Check, X } from 'lucide-react';
 
 const MembershipPage: React.FC = () => {
-  const { user, updateMembershipLevel } = useAuth();
+  const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [showComparison, setShowComparison] = useState(false);
 
@@ -169,21 +169,9 @@ const MembershipPage: React.FC = () => {
 
   const handleConfirmChange = async () => {
     if (!selectedPlan) return;
-    
-    try {
-      const { error } = await updateMembershipLevel(selectedPlan as 'Standard' | 'Premium' | 'Executive' | 'Founding Member');
-      
-      if (error) {
-        throw error;
-      }
-
-      // Close modal and reset state
-      setSelectedPlan(null);
-      setShowComparison(false);
-    } catch (err) {
-      console.error('Failed to update membership:', err);
-      // You could add error handling UI here
-    }
+    window.location.href = `mailto:concierge@joinpier.com?subject=${encodeURIComponent('Pier+ upgrade request')}&body=${encodeURIComponent(`I would like to request a Pier+ upgrade (${selectedPlan}).`)}`;
+    setSelectedPlan(null);
+    setShowComparison(false);
   };
 
   return (

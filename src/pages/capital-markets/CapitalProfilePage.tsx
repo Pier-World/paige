@@ -8,8 +8,10 @@ import {
   Shield,
   User,
 } from 'lucide-react';
+import { UpgradePrompt } from '../../components/capital-markets/UpgradePrompt';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { isPierPlus } from '../../lib/membership';
 import {
   ProfileField,
   ProfileInput,
@@ -75,6 +77,7 @@ function displayBool(value: boolean | undefined) {
 
 export default function CapitalProfilePage() {
   const { user, updateProfile } = useAuth();
+  const pierPlus = isPierPlus(user);
   const { theme, toggleTheme } = useTheme();
   const [capitalProfile, setCapitalProfile] = useState<CapitalMemberProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,11 +150,13 @@ export default function CapitalProfilePage() {
       setError(null);
 
       try {
-        const profile = await withTimeout(
-          getMyCapitalMemberProfile(user.id),
-          CAPITAL_SUPABASE_TIMEOUT_MS,
-          'capital profile'
-        );
+        const profile = pierPlus
+          ? await withTimeout(
+              getMyCapitalMemberProfile(user.id),
+              CAPITAL_SUPABASE_TIMEOUT_MS,
+              'capital profile'
+            )
+          : null;
         if (ignore) return;
 
         setCapitalProfile(profile);
@@ -168,7 +173,7 @@ export default function CapitalProfilePage() {
     return () => {
       ignore = true;
     };
-  }, [user?.id]);
+  }, [user?.id, pierPlus]);
 
   useEffect(() => {
     if (!user?.id || loading) return;
@@ -257,6 +262,12 @@ export default function CapitalProfilePage() {
 
     if (profileError) {
       showError(profileError.message);
+      setSavingSection(null);
+      return;
+    }
+
+    if (!pierPlus) {
+      showSuccess('Profile saved.');
       setSavingSection(null);
       return;
     }
@@ -474,6 +485,7 @@ export default function CapitalProfilePage() {
               )}
             </ProfileSectionCard>
 
+            {pierPlus ? (
             <ProfileSectionCard
               icon={Building2}
               title="Capital Profile"
@@ -560,6 +572,16 @@ export default function CapitalProfilePage() {
                 </div>
               )}
             </ProfileSectionCard>
+            ) : (
+              <div>
+                <p className="eyebrow mb-3">Capital Profile</p>
+                <UpgradePrompt
+                  variant="inline"
+                  title="Capital directory is included with Pier+"
+                  description="Your personal profile stays available. Directory, Deal Flow, and Concierge are Pier+."
+                />
+              </div>
+            )}
 
             <ProfileSectionCard
               icon={Calendar}

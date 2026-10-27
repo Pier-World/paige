@@ -5,6 +5,7 @@ import {
   Calendar,
   ChevronRight,
   LayoutDashboard,
+  Lock,
   LogOut,
   Menu,
   MessageSquare,
@@ -12,17 +13,19 @@ import {
   User,
   X,
 } from 'lucide-react';
+import { UpgradePrompt } from '../capital-markets/UpgradePrompt';
 import { useAuth } from '../../context/AuthContext';
+import { isPierPlus } from '../../lib/membership';
 import { cn } from '../../lib/utils';
 import type { User as PierUser } from '../../types';
 
 const navItems = [
-  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { label: 'Deal Flow', path: '/deals', icon: TrendingUp },
-  { label: 'Events', path: '/events', icon: Calendar },
-  { label: 'Partners', path: '/partners', icon: Building2 },
-  { label: 'Concierge', path: '/concierge', icon: MessageSquare },
-  { label: 'Profile', path: '/profile', icon: User },
+  { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, pierPlusOnly: false },
+  { label: 'Deal Flow', path: '/deals', icon: TrendingUp, pierPlusOnly: true },
+  { label: 'Events', path: '/events', icon: Calendar, pierPlusOnly: false },
+  { label: 'Partners', path: '/partners', icon: Building2, pierPlusOnly: false },
+  { label: 'Concierge', path: '/concierge', icon: MessageSquare, pierPlusOnly: true },
+  { label: 'Profile', path: '/profile', icon: User, pierPlusOnly: false },
 ];
 
 function getDisplayName(user: PierUser | null) {
@@ -43,6 +46,8 @@ function getInitials(name: string, email?: string) {
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, signOut } = useAuth();
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const pierPlus = isPierPlus(user);
   const displayName = getDisplayName(user);
   const initials = getInitials(displayName, user?.email) || 'P';
 
@@ -67,7 +72,25 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <p className="eyebrow mb-3 px-3">Navigation</p>
         <ul className="space-y-0.5">
-          {navItems.map(({ label, path, icon: Icon }) => (
+          {navItems.map(({ label, path, icon: Icon, pierPlusOnly }) => {
+            const locked = pierPlusOnly && !pierPlus;
+            if (locked) {
+              return (
+                <li key={path}>
+                  <button
+                    type="button"
+                    onClick={() => setUpgradeOpen(true)}
+                    className="group flex h-9 w-full items-center gap-3 rounded-[6px] px-3 text-left text-[14px] text-ink/70 transition-colors duration-150 hover:bg-ink/[0.05] hover:text-ink"
+                  >
+                    <Icon className="h-4 w-4 flex-shrink-0 stroke-[1.25] text-slate group-hover:text-ink" />
+                    <span className="flex-1">{label}</span>
+                    <Lock className="h-3.5 w-3.5 text-gilt" />
+                  </button>
+                </li>
+              );
+            }
+
+            return (
             <li key={path}>
               <NavLink
                 to={path}
@@ -95,7 +118,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 )}
               </NavLink>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </nav>
 
@@ -121,6 +145,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           Sign out
         </button>
       </div>
+      <UpgradePrompt open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
     </div>
   );
 }

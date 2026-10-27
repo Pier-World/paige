@@ -1,3 +1,7 @@
+import type { CapitalRole } from './onboarding';
+
+export type { CapitalRole };
+
 export interface User {
   id: string;
   email: string;
@@ -21,6 +25,7 @@ export interface UserPreferences {
   primary_city?: string;
   firm?: string;
   role_label?: string;
+  capital_role?: CapitalRole;
   event_preferences?: Record<string, string>;
   concierge_preferences?: Record<string, string>;
   member_preferences?: {

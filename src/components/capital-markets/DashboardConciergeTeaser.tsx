@@ -1,9 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageSquare } from 'lucide-react';
 import { dailyConciergeQuoteSeed, pickConciergeQuote } from '../../lib/capitalMarkets/conciergeQuotes';
+import { UpgradePrompt } from './UpgradePrompt';
 
-export function DashboardConciergeTeaser() {
+export function DashboardConciergeTeaser({ locked = false }: { locked?: boolean }) {
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const quote = useMemo(
     () => pickConciergeQuote(dailyConciergeQuoteSeed()),
     []
@@ -23,13 +25,24 @@ export function DashboardConciergeTeaser() {
         <blockquote className="mt-4 border-l-2 border-gilt/40 pl-3 text-[12px] italic leading-relaxed text-slate">
           {quote}
         </blockquote>
+        {locked ? (
+          <button
+            type="button"
+            onClick={() => setUpgradeOpen(true)}
+            className="mt-5 flex h-8 w-full items-center justify-center rounded-[6px] border border-ink bg-ink text-[13px] text-parchment transition-colors hover:bg-ink/90"
+          >
+            Request Pier+ to open concierge
+          </button>
+        ) : (
         <Link
           to="/concierge"
           className="mt-5 flex h-8 w-full items-center justify-center rounded-[6px] border border-ink bg-ink text-[13px] text-parchment transition-colors hover:bg-ink/90"
         >
           Open concierge
         </Link>
+        )}
       </div>
+      <UpgradePrompt open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
     </section>
   );
 }

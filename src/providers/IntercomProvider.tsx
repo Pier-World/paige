@@ -11,7 +11,7 @@ export function IntercomProvider({ children }: IntercomProviderProps) {
     const initializeIntercom = async () => {
       try {
         const path = window.location.pathname;
-        if (path === '/login' || path === '/forgot-password') {
+        if (path === '/login' || path === '/forgot-password' || path === '/welcome') {
           return;
         }
 
