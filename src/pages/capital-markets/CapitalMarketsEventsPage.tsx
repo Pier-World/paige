@@ -25,7 +25,7 @@ const filterOptions: Array<{ id: EventFilter; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'pier', label: 'Pier' },
   { id: 'partner', label: 'Partners' },
-  { id: 'past', label: 'Past' },
+  { id: 'past', label: 'Recent' },
 ];
 
 function getEventTime(event: CapitalEvent): number {
@@ -121,7 +121,7 @@ export default function CapitalMarketsEventsPage() {
 
   function renderPastList() {
     if (past.length === 0) {
-      return <EmptyState title="No past events." description="Completed events will appear here." />;
+      return <EmptyState title="No recent events." description="Completed gatherings from the last few months will appear here." />;
     }
 
     return (
@@ -223,7 +223,7 @@ export default function CapitalMarketsEventsPage() {
 
           {showPast && (past.length > 0 || forceEmptyPast) ? (
             <section>
-              <p className="eyebrow mb-5">Past events</p>
+              <p className="eyebrow mb-5">Recent events</p>
               {renderPastList()}
             </section>
           ) : null}

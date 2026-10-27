@@ -9,6 +9,7 @@ import {
   buildPersonalContext,
   clampOnboardingStep,
   defaultPrivacyForRole,
+  displayEventAudience,
   emptyOnboardingData,
   eventMatchesCapitalRole,
   isOnboardingMarkedComplete,
@@ -114,8 +115,21 @@ test('postAuthPath sends incomplete members to onboarding', () => {
 test('event audience matching keeps mixed and untagged events', () => {
   assert.equal(eventMatchesCapitalRole('GPs & LPs', 'lp'), true);
   assert.equal(eventMatchesCapitalRole('LP dinner', 'gp'), false);
+  assert.equal(eventMatchesCapitalRole('GPs', 'lp'), false);
+  assert.equal(eventMatchesCapitalRole('LPs', 'gp'), false);
   assert.equal(eventMatchesCapitalRole('Fund managers', 'gp'), true);
   assert.equal(eventMatchesCapitalRole('', 'lp'), true);
+});
+
+test('event audience display is GPs, LPs, or GPs & LPs', () => {
+  assert.equal(displayEventAudience('Members'), 'GPs & LPs');
+  assert.equal(displayEventAudience('LP'), 'LPs');
+  assert.equal(displayEventAudience('LPs'), 'LPs');
+  assert.equal(displayEventAudience('GPs'), 'GPs');
+  assert.equal(displayEventAudience('Allocators'), 'LPs');
+  assert.equal(displayEventAudience('EM'), 'GPs');
+  assert.equal(displayEventAudience('GP/LP'), 'GPs & LPs');
+  assert.equal(displayEventAudience(''), 'GPs & LPs');
 });
 
 test('onboarding UI is capital markets, not travel', () => {
@@ -131,10 +145,10 @@ test('onboarding UI is capital markets, not travel', () => {
 });
 
 test('login shows the brand once on mobile', () => {
-  const src = readFileSync(join(root, 'src/pages/LoginPage.tsx'), 'utf8');
+  const src = readFileSync(join(root, 'src/pages/auth/AuthShell.tsx'), 'utf8');
   assert.match(src, /hidden flex-col[\s\S]*md:flex/);
   assert.match(src, /mb-10 md:hidden/);
-  assert.equal((src.match(/brandBlock/g) || []).length, 3);
+  assert.doesNotMatch(src, /Dinners, managers/);
 });
 
 test('auth does not refetch the member row on token refresh or tab focus', () => {

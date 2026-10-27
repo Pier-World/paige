@@ -1,6 +1,7 @@
 import { supabase } from '../supabase';
 import type { Database, Json } from '../../types/supabase';
 import { capitalAbortSignal } from '../async';
+import { displayEventAudience } from '../capitalOnboarding';
 import { conciergeMailto } from '../conciergeMailto';
 
 export type DealType = 'fund' | 'co-invest' | 'secondary' | 'spv';
@@ -347,7 +348,7 @@ type CapitalEventRowExtended = CapitalEventRow & {
   luma_event_id?: string | null;
 };
 
-export const PAST_EVENT_LOOKBACK_MS = 90 * 24 * 60 * 60 * 1000;
+export const PAST_EVENT_LOOKBACK_MS = 120 * 24 * 60 * 60 * 1000;
 
 export function isUpcomingCapitalEvent(
   event: Pick<CapitalEvent, 'date' | 'endDate'>,
@@ -441,7 +442,7 @@ function mapEvent(row: CapitalEventRowExtended): CapitalEvent {
     type: normalizeEventType(row.event_type),
     hostType: row.host_type === 'partner' ? 'partner' : 'pier',
     hostName: row.host_name ?? '',
-    audience: row.audience ?? '',
+    audience: displayEventAudience(row.audience),
     date: row.starts_at,
     endDate: row.ends_at ?? row.starts_at,
     location: row.location,

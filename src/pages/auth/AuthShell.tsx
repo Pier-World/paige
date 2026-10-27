@@ -45,9 +45,6 @@ export function AuthShell({ children }: { children: ReactNode }) {
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <aside className="hidden flex-col justify-center border-border px-8 md:flex md:border-r md:px-16 md:py-20 lg:px-20">
           <AuthBrand align="left" />
-          <p className="mt-10 max-w-xs text-sm font-light leading-relaxed text-slate">
-            Dinners, managers, and allocators — private access for Pier members.
-          </p>
         </aside>
 
         <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 md:px-12 md:py-20">

@@ -153,6 +153,24 @@ export function postAuthPath(
   return user?.onboarding_completed === true ? '/dashboard' : '/onboarding';
 }
 
+function audienceMentionsGp(aud: string): boolean {
+  return /\bgps?\b|general partner|fund manager|emerging manager|\bem\b/.test(aud);
+}
+
+function audienceMentionsLp(aud: string): boolean {
+  return /\blps?\b|allocator|family office/.test(aud);
+}
+
+export function displayEventAudience(audience: string | null | undefined): string {
+  const aud = (audience || '').trim().toLowerCase();
+  if (!aud) return 'GPs & LPs';
+  const mentionsGp = audienceMentionsGp(aud);
+  const mentionsLp = audienceMentionsLp(aud);
+  if (mentionsGp && !mentionsLp) return 'GPs';
+  if (mentionsLp && !mentionsGp) return 'LPs';
+  return 'GPs & LPs';
+}
+
 export function eventMatchesCapitalRole(
   audience: string | null | undefined,
   role: CapitalRole | null | undefined
@@ -160,8 +178,8 @@ export function eventMatchesCapitalRole(
   if (!role) return true;
   const aud = (audience || '').toLowerCase();
   if (!aud.trim()) return true;
-  const mentionsGp = /\bgp\b|general partner|fund manager/.test(aud);
-  const mentionsLp = /\blp\b|allocator|family office/.test(aud);
+  const mentionsGp = audienceMentionsGp(aud);
+  const mentionsLp = audienceMentionsLp(aud);
   if (mentionsGp && mentionsLp) return true;
   if (!mentionsGp && !mentionsLp) return true;
   return role === 'gp' ? mentionsGp : mentionsLp;
