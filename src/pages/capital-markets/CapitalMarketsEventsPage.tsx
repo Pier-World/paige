@@ -126,6 +126,13 @@ export default function CapitalMarketsEventsPage() {
     };
   }, [user?.id, reloadNonce]);
 
+  useEffect(() => {
+    if (loading || error) return;
+    const id = window.location.hash.replace(/^#/, '');
+    if (!id) return;
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading, error, events]);
+
   const rsvpByEventId = new Map(rsvps.map((rsvp) => [rsvp.eventId, rsvp]));
   const localStartOfToday = getLocalStartOfToday();
 

@@ -10,9 +10,13 @@ export function OnboardingShell({
   onSkip,
   continueLabel = 'Continue',
   continueDisabled = false,
+  continueHint,
   busy = false,
+  saveError,
   hideContinue = false,
-  skipLabel = 'Do this later',
+  hideFooter = false,
+  skipLabel = 'Skip for now',
+  skipHint,
 }: {
   stepIndex: number;
   totalSteps: number;
@@ -22,9 +26,13 @@ export function OnboardingShell({
   onSkip?: () => void;
   continueLabel?: string;
   continueDisabled?: boolean;
+  continueHint?: string;
   busy?: boolean;
+  saveError?: string | null;
   hideContinue?: boolean;
+  hideFooter?: boolean;
   skipLabel?: string;
+  skipHint?: string;
 }) {
   const progress = ((stepIndex + 1) / totalSteps) * 100;
 
@@ -34,46 +42,66 @@ export function OnboardingShell({
         <div className="h-full bg-gilt transition-[width] duration-500" style={{ width: `${progress}%` }} />
       </div>
 
-      {onSkip ? (
-        <button
-          type="button"
-          onClick={onSkip}
-          disabled={busy}
-          className="fixed right-6 top-6 z-50 text-[12px] font-medium text-slate hover:text-ink disabled:opacity-50"
-        >
-          {busy ? 'Saving…' : skipLabel}
-        </button>
-      ) : null}
+      <div className="fixed right-6 top-5 z-50 flex flex-col items-end gap-2">
+        {onSkip ? (
+          <button
+            type="button"
+            onClick={onSkip}
+            disabled={busy}
+            className="text-[12px] font-medium text-slate hover:text-ink disabled:opacity-50"
+          >
+            {busy ? 'Saving…' : skipLabel}
+          </button>
+        ) : null}
+        {saveError ? (
+          <p className="max-w-xs text-right text-[12px] text-danger" role="alert">
+            {saveError}
+          </p>
+        ) : skipHint ? (
+          <p className="max-w-xs text-right text-[11px] text-slate/80">{skipHint}</p>
+        ) : null}
+      </div>
 
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 pb-32 pt-20 sm:px-8">
+      <div
+        className={`mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 pt-20 sm:px-8 ${hideFooter ? 'pb-16' : 'pb-32'}`}
+      >
         <p className="eyebrow mb-6 text-slate">
           {String(stepIndex + 1).padStart(2, '0')} of {String(totalSteps).padStart(2, '0')}
         </p>
         {children}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-parchment/95 px-6 py-4 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4">
-          {onBack ? (
-            <Button type="button" variant="ghost" onClick={onBack} disabled={busy} className="min-h-11 px-0">
-              Back
-            </Button>
-          ) : (
-            <span />
-          )}
-          {hideContinue ? null : (
-            <Button
-              type="button"
-              onClick={onContinue}
-              disabled={continueDisabled || busy}
-              loading={busy}
-              className="min-h-11 min-w-[140px]"
-            >
-              {continueLabel}
-            </Button>
-          )}
+      {hideFooter ? null : (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-parchment/95 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-sm">
+          <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4">
+            {onBack ? (
+              <Button type="button" variant="ghost" onClick={onBack} disabled={busy} className="min-h-11 px-0">
+                Back
+              </Button>
+            ) : (
+              <span />
+            )}
+            <div className="flex flex-col items-end gap-1">
+              {continueHint ? (
+                <p className="text-[12px] text-slate" role="status">
+                  {continueHint}
+                </p>
+              ) : null}
+              {hideContinue ? null : (
+                <Button
+                  type="button"
+                  onClick={onContinue}
+                  disabled={continueDisabled || busy}
+                  loading={busy}
+                  className="min-h-11 min-w-[140px]"
+                >
+                  {continueLabel}
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

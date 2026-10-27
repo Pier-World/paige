@@ -4,6 +4,8 @@ import type { CapitalRole, OnboardingData } from '../../../types/onboarding';
 interface IdentityStepProps {
   data: OnboardingData;
   updateData: (updates: Partial<OnboardingData>) => void;
+  onContinue: () => void;
+  continueDisabled: boolean;
 }
 
 const ROLES: Array<{ id: CapitalRole; title: string; description: string }> = [
@@ -19,16 +21,22 @@ const ROLES: Array<{ id: CapitalRole; title: string; description: string }> = [
   },
 ];
 
-export function IdentityStep({ data, updateData }: IdentityStepProps) {
+export function IdentityStep({ data, updateData, onContinue, continueDisabled }: IdentityStepProps) {
   return (
-    <div className="space-y-10">
+    <form
+      className="space-y-10"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!continueDisabled) onContinue();
+      }}
+    >
       <div>
         <h1 className="font-display text-[36px] leading-[0.95] tracking-[-0.02em] text-ink sm:text-[40px]">
           Who you are
         </h1>
         <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-slate">
-          This is the only required step. It helps Pier show the right gatherings and keep
-          allocator privacy intact.
+          Choose allocator or fund manager. This is the only required step — it routes the right
+          gatherings and keeps your profile private until you opt in.
         </p>
       </div>
 
@@ -56,6 +64,14 @@ export function IdentityStep({ data, updateData }: IdentityStepProps) {
         })}
       </div>
 
+      {data.capitalRole ? (
+        <p className="text-[13px] text-slate">
+          {data.capitalRole === 'gp'
+            ? 'We’ll treat you as a fund manager: dinners and allocator context, unlisted unless you opt in.'
+            : 'We’ll treat you as an allocator: dinners and manager context, private by default.'}
+        </p>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block sm:col-span-2">
           <span className="eyebrow mb-1 block">Firm</span>
@@ -63,6 +79,7 @@ export function IdentityStep({ data, updateData }: IdentityStepProps) {
             value={data.firm}
             onChange={(e) => updateData({ firm: e.target.value })}
             placeholder="Optional"
+            autoComplete="organization"
             className="h-11 w-full rounded-[4px] border border-border bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink/30"
           />
         </label>
@@ -72,6 +89,7 @@ export function IdentityStep({ data, updateData }: IdentityStepProps) {
             value={data.title}
             onChange={(e) => updateData({ title: e.target.value })}
             placeholder="Optional"
+            autoComplete="organization-title"
             className="h-11 w-full rounded-[4px] border border-border bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink/30"
           />
         </label>
@@ -81,10 +99,11 @@ export function IdentityStep({ data, updateData }: IdentityStepProps) {
             value={data.city}
             onChange={(e) => updateData({ city: e.target.value })}
             placeholder="Optional"
+            autoComplete="address-level2"
             className="h-11 w-full rounded-[4px] border border-border bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink/30"
           />
         </label>
       </div>
-    </div>
+    </form>
   );
 }

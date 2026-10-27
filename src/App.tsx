@@ -7,8 +7,10 @@ import { ScrollToTop } from './components/layout/ScrollToTop';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationGuard } from './components/NavigationGuard';
 import { CapitalMarketsLayout } from './components/layout/CapitalMarketsLayout';
+import { AnonymizedDealPreview } from './components/capital-markets/AnonymizedDealPreview';
 import { PierPlusGate } from './components/capital-markets/PierPlusGate';
 import { importWithChunkReloadOnce } from './lib/chunkLoadRetry';
+import { postAuthPath } from './lib/capitalOnboarding';
 
 const WelcomePage = lazy(() => importWithChunkReloadOnce(() => import('./pages/WelcomePage')));
 
@@ -124,7 +126,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   // Only redirect if we're sure user is authenticated (after loading is complete)
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={postAuthPath(user)} replace />;
   }
 
   return <>{children}</>;
@@ -147,7 +149,7 @@ function App() {
             <Router>
               <ScrollToTop />
               <NavigationGuard />
-              <ErrorBoundary fallback={<LoadingSpinner />}>
+              <ErrorBoundary>
                 <Suspense fallback={<LoadingSpinner />}>
                   <Routes>
             {/* Public routes with redirect if authenticated */}
@@ -201,6 +203,7 @@ function App() {
                   <PierPlusGate
                     title="Deal Flow is included with Pier+"
                     description="Curated funds, co-investments, and SPVs are available to Pier+ members. Request an upgrade and the Pier team will follow up."
+                    preview={<AnonymizedDealPreview variant="grid" />}
                   >
                     <CapitalMarketsDealsPage />
                   </PierPlusGate>
@@ -214,6 +217,7 @@ function App() {
                   <PierPlusGate
                     title="Deal Flow is included with Pier+"
                     description="Opportunity details and materials are available to Pier+ members. Request an upgrade and the Pier team will follow up."
+                    preview={<AnonymizedDealPreview variant="detail" />}
                   >
                     <CapitalMarketsDealDetailPage />
                   </PierPlusGate>

@@ -94,7 +94,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const lastName = userData.last_name ?? '';
       const role = (userData.role === 'admin' ? 'admin' : 'member') as 'member' | 'admin';
       const memberId = userData.member_id ?? '';
-      const membershipLevel = (userData.membership_level as User['membership_level']) ?? 'Standard';
+      const membershipLevel = ((userData.membership_level as string | null)?.trim() ||
+        'Standard') as User['membership_level'];
       const created_at = userData.created_at ?? new Date().toISOString();
 
       let profileData: {
@@ -255,11 +256,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             if (profile && mounted) {
               setUser(profile);
             }
-          } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-            const profile = await fetchUserProfile(session.user.id);
-            if (profile && mounted) {
-              setUser(profile);
-            }
           } else if (event === 'SIGNED_OUT') {
             setUser(null);
             clearAuthData();
@@ -324,8 +320,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const signIn = async (email: string, password: string) => {
     try {
-      setIsLoading(true);
-
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -335,7 +329,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       if (signInError) {
-        setIsLoading(false);
         const display = mapAuthErrorMessage(signInError.message, 'password', {
           errorCode:
             typeof (signInError as { code?: string }).code === 'string'
@@ -349,7 +342,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       if (!data.user) {
-        setIsLoading(false);
         return {
           data: null,
           error: new AuthUserFacingError({
@@ -361,7 +353,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const profile = await fetchUserProfile(data.user.id);
       if (!profile) {
-        setIsLoading(false);
         return {
           data: null,
           error: new AuthUserFacingError(mapAuthErrorMessage(undefined, 'profile')),
@@ -369,10 +360,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       setUser(profile);
-      setIsLoading(false);
       return { data: profile, error: null };
     } catch (error) {
-      setIsLoading(false);
       console.error('Sign in error:', error);
       return {
         data: null,
@@ -519,7 +508,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       if (data.preferences !== undefined) {
-        const { event_preferences: _e, concierge_preferences: _c, ...memberOnlyPrefs } = data.preferences;
+        const memberOnlyPrefs = { ...data.preferences };
+        delete memberOnlyPrefs.event_preferences;
+        delete memberOnlyPrefs.concierge_preferences;
         memberUpdates.preferences = {
           ...(user.preferences ?? {}),
           ...memberOnlyPrefs,
@@ -597,7 +588,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         ...(user.preferences ?? {}),
         ...(payload.preferences ?? {}),
       };
-      const { event_preferences: _e, concierge_preferences: _c, ...memberOnlyPrefs } = memberPrefs;
+      const memberOnlyPrefs = { ...memberPrefs };
+      delete memberOnlyPrefs.event_preferences;
+      delete memberOnlyPrefs.concierge_preferences;
 
       const { error: memberError } = await supabase
         .from('members')
@@ -613,7 +606,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         {
           id: user.id,
           onboarding_completed: true,
-          personal_context: payload.personalContext,
+          personal_context: payload.personalContext as import('../types/supabase').Json,
           full_name: user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || null,
         },
         { onConflict: 'id' }

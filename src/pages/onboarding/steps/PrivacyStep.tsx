@@ -62,16 +62,16 @@ export function PrivacyStep({ data, updateData }: PrivacyStepProps) {
       <div className="space-y-3">
         <ToggleRow
           label="Allow introduction requests"
-          description="Pier can pass along a request. Nobody messages you directly from the platform."
+          description="Pier can pass along a request. Nobody messages you directly from the platform. Off by default."
           checked={data.allowIntroRequests}
           onChange={(allowIntroRequests) => updateData({ allowIntroRequests })}
         />
         <ToggleRow
-          label={isGp ? 'Visible to allocators at events I attend' : 'Share event attendance'}
+          label={isGp ? 'Visible to allocators at events I attend' : 'Share which events I attend'}
           description={
             isGp
-              ? 'Allocators at the same gathering may see that you are attending. Off means you stay unlisted.'
-              : 'Other members will not see which dinners you RSVP to unless you turn this on.'
+              ? 'Allocators at the same gathering may see that you are attending. Leave off to stay unlisted.'
+              : 'Leave off to keep RSVPs private. Other members will not see your attendance.'
           }
           checked={data.shareEventAttendance}
           onChange={(shareEventAttendance) => updateData({ shareEventAttendance })}

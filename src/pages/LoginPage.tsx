@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { coerceToAuthUserFacingError, isAuthUserFacingError } from '../lib/authErrors';
+import { postAuthPath } from '../lib/capitalOnboarding';
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SEC = 60;
@@ -91,7 +92,7 @@ const LoginPage: React.FC = () => {
           setAuthError(coerceToAuthUserFacingError(verifyError, 'otp_verify'));
           return;
         }
-        if (data) navigate('/dashboard');
+        if (data) navigate(postAuthPath(data));
       } finally {
         setIsLoading(false);
       }
@@ -155,7 +156,7 @@ const LoginPage: React.FC = () => {
         setAuthError(coerceToAuthUserFacingError(signInError, 'password'));
         return;
       }
-      if (data) navigate('/dashboard');
+      if (data) navigate(postAuthPath(data));
     } catch (err) {
       setAuthError(err instanceof Error ? err : new Error('An unexpected error occurred'));
     } finally {
@@ -377,14 +378,14 @@ const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-parchment text-foreground">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-        <aside className="flex flex-col justify-center border-border px-8 pb-6 pt-12 md:border-r md:px-16 md:py-20 lg:px-20">
+        <aside className="hidden flex-col justify-center border-border px-8 md:flex md:border-r md:px-16 md:py-20 lg:px-20">
           {brandBlock}
-          <p className="mx-auto mt-10 hidden max-w-xs text-center text-sm font-light leading-relaxed text-muted-foreground md:mx-0 md:block md:text-left">
-            Private access for Pier members. Sign in to reach your concierge and member benefits.
+          <p className="mt-10 max-w-xs text-sm font-light leading-relaxed text-muted-foreground">
+            Private access for Pier members. Sign in to events, partners, and your account.
           </p>
         </aside>
 
-        <main className="flex flex-1 flex-col items-center justify-center px-6 pb-16 pt-4 md:px-12 md:py-20">
+        <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 md:px-12 md:py-20">
           <div className="mb-10 md:hidden">{brandBlock}</div>
           {formCard}
           <p className="mt-10 max-w-md text-center text-sm text-muted-foreground">

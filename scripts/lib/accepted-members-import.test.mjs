@@ -257,10 +257,11 @@ test('invite hash is sha256 hex', () => {
   assert.equal(hashInviteToken('abc').length, 64);
 });
 
-test('TypeScript isPierPlus matches SQL Pier+ levels and admin override', () => {
+test('TypeScript isPierPlus uses membership_level only; admin is staff, not Pier+', () => {
   const src = readFileSync(join(root, 'src/lib/membership.ts'), 'utf8');
   assert.match(src, /'Premium', 'Executive', 'Founding Member'/);
-  assert.match(src, /role === 'admin'/);
+  assert.match(src, /return membershipIsPierPlus\(user.membership_level\)/);
+  assert.match(src, /export function isStaffAdmin/);
   assert.doesNotMatch(src, /unknown → Premium|unknown -> Premium/);
 });
 

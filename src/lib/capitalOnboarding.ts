@@ -6,14 +6,13 @@ export const LP_INTENT_OPTIONS = [
   { id: 'emerging-managers', label: 'Emerging managers' },
   { id: 'co-invests', label: 'Co-investments' },
   { id: 'credit-real-assets', label: 'Credit and real assets' },
-  { id: 'stay-private', label: 'Stay private' },
 ] as const;
 
 export const GP_INTENT_OPTIONS = [
   { id: 'meet-allocators', label: 'Meet allocators' },
   { id: 'dinners', label: 'Dinners and member gatherings' },
   { id: 'coverage', label: 'Be considered for Pier coverage' },
-  { id: 'list-opportunity', label: 'List an opportunity later' },
+  { id: 'list-opportunity', label: 'Share a fund with Pier later' },
 ] as const;
 
 export const INTENT_LABELS: Record<string, string> = {
@@ -21,10 +20,9 @@ export const INTENT_LABELS: Record<string, string> = {
   'emerging-managers': 'Emerging managers',
   'co-invests': 'Co-investments',
   'credit-real-assets': 'Credit and real assets',
-  'stay-private': 'Stay private',
   'meet-allocators': 'Meet allocators',
   coverage: 'Pier coverage',
-  'list-opportunity': 'List an opportunity',
+  'list-opportunity': 'Share a fund with Pier later',
 };
 
 const LEGACY_TRAVEL_INTERESTS = new Set([
@@ -68,11 +66,12 @@ export function defaultPrivacyForRole(_role: CapitalRole | null): {
 }
 
 export function applyRoleChange(data: OnboardingData, role: CapitalRole): OnboardingData {
+  if (data.capitalRole === role) return data;
   const privacy = defaultPrivacyForRole(role);
   return {
     ...data,
     capitalRole: role,
-    intents: data.capitalRole === role ? data.intents : [],
+    intents: [],
     allowIntroRequests: privacy.allowIntroRequests,
     shareEventAttendance: privacy.shareEventAttendance,
   };
@@ -180,12 +179,18 @@ export function dashboardIntroKey(userId: string): string {
   return `pier_dashboard_intro_dismissed_${userId}`;
 }
 
-export function parseOnboardingDraft(raw: string | null): OnboardingData | null {
+export function clampOnboardingStep(step: number, role: CapitalRole | null): number {
+  const safe = Number.isInteger(step) ? Math.max(0, Math.min(3, step)) : 0;
+  if (safe > 1 && !role) return 1;
+  return safe;
+}
+
+export function parseOnboardingDraft(raw: string | null): { data: OnboardingData; step: number } | null {
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Partial<OnboardingData>;
+    const parsed = JSON.parse(raw) as Partial<OnboardingData> & { step?: unknown };
     const role = parsed.capitalRole === 'gp' || parsed.capitalRole === 'lp' ? parsed.capitalRole : null;
-    return {
+    const data: OnboardingData = {
       capitalRole: role,
       firm: typeof parsed.firm === 'string' ? parsed.firm : '',
       title: typeof parsed.title === 'string' ? parsed.title : '',
@@ -194,9 +199,15 @@ export function parseOnboardingDraft(raw: string | null): OnboardingData | null 
       allowIntroRequests: parsed.allowIntroRequests === true,
       shareEventAttendance: parsed.shareEventAttendance === true,
     };
+    const step = typeof parsed.step === 'number' ? parsed.step : 0;
+    return { data, step: clampOnboardingStep(step, data.capitalRole) };
   } catch {
     return null;
   }
+}
+
+export function serializeOnboardingDraft(data: OnboardingData, step: number): string {
+  return JSON.stringify({ ...data, step: clampOnboardingStep(step, data.capitalRole) });
 }
 
 export function prefillOnboardingFromUser(user: User | null): OnboardingData {

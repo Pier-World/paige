@@ -94,7 +94,7 @@ export default function CapitalProfilePage() {
   const [roleLabel, setRoleLabel] = useState('');
   const [primaryCity, setPrimaryCity] = useState('');
 
-  const [capitalRole, setCapitalRole] = useState<CapitalMemberRole>('lp');
+  const [capitalRole, setCapitalRole] = useState<CapitalMemberRole | ''>('');
   const [investorType, setInvestorType] = useState('');
   const [bio, setBio] = useState('');
   const [thesis, setThesis] = useState('');
@@ -127,13 +127,19 @@ export default function CapitalProfilePage() {
       setAumDisplay(profile.aumDisplay);
       setCheckSizeDisplay(profile.checkSizeDisplay);
       setFocusSectors(profile.focusSectors.join(', '));
+    } else if (user.preferences?.capital_role === 'gp' || user.preferences?.capital_role === 'lp') {
+      setCapitalRole(user.preferences.capital_role);
     }
 
     setInvestorType(user.preferences?.investor_type || '');
     setAccredited(user.preferences?.accredited_investor || '');
     setEventPrefs(parsePrefs<EventPrefs>(user.preferences?.event_preferences));
     setConciergePrefs(parsePrefs<ConciergePrefs>(user.preferences?.concierge_preferences));
-    setMemberPrefs(parsePrefs<MemberPrefs>(user.preferences?.member_preferences));
+    const storedMemberPrefs = parsePrefs<MemberPrefs>(user.preferences?.member_preferences);
+    setMemberPrefs({
+      allow_intro_requests: storedMemberPrefs.allow_intro_requests ?? false,
+      share_event_attendance: storedMemberPrefs.share_event_attendance ?? false,
+    });
     setNotificationPrefs(parsePrefs<NotificationPrefs>(user.preferences?.notification_preferences));
   }
 
@@ -257,6 +263,7 @@ export default function CapitalProfilePage() {
         primary_city: primaryCity.trim() || undefined,
         firm: firm.trim() || undefined,
         role_label: roleLabel.trim() || undefined,
+        capital_role: capitalRole || undefined,
       },
     });
 
@@ -278,7 +285,7 @@ export default function CapitalProfilePage() {
         firm: firm.trim() || 'Independent',
         title: roleLabel.trim() || null,
         location: primaryCity.trim() || null,
-        role: capitalRole,
+        role: capitalRole || 'lp',
       });
       setCapitalProfile(updated);
       showSuccess('Profile saved.');
@@ -298,6 +305,7 @@ export default function CapitalProfilePage() {
       const { error: profileError } = await updateProfile({
         preferences: {
           ...user.preferences,
+          capital_role: capitalRole || user.preferences?.capital_role,
           investor_type: investorType.trim() || undefined,
           accredited_investor: accredited.trim() || undefined,
         },
@@ -312,7 +320,7 @@ export default function CapitalProfilePage() {
       const updated = await updateMyCapitalMemberProfile({
         displayName: fullName.trim() || user.email,
         firm: firm.trim() || 'Independent',
-        role: capitalRole,
+        role: capitalRole || 'lp',
         bio: bio.trim() || null,
         investmentThesis: thesis.trim() || null,
         aumDisplay: aumDisplay.trim() || null,
@@ -413,7 +421,8 @@ export default function CapitalProfilePage() {
     setSavingSection(null);
   }
 
-  const capitalRoleLabel = capitalRole === 'gp' ? 'General Partner' : 'Limited Partner';
+  const capitalRoleLabel =
+    capitalRole === 'gp' ? 'General Partner' : capitalRole === 'lp' ? 'Limited Partner' : '';
 
   return (
     <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
@@ -466,11 +475,22 @@ export default function CapitalProfilePage() {
                   <ProfileInput label="Phone number" value={phone} onChange={setPhone} type="tel" />
                   <ProfileInput label="Firm" value={firm} onChange={setFirm} />
                   <ProfileInput label="Title / role" value={roleLabel} onChange={setRoleLabel} />
+                  <label className="block">
+                    <span className="eyebrow mb-1 block">Capital role</span>
+                    <select
+                      value={capitalRole}
+                      onChange={(e) => setCapitalRole(e.target.value as CapitalMemberRole | '')}
+                      className="w-full rounded-[4px] border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
+                    >
+                      <option value="">Select</option>
+                      <option value="lp">Allocator (LP)</option>
+                      <option value="gp">General Partner (GP)</option>
+                    </select>
+                  </label>
                   <ProfileInput
                     label="Primary city"
                     value={primaryCity}
                     onChange={setPrimaryCity}
-                    className="sm:col-span-2"
                   />
                 </div>
               ) : (
@@ -480,7 +500,8 @@ export default function CapitalProfilePage() {
                   <ProfileField label="Phone number" value={phone} />
                   <ProfileField label="Firm" value={firm} />
                   <ProfileField label="Title / role" value={roleLabel} />
-                  <ProfileField label="Primary city" value={primaryCity} className="sm:col-span-2" />
+                  <ProfileField label="Capital role" value={capitalRoleLabel} />
+                  <ProfileField label="Primary city" value={primaryCity} />
                 </div>
               )}
             </ProfileSectionCard>
@@ -498,77 +519,95 @@ export default function CapitalProfilePage() {
             >
               {editingSection === 'capital' ? (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="eyebrow mb-1 block">Capital role</span>
-                    <select
-                      value={capitalRole}
-                      onChange={(e) => setCapitalRole(e.target.value as CapitalMemberRole)}
-                      className="w-full rounded-[4px] border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
-                    >
-                      <option value="lp">Allocator (LP)</option>
-                      <option value="gp">General Partner (GP)</option>
-                    </select>
-                  </label>
-                  <ProfileInput
-                    label="Investor type"
-                    value={investorType}
-                    onChange={setInvestorType}
-                    placeholder="Family office, endowment, fund of funds..."
-                  />
-                  <ProfileInput
-                    label="AUM (display)"
-                    value={aumDisplay}
-                    onChange={setAumDisplay}
+                  {capitalRole === 'gp' ? (
+                    <>
+                      <ProfileInput
+                        label="Strategy / asset class"
+                        value={focusSectors}
+                        onChange={setFocusSectors}
+                        placeholder="Venture, private credit, real assets..."
+                        className="sm:col-span-2"
+                      />
+                      <ProfileInput
+                        label="Fund size (display)"
+                        value={aumDisplay}
+                        onChange={setAumDisplay}
+                        className="sm:col-span-2"
+                      />
+                      <ProfileInput
+                        label="Bio"
+                        value={bio}
+                        onChange={setBio}
+                        multiline
+                        className="sm:col-span-2"
+                      />
+                      <ProfileInput
+                        label="Investment thesis"
+                        value={thesis}
+                        onChange={setThesis}
+                        multiline
+                        className="sm:col-span-2"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <ProfileInput
+                        label="Investor type"
+                        value={investorType}
+                        onChange={setInvestorType}
+                        placeholder="Family office, endowment, fund of funds..."
+                      />
+                      <ProfileInput
+                        label="Accredited investor"
+                        value={accredited}
+                        onChange={setAccredited}
+                        placeholder="Yes / No"
+                      />
+                      <ProfileInput
+                        label="Allocation / check size"
+                        value={checkSizeDisplay}
+                        onChange={setCheckSizeDisplay}
+                        className="sm:col-span-2"
+                      />
+                      <ProfileInput
+                        label="Investment interests"
+                        value={focusSectors}
+                        onChange={setFocusSectors}
+                        placeholder="Venture, private credit, real estate..."
+                        className="sm:col-span-2"
+                      />
+                      <ProfileInput
+                        label="Bio"
+                        value={bio}
+                        onChange={setBio}
+                        multiline
+                        className="sm:col-span-2"
+                      />
+                    </>
+                  )}
+                </div>
+              ) : capitalRole === 'gp' ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ProfileField
+                    label="Strategy / asset class"
+                    value={focusSectors || capitalProfile?.focusSectors.join(', ')}
                     className="sm:col-span-2"
                   />
-                  <ProfileInput
-                    label="Allocation / check size"
-                    value={checkSizeDisplay}
-                    onChange={setCheckSizeDisplay}
-                    className="sm:col-span-2"
-                  />
-                  <ProfileInput
-                    label="Investment interests"
-                    value={focusSectors}
-                    onChange={setFocusSectors}
-                    placeholder="Venture, private credit, real estate..."
-                    className="sm:col-span-2"
-                  />
-                  <ProfileInput
-                    label="Accredited investor"
-                    value={accredited}
-                    onChange={setAccredited}
-                    placeholder="Yes / No"
-                  />
-                  <ProfileInput
-                    label="Bio"
-                    value={bio}
-                    onChange={setBio}
-                    multiline
-                    className="sm:col-span-2"
-                  />
-                  <ProfileInput
-                    label="Investment thesis"
-                    value={thesis}
-                    onChange={setThesis}
-                    multiline
-                    className="sm:col-span-2"
-                  />
+                  <ProfileField label="Fund size" value={aumDisplay || capitalProfile?.aum} />
+                  <ProfileField label="Bio" value={bio} className="sm:col-span-2" />
+                  <ProfileField label="Thesis" value={thesis} className="sm:col-span-2" />
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <ProfileField label="Capital role" value={capitalRoleLabel} />
                   <ProfileField label="Investor type" value={investorType} />
+                  <ProfileField label="Accredited investor" value={accredited} />
                   <ProfileField
                     label="Investment interests"
                     value={focusSectors || capitalProfile?.focusSectors.join(', ')}
                     className="sm:col-span-2"
                   />
                   <ProfileField label="Allocation range" value={checkSizeDisplay || capitalProfile?.checkSize} />
-                  <ProfileField label="AUM" value={aumDisplay || capitalProfile?.aum} />
-                  <ProfileField label="Accredited investor" value={accredited} />
                   <ProfileField label="Bio" value={bio} className="sm:col-span-2" />
-                  <ProfileField label="Thesis" value={thesis} className="sm:col-span-2" />
                 </div>
               )}
             </ProfileSectionCard>
@@ -578,7 +617,7 @@ export default function CapitalProfilePage() {
                 <UpgradePrompt
                   variant="inline"
                   title="Capital directory is included with Pier+"
-                  description="Your personal profile stays available. Directory, Deal Flow, and Concierge are Pier+."
+                  description="Your role, firm, and city stay on your personal profile. Directory, AUM, and thesis are Pier+."
                 />
               </div>
             )}
@@ -704,49 +743,33 @@ export default function CapitalProfilePage() {
                   <label className="block">
                     <span className="eyebrow mb-1 block">Allow intro requests</span>
                     <select
-                      value={
-                        memberPrefs.allow_intro_requests === undefined
-                          ? ''
-                          : memberPrefs.allow_intro_requests
-                            ? 'yes'
-                            : 'no'
-                      }
+                      value={memberPrefs.allow_intro_requests ? 'yes' : 'no'}
                       onChange={(e) =>
                         setMemberPrefs((p) => ({
                           ...p,
-                          allow_intro_requests:
-                            e.target.value === '' ? undefined : e.target.value === 'yes',
+                          allow_intro_requests: e.target.value === 'yes',
                         }))
                       }
                       className="w-full rounded-[4px] border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
                     >
-                      <option value="">Select</option>
+                      <option value="no">No (default)</option>
                       <option value="yes">Yes</option>
-                      <option value="no">No</option>
                     </select>
                   </label>
                   <label className="block">
                     <span className="eyebrow mb-1 block">Share event attendance</span>
                     <select
-                      value={
-                        memberPrefs.share_event_attendance === undefined
-                          ? ''
-                          : memberPrefs.share_event_attendance
-                            ? 'yes'
-                            : 'no'
-                      }
+                      value={memberPrefs.share_event_attendance ? 'yes' : 'no'}
                       onChange={(e) =>
                         setMemberPrefs((p) => ({
                           ...p,
-                          share_event_attendance:
-                            e.target.value === '' ? undefined : e.target.value === 'yes',
+                          share_event_attendance: e.target.value === 'yes',
                         }))
                       }
                       className="w-full rounded-[4px] border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
                     >
-                      <option value="">Select</option>
+                      <option value="no">No (default)</option>
                       <option value="yes">Yes</option>
-                      <option value="no">No</option>
                     </select>
                   </label>
                 </div>

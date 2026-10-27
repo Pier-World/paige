@@ -23,7 +23,9 @@
 */
 
 -- ---------------------------------------------------------------------------
--- Helpers (SQL source of truth; TypeScript isPierPlus must match)
+-- Helpers (SQL source of truth for RLS).
+-- Member UI uses membership_level only (src/lib/membership.ts isPierPlus).
+-- RLS still treats role = admin as Pier+ so /admin/deals keeps working.
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.membership_is_pier_plus(p_level text, p_role text)

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { coerceToAuthUserFacingError, isAuthUserFacingError } from '../lib/authErrors';
+import { postAuthPath } from '../lib/capitalOnboarding';
 import { supabase } from '../lib/supabase';
 
 const CODE_LENGTH = 6;
@@ -89,7 +90,7 @@ export default function WelcomePage() {
   useEffect(() => {
     if (authLoading) return;
     if (user) {
-      navigate('/dashboard', { replace: true });
+      navigate(postAuthPath(user), { replace: true });
     }
   }, [authLoading, user, navigate]);
 
@@ -125,7 +126,7 @@ export default function WelcomePage() {
         }
         if (data) {
           await supabase.rpc('consume_member_invite', { p_token: rawToken });
-          navigate('/dashboard');
+          navigate(postAuthPath(data));
         }
       } finally {
         setIsWorking(false);
@@ -164,7 +165,23 @@ export default function WelcomePage() {
   const primaryButtonClass =
     'w-full rounded-full bg-foreground py-3.5 text-center text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50';
 
-  if (invite.status === 'loading' || authLoading) {
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-accent" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-accent" />
+      </div>
+    );
+  }
+
+  if (invite.status === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-accent" />

@@ -4,9 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import {
   buildOnboardingMemberPreferences,
   buildPersonalContext,
+  clampOnboardingStep,
   onboardingDraftKey,
   parseOnboardingDraft,
   prefillOnboardingFromUser,
+  serializeOnboardingDraft,
 } from '../../lib/capitalOnboarding';
 import type { OnboardingData } from '../../types/onboarding';
 import { OnboardingShell } from './OnboardingShell';
@@ -22,19 +24,28 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [data, setData] = useState<OnboardingData>(() => prefillOnboardingFromUser(user));
 
   useEffect(() => {
     if (!user?.id) return;
     const draft = parseOnboardingDraft(sessionStorage.getItem(onboardingDraftKey(user.id)));
-    setData(draft ?? prefillOnboardingFromUser(user));
+    if (draft) {
+      setData(draft.data);
+      setCurrentStep(draft.step);
+    } else {
+      setData(prefillOnboardingFromUser(user));
+    }
+    setHydrated(true);
+    // Prefill once per user id so typing is not reset when AuthContext refreshes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   useEffect(() => {
-    if (!user?.id) return;
-    sessionStorage.setItem(onboardingDraftKey(user.id), JSON.stringify(data));
-  }, [data, user?.id]);
+    if (!user?.id || !hydrated) return;
+    sessionStorage.setItem(onboardingDraftKey(user.id), serializeOnboardingDraft(data, currentStep));
+  }, [data, currentStep, user?.id, hydrated]);
 
   const firstName = useMemo(() => {
     return user?.first_name || user?.full_name?.split(' ')[0] || '';
@@ -74,7 +85,8 @@ export default function OnboardingPage() {
     void finish(data, true);
   };
 
-  const next = () => setCurrentStep((prev) => Math.min(prev + 1, TOTAL_STEPS - 1));
+  const next = () =>
+    setCurrentStep((prev) => clampOnboardingStep(Math.min(prev + 1, TOTAL_STEPS - 1), data.capitalRole));
   const back = () => setCurrentStep((prev) => Math.max(prev - 1, 0));
 
   const continueDisabled = currentStep === 1 && !data.capitalRole;
@@ -88,16 +100,24 @@ export default function OnboardingPage() {
       onSkip={skip}
       continueLabel={currentStep === TOTAL_STEPS - 1 ? 'Enter Pier' : 'Continue'}
       continueDisabled={continueDisabled}
+      continueHint={
+        continueDisabled ? 'Choose allocator or fund manager to continue.' : undefined
+      }
       busy={busy}
+      saveError={saveError}
       hideContinue={currentStep === 0}
+      hideFooter={currentStep === 0}
+      skipHint={currentStep === 0 ? 'You can finish in Profile anytime.' : undefined}
     >
-      {saveError ? (
-        <p className="mb-6 text-[13px] text-danger" role="alert">
-          {saveError}
-        </p>
+      {currentStep === 0 ? <WelcomeStep firstName={firstName} onNext={next} busy={busy} /> : null}
+      {currentStep === 1 ? (
+        <IdentityStep
+          data={data}
+          updateData={updateData}
+          onContinue={next}
+          continueDisabled={continueDisabled}
+        />
       ) : null}
-      {currentStep === 0 ? <WelcomeStep firstName={firstName} onNext={next} /> : null}
-      {currentStep === 1 ? <IdentityStep data={data} updateData={updateData} /> : null}
       {currentStep === 2 ? <IntentStep data={data} updateData={updateData} /> : null}
       {currentStep === 3 ? <PrivacyStep data={data} updateData={updateData} /> : null}
     </OnboardingShell>

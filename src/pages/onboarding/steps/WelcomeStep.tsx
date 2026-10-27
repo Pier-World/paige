@@ -1,9 +1,10 @@
 interface WelcomeStepProps {
   firstName: string;
   onNext: () => void;
+  busy?: boolean;
 }
 
-export function WelcomeStep({ firstName, onNext }: WelcomeStepProps) {
+export function WelcomeStep({ firstName, onNext, busy }: WelcomeStepProps) {
   return (
     <div className="flex flex-1 flex-col justify-center py-8">
       <p className="eyebrow mb-4">Welcome</p>
@@ -18,7 +19,8 @@ export function WelcomeStep({ firstName, onNext }: WelcomeStepProps) {
       <button
         type="button"
         onClick={onNext}
-        className="mt-10 inline-flex h-11 w-fit items-center rounded-[8px] bg-ink px-6 text-[14px] text-parchment hover:bg-ink/90"
+        disabled={busy}
+        className="mt-10 inline-flex h-11 w-fit items-center rounded-[8px] bg-ink px-6 text-[14px] text-parchment hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         Begin
       </button>

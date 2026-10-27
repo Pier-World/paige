@@ -133,15 +133,15 @@ export function BlurredUpgradeTeaser({
 }) {
   return (
     <div className="relative overflow-hidden rounded-[4px] border border-border bg-surface">
-      <div className="pointer-events-none select-none blur-[6px]" aria-hidden="true">
+      <div className="pointer-events-none max-h-[70vh] select-none overflow-hidden blur-[8px]" aria-hidden="true">
         {children}
       </div>
-      <div className="absolute inset-0 flex items-center justify-center bg-parchment/55 px-4">
+      <div className="absolute inset-0 flex items-start justify-center bg-parchment/60 px-4 pt-10 sm:pt-16">
         <UpgradePrompt
           variant="inline"
           className="max-w-md shadow-lg"
           title={label}
-          description="This data is included with Pier+. Request an upgrade to view Deal Flow and the member directory."
+          description="Names, terms, contacts, and documents stay with Pier+. Events and Partners remain available on Standard."
         />
       </div>
     </div>

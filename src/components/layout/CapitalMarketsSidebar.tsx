@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { UpgradePrompt } from '../capital-markets/UpgradePrompt';
 import { useAuth } from '../../context/AuthContext';
-import { isPierPlus } from '../../lib/membership';
+import { isPierPlus, membershipBadgeLabel } from '../../lib/membership';
 import { cn } from '../../lib/utils';
 import type { User as PierUser } from '../../types';
 
@@ -48,6 +48,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, signOut } = useAuth();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const pierPlus = isPierPlus(user);
+  const tierLabel = membershipBadgeLabel(user);
   const displayName = getDisplayName(user);
   const initials = getInitials(displayName, user?.email) || 'P';
 
@@ -64,7 +65,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             Pier
           </span>
           <span className="rounded-[2px] bg-gilt px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-ink">
-            Members
+            {tierLabel}
           </span>
         </Link>
       </div>
@@ -134,6 +135,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-medium text-ink">{displayName}</p>
+            <p className="truncate text-[10px] uppercase tracking-[0.12em] text-slate">{tierLabel}</p>
           </div>
         </Link>
         <button
@@ -153,6 +155,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 export function CapitalMarketsSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const { user } = useAuth();
+  const tierLabel = membershipBadgeLabel(user);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -166,8 +170,11 @@ export function CapitalMarketsSidebar() {
 
       <div className="lg:hidden">
         <div className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-parchment px-4">
-          <Link to="/dashboard" className="font-display text-[22px] leading-none text-ink">
-            Pier
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <span className="font-display text-[22px] leading-none text-ink">Pier</span>
+            <span className="rounded-[2px] bg-gilt px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-ink">
+              {tierLabel}
+            </span>
           </Link>
           <button
             type="button"

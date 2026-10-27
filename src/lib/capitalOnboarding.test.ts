@@ -1,0 +1,180 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import test from 'node:test';
+import {
+  applyRoleChange,
+  buildOnboardingMemberPreferences,
+  buildPersonalContext,
+  clampOnboardingStep,
+  defaultPrivacyForRole,
+  emptyOnboardingData,
+  eventMatchesCapitalRole,
+  isOnboardingMarkedComplete,
+  parseOnboardingDraft,
+  postAuthPath,
+  profileNeedsOnboardingDetails,
+} from './capitalOnboarding.ts';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '../..');
+
+test('LP privacy defaults are off', () => {
+  const privacy = defaultPrivacyForRole('lp');
+  assert.equal(privacy.allowIntroRequests, false);
+  assert.equal(privacy.shareEventAttendance, false);
+});
+
+test('GP privacy defaults are off until opt-in', () => {
+  const privacy = defaultPrivacyForRole('gp');
+  assert.equal(privacy.allowIntroRequests, false);
+  assert.equal(privacy.shareEventAttendance, false);
+});
+
+test('complete payload stores capital role and strips travel interests', () => {
+  const data = {
+    ...emptyOnboardingData(),
+    capitalRole: 'lp' as const,
+    firm: 'Harbor Family Office',
+    title: 'Principal',
+    city: 'New York',
+    intents: ['dinners', 'emerging-managers'],
+    allowIntroRequests: false,
+    shareEventAttendance: false,
+  };
+  const prefs = buildOnboardingMemberPreferences(data, {
+    interests: ['Points Maximization', 'Travel'],
+    firm: 'Old',
+  });
+  assert.equal(prefs.capital_role, 'lp');
+  assert.equal(prefs.firm, 'Harbor Family Office');
+  assert.equal(prefs.primary_city, 'New York');
+  assert.deepEqual(prefs.interests, ['Dinners and member gatherings', 'Emerging managers']);
+  assert.equal(prefs.member_preferences?.allow_intro_requests, false);
+  assert.equal(prefs.member_preferences?.share_event_attendance, false);
+});
+
+test('GP opt-in is persisted when enabled', () => {
+  const selected = applyRoleChange(emptyOnboardingData(), 'gp');
+  const data = { ...selected, shareEventAttendance: true, intents: ['meet-allocators'] };
+  const prefs = buildOnboardingMemberPreferences(data);
+  assert.equal(prefs.capital_role, 'gp');
+  assert.equal(prefs.member_preferences?.share_event_attendance, true);
+  assert.deepEqual(prefs.interests, ['Meet allocators']);
+});
+
+test('reselecting the same role does not wipe privacy opt-in', () => {
+  const gp = applyRoleChange(emptyOnboardingData(), 'gp');
+  const optedIn = { ...gp, shareEventAttendance: true, intents: ['dinners'] };
+  const again = applyRoleChange(optedIn, 'gp');
+  assert.equal(again.shareEventAttendance, true);
+  assert.deepEqual(again.intents, ['dinners']);
+  const switched = applyRoleChange(optedIn, 'lp');
+  assert.equal(switched.shareEventAttendance, false);
+  assert.deepEqual(switched.intents, []);
+});
+
+test('skip payload without a role does not invent capital_role', () => {
+  const prefs = buildOnboardingMemberPreferences(emptyOnboardingData(), { firm: 'Kept' });
+  assert.equal(prefs.capital_role, undefined);
+  assert.equal(prefs.firm, 'Kept');
+  assert.equal(prefs.member_preferences?.allow_intro_requests, false);
+});
+
+test('personal context records skip without travel goals', () => {
+  const ctx = buildPersonalContext(emptyOnboardingData(), 'Ada Lovelace', true);
+  assert.equal(ctx.skipped, true);
+  assert.equal(ctx.capital_role, null);
+  assert.equal('goals' in ctx, false);
+});
+
+test('completion heuristic ignores leftover travel goals', () => {
+  assert.equal(
+    isOnboardingMarkedComplete({
+      memberCompleted: false,
+      personalContext: { name: 'Ada', goals: ['maximize-points'] },
+    }),
+    false
+  );
+  assert.equal(
+    isOnboardingMarkedComplete({
+      personalContext: { capital_role: 'gp' },
+    }),
+    true
+  );
+  assert.equal(isOnboardingMarkedComplete({ memberCompleted: true }), true);
+});
+
+test('postAuthPath sends incomplete members to onboarding', () => {
+  assert.equal(postAuthPath({ onboarding_completed: true }), '/dashboard');
+  assert.equal(postAuthPath({ onboarding_completed: false }), '/onboarding');
+  assert.equal(postAuthPath(null), '/onboarding');
+});
+
+test('event audience matching keeps mixed and untagged events', () => {
+  assert.equal(eventMatchesCapitalRole('GPs & LPs', 'lp'), true);
+  assert.equal(eventMatchesCapitalRole('LP dinner', 'gp'), false);
+  assert.equal(eventMatchesCapitalRole('Fund managers', 'gp'), true);
+  assert.equal(eventMatchesCapitalRole('', 'lp'), true);
+});
+
+test('onboarding UI is capital markets, not travel', () => {
+  const welcome = readFileSync(join(root, 'src/pages/onboarding/steps/WelcomeStep.tsx'), 'utf8');
+  const identity = readFileSync(join(root, 'src/pages/onboarding/steps/IdentityStep.tsx'), 'utf8');
+  const page = readFileSync(join(root, 'src/pages/onboarding/OnboardingPage.tsx'), 'utf8');
+  assert.match(welcome, /private community of fund managers and allocators/);
+  assert.doesNotMatch(welcome, /travel benefits|Amex|Maximize Points/);
+  assert.match(identity, /Allocator \(LP\)/);
+  assert.match(identity, /Fund manager \(GP\)/);
+  assert.match(identity, /allocator or fund manager/);
+  assert.doesNotMatch(page, /user_hotel_preferences|maximize-points/);
+});
+
+test('login shows the brand once on mobile', () => {
+  const src = readFileSync(join(root, 'src/pages/LoginPage.tsx'), 'utf8');
+  assert.match(src, /hidden flex-col[\s\S]*md:flex/);
+  assert.match(src, /mb-10 md:hidden/);
+  assert.equal((src.match(/brandBlock/g) || []).length, 3);
+});
+
+test('auth does not refetch the member row on token refresh or tab focus', () => {
+  const src = readFileSync(join(root, 'src/context/AuthContext.tsx'), 'utf8');
+  assert.doesNotMatch(src, /TOKEN_REFRESHED/);
+  assert.doesNotMatch(src, /visibilitychange/);
+  assert.doesNotMatch(src, /addEventListener\('focus'/);
+});
+
+test('navigation guard does not strip event hashes', () => {
+  const src = readFileSync(join(root, 'src/components/NavigationGuard.tsx'), 'utf8');
+  assert.doesNotMatch(src, /split\('#'\)/);
+});
+
+test('profile completeness and draft parsing', () => {
+  assert.equal(profileNeedsOnboardingDetails({ capital_role: 'lp', firm: 'A', primary_city: 'NY' }), false);
+  assert.equal(profileNeedsOnboardingDetails({ capital_role: 'lp' }), true);
+  const draft = parseOnboardingDraft(
+    JSON.stringify({
+      capitalRole: 'gp',
+      firm: 'Pier',
+      intents: ['dinners'],
+      allowIntroRequests: true,
+      step: 3,
+    })
+  );
+  assert.equal(draft?.data.capitalRole, 'gp');
+  assert.equal(draft?.data.firm, 'Pier');
+  assert.equal(draft?.data.allowIntroRequests, true);
+  assert.equal(draft?.step, 3);
+  assert.equal(parseOnboardingDraft('not-json'), null);
+  assert.equal(clampOnboardingStep(3, null), 1);
+  assert.equal(clampOnboardingStep(2, 'lp'), 2);
+});
+
+test('skip copy does not imply the wizard will resume', () => {
+  const shell = readFileSync(join(root, 'src/pages/onboarding/OnboardingShell.tsx'), 'utf8');
+  assert.match(shell, /Skip for now/);
+  assert.match(shell, /skipHint/);
+  assert.doesNotMatch(shell, /Do this later/);
+  const page = readFileSync(join(root, 'src/pages/onboarding/OnboardingPage.tsx'), 'utf8');
+  assert.match(page, /You can finish in Profile anytime/);
+});

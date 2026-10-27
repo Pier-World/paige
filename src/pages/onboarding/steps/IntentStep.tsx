@@ -24,7 +24,7 @@ export function IntentStep({ data, updateData }: IntentStepProps) {
           What would help first?
         </h1>
         <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-slate">
-          Optional. Skip anything that does not apply — you can change this later in Profile.
+          Optional. Continue without selecting any — this only helps Pier prioritize what to show first.
         </p>
       </div>
 
