@@ -6,8 +6,8 @@
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/import-capital-deals.mjs ./deals.json
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/import-capital-deals.mjs ./deals.csv
  *
- * Rows are always imported as unpublished drafts unless explicitly published later
- * from the admin review workflow.
+ * Rows are published as open member-visible opportunities. Status can be adjusted
+ * later in the admin review workflow.
  */
 import { createClient } from '@supabase/supabase-js';
 import { basename, extname, isAbsolute, join, resolve } from 'path';
@@ -134,7 +134,7 @@ function normalizeRecord(record, index) {
     record.allocation_subscribed_percent ?? record.allocationSubscribedPercent,
     0
   );
-  const status = String(record.status || 'pending').trim() || 'pending';
+  const status = String(record.status || 'open').trim() || 'open';
   const returnMetricType = String(record.return_metric_type || record.returnMetricType || 'irr').trim();
   const description = String(record.description || record.overview || '').trim();
   const errors = [];
@@ -144,7 +144,7 @@ function normalizeRecord(record, index) {
   if (!slug) errors.push('slug could not be generated');
   if (!DEAL_TYPES.has(dealType)) errors.push(`deal_type must be one of ${Array.from(DEAL_TYPES).join(', ')}`);
   if (!assetClass) errors.push('asset_class is required');
-  if (targetSize === null || targetSize < 0) errors.push('target_size must be a non-negative number');
+  if (targetSize !== null && targetSize < 0) errors.push('target_size must be a non-negative number');
   if (allocationSubscribedPercent === null || allocationSubscribedPercent < 0 || allocationSubscribedPercent > 100) {
     errors.push('allocation_subscribed_percent must be between 0 and 100');
   }
@@ -167,7 +167,7 @@ function normalizeRecord(record, index) {
       manager_name: managerName,
       deal_type: dealType,
       asset_class: assetClass,
-      status: 'pending',
+      status: STATUSES.has(status) && status !== 'pending' ? status : 'open',
       target_size: targetSize ?? 0,
       raised_size: parseNumber(record.raised_size ?? record.raisedSize, 0) ?? 0,
       allocation_subscribed_percent: allocationSubscribedPercent ?? 0,
@@ -188,20 +188,20 @@ function normalizeRecord(record, index) {
       why_pier_selected: record.why_pier_selected || record.whyPierSelected || null,
       contacts,
       sort_order: parseNumber(record.sort_order ?? record.sortOrder, 0) ?? 0,
-      published_at: null,
+      published_at: new Date().toISOString(),
       source_system: record.source_system || record.sourceSystem || 'staff_import',
       source_record_id: record.source_record_id || record.sourceRecordId || slug,
       source_url: record.source_url || record.sourceUrl || null,
       last_imported_at: new Date().toISOString(),
-      review_status: record.generated_summary || record.generatedSummary ? 'generated' : 'draft',
+      review_status: 'approved',
       internal_notes: record.internal_notes || record.internalNotes || null,
       generated_summary: record.generated_summary || record.generatedSummary || null,
       disclaimer: record.disclaimer || null,
       offering_type: record.offering_type || record.offeringType || null,
       jurisdiction: record.jurisdiction || null,
       eligible_investor_requirements: record.eligible_investor_requirements || record.eligibleInvestorRequirements || null,
-      visibility_tier: 'admin',
-      unpublished_at: new Date().toISOString(),
+      visibility_tier: 'members',
+      unpublished_at: null,
     },
   };
 }

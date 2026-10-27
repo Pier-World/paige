@@ -176,7 +176,7 @@ export function onboardingDraftKey(userId: string): string {
 }
 
 export function dashboardIntroKey(userId: string): string {
-  return `pier_dashboard_intro_dismissed_${userId}`;
+  return `pier_get_oriented_dismissed_${userId}`;
 }
 
 export function clampOnboardingStep(step: number, role: CapitalRole | null): number {

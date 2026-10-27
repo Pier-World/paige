@@ -1,52 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 import { DealReturnCell } from '../../components/capital-markets/DealReturnCell';
 import { PageFrame } from '../../components/layout/PageFrame';
 import { Badge } from '../../components/ui/Badge';
 import { Chip } from '../../components/ui/Chip';
-import { getCapitalDeals, type CapitalDeal, type DealType } from '../../lib/api/capitalMarkets';
-import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { getCapitalDeals, type DealType } from '../../lib/api/capitalMarkets';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
+import { useCapitalLoad } from '../../lib/useCapitalLoad';
+import { formatCurrency, formatDate, hasPublicDealAmount } from '../../lib/utils';
 import { typeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
 const filters: Array<'all' | DealType> = ['all', 'fund', 'co-invest', 'secondary', 'spv'];
 
 export default function DealsPage() {
-  const [deals, setDeals] = useState<CapitalDeal[]>([]);
   const [activeFilter, setActiveFilter] = useState<'all' | DealType>('all');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadNonce, setReloadNonce] = useState(0);
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadDeals() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const data = await withTimeout(
-          getCapitalDeals(),
-          CAPITAL_SUPABASE_TIMEOUT_MS,
-          'capital deals'
-        );
-        if (!ignore) setDeals(data);
-      } catch (err) {
-        if (!ignore) setError(describeCapitalLoadFailure(err, 'Unable to load capital deals.'));
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-
-    loadDeals();
-
-    return () => {
-      ignore = true;
-    };
-  }, [reloadNonce]);
+  const loaded = useCapitalLoad(
+    'deals',
+    () => withTimeout(getCapitalDeals(), CAPITAL_SUPABASE_TIMEOUT_MS, 'capital deals'),
+    'Unable to load capital deals.'
+  );
+  const deals = loaded.data ?? [];
+  const loading = loaded.loading;
+  const error = loaded.error;
 
   const filteredDeals =
     activeFilter === 'all' ? deals : deals.filter((deal) => deal.type === activeFilter);
@@ -64,6 +41,11 @@ export default function DealsPage() {
         <div className="gilt-rule mt-6 w-12" />
       </div>
 
+      {loading ? <LoadingState label="Loading deal flow" variant="cards" /> : null}
+      {error ? <ErrorState message={error} onRetry={loaded.reload} /> : null}
+
+      {!loading && !error ? (
+        <>
       <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-3">
         {[
           { label: 'Total opportunities', value: deals.length.toString() },
@@ -79,14 +61,6 @@ export default function DealsPage() {
           </div>
         ))}
       </div>
-
-      {loading ? <LoadingState label="Loading deal flow..." /> : null}
-      {error ? (
-        <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} />
-      ) : null}
-
-      {!loading && !error ? (
-        <>
       <div className="mb-6 flex flex-wrap gap-2">
         {filters.map((filter) => (
           <Chip
@@ -131,23 +105,29 @@ export default function DealsPage() {
                   <p className="eyebrow mb-0.5">Asset Class</p>
                   <p className="text-ink">{deal.assetClass}</p>
                 </div>
-                <div>
-                  <p className="eyebrow mb-0.5">Target Size</p>
-                  <p className="font-mono-data text-ink">
-                    {formatCurrency(deal.targetSize, deal.currencyCode, true)}
-                  </p>
-                </div>
+                {hasPublicDealAmount(deal.targetSize) ? (
+                  <div>
+                    <p className="eyebrow mb-0.5">Target Size</p>
+                    <p className="font-mono-data text-ink">
+                      {formatCurrency(deal.targetSize, deal.currencyCode, true)}
+                    </p>
+                  </div>
+                ) : null}
                 <DealReturnCell deal={deal} label className="text-[13px]" />
-                <div>
-                  <p className="eyebrow mb-0.5">Min. Commit</p>
-                  <p className="font-mono-data text-ink">
-                    {formatCurrency(deal.minCommitment, deal.currencyCode, true)}
-                  </p>
-                </div>
-                <div>
-                  <p className="eyebrow mb-0.5">Close</p>
-                  <p className="font-mono-data text-ink">{formatDate(deal.closeDate, 'month-day')}</p>
-                </div>
+                {hasPublicDealAmount(deal.minCommitment) ? (
+                  <div>
+                    <p className="eyebrow mb-0.5">Min. Commit</p>
+                    <p className="font-mono-data text-ink">
+                      {formatCurrency(deal.minCommitment, deal.currencyCode, true)}
+                    </p>
+                  </div>
+                ) : null}
+                {deal.closeDate ? (
+                  <div>
+                    <p className="eyebrow mb-0.5">Close</p>
+                    <p className="font-mono-data text-ink">{formatDate(deal.closeDate, 'month-day')}</p>
+                  </div>
+                ) : null}
               </div>
 
               <p className="mb-2 flex-1 text-[13px] leading-relaxed text-slate">{deal.description}</p>

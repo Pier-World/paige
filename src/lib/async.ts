@@ -29,10 +29,19 @@ export async function withTimeout<T>(promise: Promise<T>, ms: number, label: str
   }
 }
 
+function isSlowOrDropped(err: unknown): boolean {
+  if (isAsyncTimeoutError(err)) return true;
+  if (!err || typeof err !== 'object') return false;
+  const name = 'name' in err && typeof err.name === 'string' ? err.name : '';
+  const message = 'message' in err && typeof err.message === 'string' ? err.message : '';
+  if (name === 'AbortError') return true;
+  if ('isAcquireTimeout' in err && err.isAcquireTimeout) return true;
+  return /aborted|abort|failed to fetch|networkerror|timed out|timeout/i.test(message);
+}
+
 export function describeCapitalLoadFailure(err: unknown, fallback: string): string {
-  if (isAsyncTimeoutError(err)) {
-    const seconds = Math.round(err.ms / 1000);
-    return `This is taking longer than expected (over ${seconds}s). Check your connection, or try again in a moment.`;
+  if (isSlowOrDropped(err)) {
+    return 'This is taking longer than expected. Check your connection, or try again in a moment.';
   }
-  return err instanceof Error ? err.message : fallback;
+  return err instanceof Error && err.message ? err.message : fallback;
 }

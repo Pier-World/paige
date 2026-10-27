@@ -8,10 +8,13 @@ import { useAuth } from '../../context/AuthContext';
 import {
   getCapitalEvents,
   getMyCapitalEventRsvps,
+  isRecentCapitalEvent,
+  isUpcomingCapitalEvent,
   type CapitalEvent,
   type CapitalEventRsvp,
 } from '../../lib/api/capitalMarkets';
-import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
+import { useCapitalLoad } from '../../lib/useCapitalLoad';
 import { formatEventDate } from '../../lib/utils';
 import { eventTypeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
@@ -25,17 +28,8 @@ const filterOptions: Array<{ id: EventFilter; label: string }> = [
   { id: 'past', label: 'Past' },
 ];
 
-function getLocalStartOfToday(): number {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-}
-
 function getEventTime(event: CapitalEvent): number {
   return new Date(event.date).getTime();
-}
-
-function isPastEvent(event: CapitalEvent, localStartOfToday: number): boolean {
-  return getEventTime(event) < localStartOfToday;
 }
 
 function getEventMonthDay(event: CapitalEvent): { month: string; day: string } {
@@ -45,56 +39,36 @@ function getEventMonthDay(event: CapitalEvent): { month: string; day: string } {
 
 export default function CapitalMarketsEventsPage() {
   const { user } = useAuth();
-  const [events, setEvents] = useState<CapitalEvent[]>([]);
-  const [rsvps, setRsvps] = useState<CapitalEventRsvp[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<EventFilter>('all');
-  const [reloadNonce, setReloadNonce] = useState(0);
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadEvents() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const [eventData, rsvpData] = await withTimeout(
-          user?.id
-            ? Promise.all([getCapitalEvents(), getMyCapitalEventRsvps(user.id)])
-            : Promise.all([getCapitalEvents(), Promise.resolve([] as CapitalEventRsvp[])]),
-          CAPITAL_SUPABASE_TIMEOUT_MS,
-          'events and RSVPs'
-        );
-        const registeredEventIds = new Set(
-          rsvpData
-            .filter((rsvp) => rsvp.status === 'confirmed' || rsvp.status === 'attended')
-            .map((rsvp) => rsvp.eventId)
-        );
-
-        if (!ignore) {
-          setEvents(
-            eventData.map((event) => ({
-              ...event,
-              registered: registeredEventIds.has(event.databaseId),
-            }))
-          );
-          setRsvps(rsvpData);
-        }
-      } catch (err) {
-        if (!ignore) setError(describeCapitalLoadFailure(err, 'Unable to load capital events.'));
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-
-    loadEvents();
-
-    return () => {
-      ignore = true;
-    };
-  }, [user?.id, reloadNonce]);
+  const loaded = useCapitalLoad(
+    `events:${user?.id ?? 'anon'}`,
+    async () => {
+      const [eventData, rsvpData] = await withTimeout(
+        user?.id
+          ? Promise.all([getCapitalEvents(), getMyCapitalEventRsvps(user.id)])
+          : Promise.all([getCapitalEvents(), Promise.resolve([] as CapitalEventRsvp[])]),
+        CAPITAL_SUPABASE_TIMEOUT_MS,
+        'events and RSVPs'
+      );
+      const registeredEventIds = new Set(
+        rsvpData
+          .filter((rsvp) => rsvp.status === 'confirmed' || rsvp.status === 'attended')
+          .map((rsvp) => rsvp.eventId)
+      );
+      return {
+        events: eventData.map((event) => ({
+          ...event,
+          registered: registeredEventIds.has(event.databaseId),
+        })),
+        rsvps: rsvpData,
+      };
+    },
+    'Unable to load capital events.'
+  );
+  const events = useMemo(() => loaded.data?.events ?? [], [loaded.data]);
+  const rsvps = useMemo(() => loaded.data?.rsvps ?? [], [loaded.data]);
+  const loading = loaded.loading;
+  const error = loaded.error;
 
   useEffect(() => {
     if (loading || error) return;
@@ -104,23 +78,22 @@ export default function CapitalMarketsEventsPage() {
   }, [loading, error, events]);
 
   const rsvpByEventId = new Map(rsvps.map((rsvp) => [rsvp.eventId, rsvp]));
-  const localStartOfToday = getLocalStartOfToday();
 
   const upcoming = useMemo(() => {
     return events
-      .filter((event) => !isPastEvent(event, localStartOfToday))
+      .filter((event) => isUpcomingCapitalEvent(event))
       .slice()
       .sort((a, b) => getEventTime(a) - getEventTime(b));
-  }, [events, localStartOfToday]);
+  }, [events]);
 
   const pierUpcoming = upcoming.filter((e) => e.hostType === 'pier');
   const partnerUpcoming = upcoming.filter((e) => e.hostType === 'partner');
   const past = useMemo(() => {
     return events
-      .filter((event) => isPastEvent(event, localStartOfToday))
+      .filter((event) => isRecentCapitalEvent(event))
       .slice()
       .sort((a, b) => getEventTime(b) - getEventTime(a));
-  }, [events, localStartOfToday]);
+  }, [events]);
 
   function renderEventList(list: CapitalEvent[], emptyTitle: string) {
     if (list.length === 0) {
@@ -216,8 +189,8 @@ export default function CapitalMarketsEventsPage() {
         <div className="gilt-rule mt-6 w-12" />
       </div>
 
-      {loading ? <LoadingState label="Loading events..." /> : null}
-      {error ? <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} /> : null}
+      {loading ? <LoadingState label="Loading events" variant="list" /> : null}
+      {error ? <ErrorState message={error} onRetry={loaded.reload} /> : null}
 
       {!loading && !error ? (
         <>

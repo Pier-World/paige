@@ -2,7 +2,7 @@ import { Calendar, Clock, ExternalLink, MapPin } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import type { CapitalEvent, CapitalEventRsvp } from '../../lib/api/capitalMarkets';
 import { conciergeMailto } from '../../lib/conciergeMailto';
-import { formatEventDate, formatEventLocation, formatEventTime } from '../../lib/utils';
+import { cn, formatEventDate, formatEventLocation, formatEventTime } from '../../lib/utils';
 import { eventTypeLabels } from '../../pages/capital-markets/mockData';
 
 type EventCardProps = {
@@ -26,22 +26,27 @@ function getEventInviteHref(event: CapitalEvent): string {
   );
 }
 
+function getRegisterLabel(event: CapitalEvent): string {
+  if (event.registrationUrl?.trim() && event.registrationLabel?.trim()) return event.registrationLabel;
+  return isMultiDayExperience(event) ? 'Request details' : 'Request RSVP';
+}
+
 const actionLinkClass =
   'flex h-8 w-full items-center justify-center gap-2 rounded-pier-md border border-ink bg-ink px-3 text-[13px] font-medium text-parchment transition-colors hover:bg-ink/90';
 
 export function EventCard({ event, rsvp, compact }: EventCardProps) {
   const hasExternalRegister = Boolean(event.registrationUrl?.trim());
-  const isTrip = isMultiDayExperience(event);
   const locationLabel = formatEventLocation(event);
   const hostLabel = event.hostName || (event.hostType === 'pier' ? 'Pier' : 'Partner event');
   const showPierBadge = event.hostType === 'pier' && event.featured;
-  const requestLabel = isTrip ? 'Request details' : 'Request RSVP';
+  const registerLabel = getRegisterLabel(event);
+  const coverImageUrl = event.coverImageUrl?.trim() ?? '';
 
   const rsvpLabel = (() => {
     if (rsvp?.status === 'confirmed' || rsvp?.status === 'attended' || event.registered) return 'Going';
     if (rsvp?.status === 'waitlisted') return 'Waitlist requested';
     if (rsvp?.status === 'requested') return 'RSVP requested';
-    return requestLabel;
+    return registerLabel;
   })();
 
   if (compact) {
@@ -60,8 +65,17 @@ export function EventCard({ event, rsvp, compact }: EventCardProps) {
   return (
     <div
       id={`event-${event.id}`}
-      className="grid gap-8 rounded-[4px] border border-border bg-surface p-6 xl:grid-cols-[1fr_280px]"
+      className={cn(
+        'grid gap-8 rounded-[4px] border border-border bg-surface p-6',
+        coverImageUrl ? 'xl:grid-cols-[180px_1fr_240px]' : 'xl:grid-cols-[1fr_240px]'
+      )}
     >
+      {coverImageUrl ? (
+        <div className="overflow-hidden rounded-[4px] bg-border/40">
+          <img src={coverImageUrl} alt="" className="h-40 w-full object-cover xl:h-full" />
+        </div>
+      ) : null}
+
       <div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {showPierBadge ? (
@@ -112,12 +126,12 @@ export function EventCard({ event, rsvp, compact }: EventCardProps) {
             </div>
           ) : hasExternalRegister ? (
             <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer" className={actionLinkClass}>
-              {requestLabel}
+              {registerLabel}
               <ExternalLink className="h-3.5 w-3.5 opacity-80" />
             </a>
           ) : (
             <a href={getEventInviteHref(event)} className={actionLinkClass}>
-              {requestLabel}
+              {registerLabel}
             </a>
           )}
         </div>

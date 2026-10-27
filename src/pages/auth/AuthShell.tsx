@@ -27,10 +27,14 @@ export function AuthCard({ children }: { children: ReactNode }) {
   );
 }
 
-export function AuthLoading({ label = 'Loading…' }: { label?: string }) {
+export function AuthLoading({ label = 'Loading' }: { label?: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-parchment">
-      <div className="rounded-pier border border-border bg-surface p-6 text-[14px] text-slate">{label}</div>
+    <div className="flex min-h-screen items-center justify-center bg-parchment" role="status" aria-live="polite">
+      <div className="text-center">
+        <p className="font-display text-[40px] leading-none tracking-[-0.02em] text-ink">Pier</p>
+        <div className="gilt-rule mx-auto mt-4 w-10" />
+        <span className="sr-only">{label}</span>
+      </div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { PageLayout } from '../components/layout/PageLayout';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { Check, X } from 'lucide-react';
+import { conciergeMailto } from '../lib/conciergeMailto';
 
 const MembershipPage: React.FC = () => {
   const { user } = useAuth();
@@ -169,7 +170,10 @@ const MembershipPage: React.FC = () => {
 
   const handleConfirmChange = async () => {
     if (!selectedPlan) return;
-    window.location.href = `mailto:concierge@joinpier.com?subject=${encodeURIComponent('Pier+ upgrade request')}&body=${encodeURIComponent(`I would like to request a Pier+ upgrade (${selectedPlan}).`)}`;
+    window.location.href = conciergeMailto(
+      'Pier+ upgrade request',
+      `I would like to request a Pier+ upgrade (${selectedPlan}).`
+    );
     setSelectedPlan(null);
     setShowComparison(false);
   };

@@ -1,29 +1,52 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, X } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { DealReturnCell } from '../../components/capital-markets/DealReturnCell';
 import { AnonymizedDealPreview } from '../../components/capital-markets/AnonymizedDealPreview';
+import { GetOrientedCard, type OrientedStep } from '../../components/capital-markets/GetOrientedCard';
 import { PageFrame } from '../../components/layout/PageFrame';
 import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 import {
   getCapitalDeals,
   getCapitalEvents,
+  getMyCapitalEventRsvps,
   type CapitalDeal,
   type CapitalEvent,
+  type CapitalEventRsvp,
 } from '../../lib/api/capitalMarkets';
-import {
-  dashboardIntroKey,
-  eventMatchesCapitalRole,
-  profileNeedsOnboardingDetails,
-} from '../../lib/capitalOnboarding';
+import { dashboardIntroKey } from '../../lib/capitalOnboarding';
 import { isPierPlus } from '../../lib/membership';
-import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
+import { useCapitalLoad } from '../../lib/useCapitalLoad';
+import { formatCurrency, formatEventDate, hasPublicDealAmount } from '../../lib/utils';
 import { typeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
 const THREE_WEEKS_MS = 21 * 24 * 60 * 60 * 1000;
+const ACTIVE_RSVP = new Set(['confirmed', 'requested', 'waitlisted', 'attended']);
+
+async function loadDashboard(pierPlus: boolean, memberId?: string) {
+  const rsvps = memberId
+    ? getMyCapitalEventRsvps(memberId).catch(() => [] as CapitalEventRsvp[])
+    : Promise.resolve([] as CapitalEventRsvp[]);
+
+  if (!pierPlus) {
+    const [events, memberRsvps] = await withTimeout(
+      Promise.all([getCapitalEvents(), rsvps]),
+      CAPITAL_SUPABASE_TIMEOUT_MS,
+      'dashboard events'
+    );
+    return { deals: [] as CapitalDeal[], events, rsvps: memberRsvps };
+  }
+
+  const [deals, events, memberRsvps] = await withTimeout(
+    Promise.all([getCapitalDeals(), getCapitalEvents(), rsvps]),
+    CAPITAL_SUPABASE_TIMEOUT_MS,
+    'dashboard summary'
+  );
+  return { deals, events, rsvps: memberRsvps };
+}
 
 function roleCopy(role?: string) {
   if (role === 'gp') {
@@ -36,7 +59,7 @@ function roleCopy(role?: string) {
 }
 
 function eventMonthDay(event: CapitalEvent) {
-  const [month, day] = formatDate(event.date, 'month-day').split(' ');
+  const [month, day] = formatEventDate(event.date, 'month-day', event.city).split(' ');
   return { month, day };
 }
 
@@ -44,67 +67,24 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const pierPlus = isPierPlus(user);
   const capitalRole = user?.preferences?.capital_role;
-  const [deals, setDeals] = useState<CapitalDeal[]>([]);
-  const [events, setEvents] = useState<CapitalEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadNonce, setReloadNonce] = useState(0);
   const [introReady, setIntroReady] = useState(false);
   const [introDismissed, setIntroDismissed] = useState(false);
+  const loaded = useCapitalLoad(
+    `dashboard:${user?.id ?? 'anon'}:${pierPlus ? 'plus' : 'community'}`,
+    () => loadDashboard(pierPlus, user?.id),
+    'Unable to load the dashboard.'
+  );
+  const deals = useMemo(() => loaded.data?.deals ?? [], [loaded.data]);
+  const events = useMemo(() => loaded.data?.events ?? [], [loaded.data]);
+  const rsvps = useMemo(() => loaded.data?.rsvps ?? [], [loaded.data]);
+  const loading = loaded.loading;
+  const error = loaded.error;
 
   useEffect(() => {
     if (!user?.id) return;
     setIntroDismissed(window.localStorage.getItem(dashboardIntroKey(user.id)) === '1');
     setIntroReady(true);
   }, [user?.id]);
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadDashboardData() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        if (!pierPlus) {
-          const eventData = await withTimeout(
-            getCapitalEvents(),
-            CAPITAL_SUPABASE_TIMEOUT_MS,
-            'dashboard events'
-          );
-          if (!ignore) {
-            setDeals([]);
-            setEvents(eventData);
-          }
-        } else {
-          const [dealData, eventData] = await withTimeout(
-            Promise.all([getCapitalDeals(), getCapitalEvents()]),
-            CAPITAL_SUPABASE_TIMEOUT_MS,
-            'dashboard summary'
-          );
-
-          if (!ignore) {
-            setDeals(dealData);
-            setEvents(eventData);
-          }
-        }
-      } catch (err) {
-        if (!ignore) {
-          setError(describeCapitalLoadFailure(err, 'Unable to load capital markets dashboard.'));
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadDashboardData();
-
-    return () => {
-      ignore = true;
-    };
-  }, [reloadNonce, pierPlus]);
 
   const firstName = user?.first_name || user?.full_name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
@@ -116,16 +96,92 @@ export default function DashboardPage() {
     const now = Date.now();
     return events
       .filter((event) => event.upcoming)
-      .filter((event) => eventMatchesCapitalRole(event.audience, capitalRole))
       .filter((event) => {
         const t = new Date(event.date).getTime();
         return t >= now && t - now <= THREE_WEEKS_MS;
       })
       .slice(0, 5);
-  }, [events, capitalRole]);
+  }, [events]);
   const nextEvent = upcomingEvents[0] ?? events.find((event) => event.upcoming);
-  const needsDetails = profileNeedsOnboardingDetails(user?.preferences);
   const showIntro = Boolean(user?.id) && introReady && !introDismissed;
+  const roleDone = capitalRole === 'gp' || capitalRole === 'lp';
+  const firm = user?.preferences?.firm?.trim() || '';
+  const city = user?.preferences?.primary_city?.trim() || '';
+  const placeDone = Boolean(firm && city);
+  const futureEvents = events.filter((event) => event.upcoming);
+  const joinedUpcoming = rsvps.some(
+    (rsvp) =>
+      ACTIVE_RSVP.has(rsvp.status) && futureEvents.some((event) => event.databaseId === rsvp.eventId)
+  );
+  const joinedEvent = futureEvents.find((event) =>
+    rsvps.some((rsvp) => rsvp.eventId === event.databaseId && ACTIVE_RSVP.has(rsvp.status))
+  );
+
+  let gathering: OrientedStep;
+  if (loading) {
+    gathering = {
+      id: 'gathering',
+      title: 'Join a gathering',
+      detail: 'Checking the calendar.',
+      href: '/events',
+      state: 'pending',
+    };
+  } else if (error) {
+    gathering = {
+      id: 'gathering',
+      title: 'Join a gathering',
+      detail: 'The calendar didn’t load. Open events to try again.',
+      href: '/events',
+      state: 'open',
+    };
+  } else if (joinedUpcoming && joinedEvent) {
+    gathering = {
+      id: 'gathering',
+      title: 'Join a gathering',
+      detail: `You're down for ${joinedEvent.title}.`,
+      href: `/events#event-${joinedEvent.id}`,
+      state: 'done',
+    };
+  } else if (futureEvents.length === 0) {
+    gathering = {
+      id: 'gathering',
+      title: 'Join a gathering',
+      detail: 'Nothing in the next few weeks. We’ll invite you.',
+      href: '/events',
+      state: 'done',
+    };
+  } else {
+    const target = nextEvent ?? futureEvents[0];
+    gathering = {
+      id: 'gathering',
+      title: 'Join a gathering',
+      detail: target ? `${target.title}${target.city ? ` · ${target.city}` : ''}` : 'See what’s coming up.',
+      href: target?.registrationUrl || (target ? `/events#event-${target.id}` : '/events'),
+      state: 'open',
+    };
+  }
+
+  const orientedSteps: OrientedStep[] = [
+    {
+      id: 'role',
+      title: 'Confirm your role',
+      detail: roleDone
+        ? capitalRole === 'gp'
+          ? 'You’re set as a general partner.'
+          : 'You’re set as an allocator.'
+        : 'Tell Pier whether you allocate or manage capital.',
+      href: '/profile',
+      state: roleDone ? 'done' : 'open',
+    },
+    {
+      id: 'place',
+      title: 'Add firm and city',
+      detail: placeDone ? `${firm} · ${city}` : 'Where you work, and the city you want to be invited in.',
+      href: '/profile',
+      state: placeDone ? 'done' : 'open',
+    },
+    gathering,
+  ];
 
   function dismissIntro() {
     if (!user?.id) return;
@@ -144,40 +200,11 @@ export default function DashboardPage() {
         <div className="gilt-rule mt-6 w-12" />
       </div>
 
-      {showIntro ? (
-        <div className="mb-8 flex items-start justify-between gap-4 rounded-pier border border-border bg-surface p-5">
-          <div>
-            <p className="eyebrow mb-2">Start here</p>
-            <p className="text-[14px] text-ink">A short path into Pier this week.</p>
-            <div className="mt-3 flex flex-wrap gap-4 text-[13px]">
-              <Link to={nextEvent ? `/events#event-${nextEvent.id}` : '/events'} className="font-medium text-ink underline-offset-4 hover:underline">
-                {nextEvent ? `RSVP: ${nextEvent.title}` : 'See upcoming events'}
-              </Link>
-              {needsDetails ? (
-                <Link to="/profile" className="font-medium text-ink underline-offset-4 hover:underline">
-                  Confirm firm, city, and role
-                </Link>
-              ) : (
-                <Link to="/profile" className="font-medium text-ink underline-offset-4 hover:underline">
-                  Review your profile
-                </Link>
-              )}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={dismissIntro}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pier text-slate hover:bg-parchment hover:text-ink"
-            aria-label="Dismiss getting started"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : null}
+      {showIntro ? <GetOrientedCard steps={orientedSteps} onDismiss={dismissIntro} /> : null}
 
-      {loading ? <LoadingState label="Loading dashboard..." /> : null}
+      {loading ? <LoadingState label="Loading dashboard" variant="dashboard" /> : null}
       {error ? (
-        <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} />
+        <ErrorState message={error} onRetry={loaded.reload} />
       ) : null}
 
       {!loading && !error ? (
@@ -224,7 +251,7 @@ export default function DashboardPage() {
                           rel="noopener noreferrer"
                           className="text-[13px] font-medium text-ink underline-offset-4 hover:underline"
                         >
-                          RSVP →
+                          {event.registrationLabel || 'Register'} →
                         </a>
                       ) : (
                         <Link
@@ -271,7 +298,11 @@ export default function DashboardPage() {
                           {deal.manager} · {typeLabels[deal.type]}
                         </p>
                         <div className="mt-2 flex items-center justify-between text-[12px] text-slate">
-                          <span>{formatCurrency(deal.targetSize, 'USD', true)}</span>
+                          {hasPublicDealAmount(deal.targetSize) ? (
+                            <span>{formatCurrency(deal.targetSize, deal.currencyCode, true)}</span>
+                          ) : (
+                            <span />
+                          )}
                           <DealReturnCell deal={deal} />
                         </div>
                         <Badge variant={deal.status}>{deal.status}</Badge>

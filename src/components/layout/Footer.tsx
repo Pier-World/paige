@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Instagram, Twitter, Linkedin } from 'lucide-react';
+import { CONCIERGE_EMAIL } from '../../lib/conciergeMailto';
 
 export const Footer: React.FC = () => {
   return (
@@ -62,7 +63,7 @@ export const Footer: React.FC = () => {
             <h3 className="text-lg font-medium mb-4">Contact</h3>
             <ul className="space-y-2 text-primary-200">
               <li>
-                <a href="mailto:concierge@joinpier.com" className="hover:text-white transition-colors">concierge@joinpier.com</a>
+                <a href={`mailto:${CONCIERGE_EMAIL}`} className="hover:text-white transition-colors">{CONCIERGE_EMAIL}</a>
               </li>
               <li>
                 <a href="https://wa.me/19179354877" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">+1 (917) 935-4877</a>

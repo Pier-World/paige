@@ -383,7 +383,7 @@ export default function CapitalProfilePage() {
         <div className="gilt-rule mt-6 w-12" />
       </div>
 
-      {loading ? <LoadingState label="Loading profile..." /> : null}
+      {loading ? <LoadingState label="Loading profile" variant="profile" /> : null}
       {error ? <ErrorState message={error} /> : null}
 
       {saveMessage ? (

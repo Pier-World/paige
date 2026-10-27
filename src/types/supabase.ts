@@ -687,6 +687,7 @@ export type Database = {
           audience: string | null
           capacity: number | null
           city: string
+          cover_image_url: string | null
           created_at: string
           description: string
           ends_at: string | null
@@ -699,6 +700,7 @@ export type Database = {
           id: string
           location: string
           location_is_public: boolean
+          luma_event_id: string | null
           published_at: string | null
           recap_url: string | null
           registered_count: number
@@ -713,6 +715,7 @@ export type Database = {
           audience?: string | null
           capacity?: number | null
           city: string
+          cover_image_url?: string | null
           created_at?: string
           description: string
           ends_at?: string | null
@@ -725,6 +728,7 @@ export type Database = {
           id?: string
           location: string
           location_is_public?: boolean
+          luma_event_id?: string | null
           published_at?: string | null
           recap_url?: string | null
           registered_count?: number
@@ -739,6 +743,7 @@ export type Database = {
           audience?: string | null
           capacity?: number | null
           city?: string
+          cover_image_url?: string | null
           created_at?: string
           description?: string
           ends_at?: string | null
@@ -751,6 +756,7 @@ export type Database = {
           id?: string
           location?: string
           location_is_public?: boolean
+          luma_event_id?: string | null
           published_at?: string | null
           recap_url?: string | null
           registered_count?: number

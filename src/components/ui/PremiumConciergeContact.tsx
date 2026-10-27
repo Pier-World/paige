@@ -1,6 +1,7 @@
 import React from 'react';
 import { MessageCircle, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { CONCIERGE_EMAIL } from '../../lib/conciergeMailto';
 
 interface PremiumConciergeContactProps {
   membershipLevel: string;
@@ -9,8 +10,6 @@ interface PremiumConciergeContactProps {
 const WHATSAPP_PHONE = '19179354877';
 const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_PHONE}`;
 const WHATSAPP_API_LINK = `https://api.whatsapp.com/send/?phone=${WHATSAPP_PHONE}&text&type=phone_number&app_absent=0`;
-const CONCIERGE_EMAIL = 'concierge@joinpier.com';
-
 // Check if user has access to human concierge
 const hasConciergeAccess = (level: string): boolean => {
   return ['Premium', 'Executive', 'Founding Member'].includes(level);

@@ -1,87 +1,35 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, MapPin } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, MapPin } from 'lucide-react';
 import { DealProgressAside } from '../../components/capital-markets/DealProgressAside';
 import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { useAuth } from '../../context/AuthContext';
-import {
-  createCapitalDealInterest,
-  getCapitalDealDocumentUrl,
-  getCapitalDealBySlugOrId,
-  getMyCapitalDealInterests,
-  type CapitalDeal,
-  type CapitalDealDocument,
-  type CapitalDealInterest,
-  type CapitalDealInterestRequestType,
-} from '../../lib/api/capitalMarkets';
-import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
-import { formatCurrency, formatDate, formatDealReturn } from '../../lib/utils';
-import { EmptyState, ErrorState, LoadingState } from './PageStates';
+import { getCapitalDealDocumentUrl, getCapitalDealBySlugOrId, type CapitalDeal, type CapitalDealDocument } from '../../lib/api/capitalMarkets';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
+import { dataRoomMailto } from '../../lib/conciergeMailto';
+import { useCapitalLoad } from '../../lib/useCapitalLoad';
+import { formatCurrency, formatDate, formatDealReturn, hasPublicDealAmount, hasPublicDealReturn } from '../../lib/utils';
+import { ErrorState, LoadingState } from './PageStates';
 
 export default function DealDetailPage() {
-  const { user } = useAuth();
   const { id } = useParams();
-  const [deal, setDeal] = useState<CapitalDeal | null>(null);
-  const [interests, setInterests] = useState<CapitalDealInterest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
-  const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
-  const [submittingRequest, setSubmittingRequest] = useState<CapitalDealInterestRequestType | null>(null);
   const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
-  const [reloadNonce, setReloadNonce] = useState(0);
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadDeal() {
-      if (!id) {
-        setDeal(null);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const data = await withTimeout(
-          getCapitalDealBySlugOrId(id),
-          CAPITAL_SUPABASE_TIMEOUT_MS,
-          'capital deal'
-        );
-        if (ignore) return;
-
-        setDeal(data);
-
-        if (data && user?.id) {
-          try {
-            const interestData = await withTimeout(
-              getMyCapitalDealInterests(user.id, data.databaseId),
-              CAPITAL_SUPABASE_TIMEOUT_MS,
-              'deal interest requests'
-            );
-            if (!ignore) setInterests(interestData);
-          } catch {
-            if (!ignore) setInterests([]);
-          }
-        } else {
-          setInterests([]);
-        }
-      } catch (err) {
-        if (!ignore) setError(describeCapitalLoadFailure(err, 'Unable to load capital deal.'));
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-
-    loadDeal();
-
-    return () => {
-      ignore = true;
-    };
-  }, [id, user?.id, reloadNonce]);
+  const loaded = useCapitalLoad(
+    id ? `deal:${id}` : 'deal:missing',
+    async () => {
+      if (!id) return { deal: null as CapitalDeal | null };
+      const deal = await withTimeout(
+        getCapitalDealBySlugOrId(id),
+        CAPITAL_SUPABASE_TIMEOUT_MS,
+        'capital deal'
+      );
+      return { deal };
+    },
+    'Unable to load capital deal.'
+  );
+  const deal = loaded.data?.deal ?? null;
+  const loading = loaded.loading;
+  const error = loaded.error;
 
   if (loading) {
     return (
@@ -90,7 +38,7 @@ export default function DealDetailPage() {
           <ArrowLeft className="h-3.5 w-3.5" />
           Deal Flow
         </Link>
-        <LoadingState label="Loading opportunity..." />
+        <LoadingState label="Loading opportunity" variant="detail" />
       </div>
     );
   }
@@ -102,7 +50,7 @@ export default function DealDetailPage() {
           <ArrowLeft className="h-3.5 w-3.5" />
           Deal Flow
         </Link>
-        <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} />
+        <ErrorState message={error} onRetry={loaded.reload} />
       </div>
     );
   }
@@ -120,51 +68,12 @@ export default function DealDetailPage() {
     );
   }
 
-  const submittedRequestTypes = new Set(interests.map((interest) => interest.requestType));
   const returnValue = formatDealReturn(
     deal.returnMetricType,
     deal.targetIrr,
     deal.moicTarget,
     deal.returnDisplay
   );
-
-  async function handleDealRequest(requestType: CapitalDealInterestRequestType) {
-    if (!user) {
-      setRequestSuccess(null);
-      setRequestError('Please sign in before submitting a deal request.');
-      return;
-    }
-    if (!deal) return;
-
-    setSubmittingRequest(requestType);
-    setRequestError(null);
-    setRequestSuccess(null);
-
-    try {
-      await createCapitalDealInterest({
-        dealId: deal.databaseId,
-        memberId: user.id,
-        requestType,
-      });
-      const updatedInterests = await withTimeout(
-        getMyCapitalDealInterests(user.id, deal.databaseId),
-        CAPITAL_SUPABASE_TIMEOUT_MS,
-        'deal interest requests'
-      );
-      setInterests(updatedInterests);
-      setRequestSuccess(
-        requestType === 'request_documents'
-          ? 'Materials request submitted. The Pier team will follow up.'
-          : requestType === 'schedule_call'
-            ? 'Call request submitted. The Pier team will follow up.'
-            : 'Interest submitted. The Pier team will follow up.'
-      );
-    } catch (err) {
-      setRequestError(err instanceof Error ? err.message : 'Unable to submit this request.');
-    } finally {
-      setSubmittingRequest(null);
-    }
-  }
 
   async function handleOpenDocument(document: CapitalDealDocument) {
     setOpeningDocumentId(document.id);
@@ -180,15 +89,23 @@ export default function DealDetailPage() {
     }
   }
 
+  const showProgress =
+    hasPublicDealAmount(deal.targetSize) ||
+    hasPublicDealAmount(deal.raisedSize) ||
+    deal.allocationSubscribedPercent > 0;
   const metricRows = [
-    { label: 'Min. commitment', value: formatCurrency(deal.minCommitment, deal.currencyCode, true) },
-    { label: 'Return', value: returnValue },
+    ...(hasPublicDealAmount(deal.minCommitment)
+      ? [{ label: 'Min. commitment', value: formatCurrency(deal.minCommitment, deal.currencyCode, true) }]
+      : []),
+    ...(hasPublicDealReturn(deal.returnMetricType, deal.targetIrr, deal.moicTarget, deal.returnDisplay)
+      ? [{ label: 'Return', value: returnValue }]
+      : []),
     ...(deal.returnMetricType === 'irr' && deal.moicTarget > 0
       ? [{ label: 'Target MOIC', value: `${deal.moicTarget}x` }]
       : []),
-    { label: 'Close date', value: formatDate(deal.closeDate, 'long') },
-    { label: 'Vintage', value: deal.vintage.toString() },
-    { label: 'Geography', value: deal.geography },
+    ...(deal.closeDate ? [{ label: 'Close date', value: formatDate(deal.closeDate, 'long') }] : []),
+    ...(deal.vintage > 0 ? [{ label: 'Vintage', value: deal.vintage.toString() }] : []),
+    ...(deal.geography ? [{ label: 'Geography', value: deal.geography }] : []),
     ...(deal.holdingPeriodYears
       ? [{ label: 'Holding period', value: `~${deal.holdingPeriodYears} years` }]
       : []),
@@ -222,67 +139,54 @@ export default function DealDetailPage() {
         </div>
 
         <aside className="rounded-[4px] border border-border bg-surface p-6">
-          <DealProgressAside deal={deal} />
-          <div className="divider my-5" />
-          <div className="space-y-3 text-[13px]">
-            {metricRows.map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between gap-4">
-                <span className="text-slate">{label}</span>
-                <span className="font-mono-data text-right font-medium text-ink">{value}</span>
-              </div>
-            ))}
-          </div>
-          <div className="divider my-5" />
-          <div className="flex flex-col gap-2">
-            <Button
-              className="w-full"
-              loading={submittingRequest === 'express_interest'}
-              disabled={submittingRequest !== null || submittedRequestTypes.has('express_interest')}
-              onClick={() => handleDealRequest('express_interest')}
-            >
-              {submittedRequestTypes.has('express_interest') ? 'Interest submitted' : 'Express interest'}
-            </Button>
-            <Button
-              variant="secondary"
-              className="w-full"
-              loading={submittingRequest === 'request_documents'}
-              disabled={submittingRequest !== null || submittedRequestTypes.has('request_documents')}
-              onClick={() => handleDealRequest('request_documents')}
-            >
-              {submittedRequestTypes.has('request_documents')
-                ? 'Materials requested'
-                : 'Request materials'}
-            </Button>
-          </div>
-          {!user ? (
-            <p className="mt-3 text-center text-[11px] text-slate">Sign in to express interest.</p>
+          {showProgress ? <DealProgressAside deal={deal} /> : null}
+          {showProgress && metricRows.length > 0 ? <div className="divider my-5" /> : null}
+          {metricRows.length > 0 ? (
+            <div className="space-y-3 text-[13px]">
+              {metricRows.map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between gap-4">
+                  <span className="text-slate">{label}</span>
+                  <span className="font-mono-data text-right font-medium text-ink">{value}</span>
+                </div>
+              ))}
+            </div>
           ) : null}
-          {requestSuccess ? <p className="mt-3 text-center text-[11px] text-ledger">{requestSuccess}</p> : null}
+          {showProgress || metricRows.length > 0 ? <div className="divider my-5" /> : null}
+          <a
+            href={dataRoomMailto(deal.name)}
+            className="inline-flex h-11 w-full select-none items-center justify-center gap-2 rounded-pier-md border border-ink bg-ink px-5 text-[14px] font-medium text-parchment transition-colors duration-150 hover:bg-ink/90"
+          >
+            Request data room
+          </a>
           {requestError ? <p className="mt-3 text-center text-[11px] text-danger">{requestError}</p> : null}
         </aside>
       </div>
 
-      <section className="mb-10">
-        <div className="mb-4 flex items-center gap-4">
-          <p className="eyebrow">Why Pier selected this</p>
-          <div className="divider flex-1" />
-        </div>
-        <p className="max-w-3xl text-[15px] leading-relaxed text-ink/80">{deal.whyPierSelected}</p>
-      </section>
+      {deal.whyPierSelected ? (
+        <section className="mb-10">
+          <div className="mb-4 flex items-center gap-4">
+            <p className="eyebrow">Why Pier selected this</p>
+            <div className="divider flex-1" />
+          </div>
+          <p className="max-w-3xl text-[15px] leading-relaxed text-ink/80">{deal.whyPierSelected}</p>
+        </section>
+      ) : null}
 
-      <section className="mb-10">
-        <div className="mb-4 flex items-center gap-4">
-          <p className="eyebrow">Focus sectors</p>
-          <div className="divider flex-1" />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {deal.sectors.map((sector) => (
-            <span key={sector} className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-[13px] text-ink">
-              {sector}
-            </span>
-          ))}
-        </div>
-      </section>
+      {deal.sectors.length > 0 ? (
+        <section className="mb-10">
+          <div className="mb-4 flex items-center gap-4">
+            <p className="eyebrow">Focus sectors</p>
+            <div className="divider flex-1" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {deal.sectors.map((sector) => (
+              <span key={sector} className="rounded-[2px] border border-border bg-surface px-3 py-1.5 text-[13px] text-ink">
+                {sector}
+              </span>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {deal.eligibleInvestorRequirements || deal.disclaimer ? (
         <section className="mb-10">
@@ -307,17 +211,12 @@ export default function DealDetailPage() {
         </section>
       ) : null}
 
-      <section className="mb-10">
-        <div className="mb-4 flex items-center gap-4">
-          <p className="eyebrow">Documents</p>
-          <div className="divider flex-1" />
-        </div>
-        {deal.documents.length === 0 ? (
-          <EmptyState
-            title="No documents available"
-            description="Documents are locked until the Pier team approves your request for materials."
-          />
-        ) : (
+      {deal.documents.length > 0 ? (
+        <section className="mb-10">
+          <div className="mb-4 flex items-center gap-4">
+            <p className="eyebrow">Documents</p>
+            <div className="divider flex-1" />
+          </div>
           <div className="grid max-w-3xl gap-3 md:grid-cols-3">
             {deal.documents.map((document) => (
               <button
@@ -330,28 +229,30 @@ export default function DealDetailPage() {
                 <div>
                   <p className="eyebrow mb-1 text-parchment/60">{document.type}</p>
                   <p className="text-[13px] font-medium text-parchment">{document.label}</p>
-                  <p className="mt-0.5 text-[11px] text-parchment/40">{document.size}</p>
+                  <p className="mt-0.5 text-[11px] text-parchment/40">
+                    {document.externalUrl ? 'External link' : document.size}
+                  </p>
                 </div>
                 {openingDocumentId === document.id ? (
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-gilt border-t-transparent" />
+                ) : document.externalUrl ? (
+                  <ExternalLink className="h-4 w-4 text-gilt opacity-60" />
                 ) : (
                   <Download className="h-4 w-4 text-gilt opacity-60" />
                 )}
               </button>
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      ) : null}
 
-      <section className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div>
-          <div className="mb-4 flex items-center gap-4">
-            <p className="eyebrow">Key contacts</p>
-            <div className="divider flex-1" />
-          </div>
-          {deal.contacts.length === 0 ? (
-            <EmptyState title="No contacts listed." description="Key contacts will appear when added to the deal." />
-          ) : (
+      <section className={deal.contacts.length > 0 ? 'grid gap-6 lg:grid-cols-[1fr_320px]' : undefined}>
+        {deal.contacts.length > 0 ? (
+          <div>
+            <div className="mb-4 flex items-center gap-4">
+              <p className="eyebrow">Key contacts</p>
+              <div className="divider flex-1" />
+            </div>
             <div className="grid gap-3 md:grid-cols-2">
               {deal.contacts.map((contact) => (
                 <div key={`${contact.email}-${contact.name}`} className="rounded-[4px] border border-border bg-surface p-4">
@@ -363,19 +264,21 @@ export default function DealDetailPage() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        ) : null}
 
-        <div>
-          <div className="mb-4 flex items-center gap-4">
-            <p className="eyebrow">Location</p>
-            <div className="divider flex-1" />
+        {deal.geography ? (
+          <div>
+            <div className="mb-4 flex items-center gap-4">
+              <p className="eyebrow">Location</p>
+              <div className="divider flex-1" />
+            </div>
+            <div className="flex items-center gap-2 text-[14px] text-slate">
+              <MapPin className="h-4 w-4 stroke-[1.25]" />
+              {deal.geography}
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-[14px] text-slate">
-            <MapPin className="h-4 w-4 stroke-[1.25]" />
-            {deal.geography}
-          </div>
-        </div>
+        ) : null}
       </section>
     </div>
   );

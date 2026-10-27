@@ -79,6 +79,10 @@ export function truncate(str: string, length: number): string {
   return str.length <= length ? str : `${str.slice(0, length).trimEnd()}...`;
 }
 
+export function hasPublicDealAmount(amount: number | null | undefined): boolean {
+  return typeof amount === 'number' && Number.isFinite(amount) && amount > 0;
+}
+
 export function formatDealReturn(
   metricType: 'irr' | 'moic' | 'yield' | 'custom' | 'none',
   targetIrr: number,
@@ -94,6 +98,15 @@ export function formatDealReturn(
   if (targetIrr > 0) return `${targetIrr}%`;
   if (moicTarget > 0) return `${moicTarget.toFixed(1)}x`;
   return '—';
+}
+
+export function hasPublicDealReturn(
+  metricType: 'irr' | 'moic' | 'yield' | 'custom' | 'none',
+  targetIrr: number,
+  moicTarget: number,
+  returnDisplay: string
+): boolean {
+  return formatDealReturn(metricType, targetIrr, moicTarget, returnDisplay) !== '—';
 }
 
 export const GUEST_ONLY_LOCATION_COPY = 'Location shared with confirmed guests';
@@ -126,6 +139,7 @@ function getEventTimeZone(city?: string): EventTimeZone | undefined {
     nashville: { timeZone: 'America/Chicago', label: 'CT' },
     'new york': { timeZone: 'America/New_York', label: 'ET' },
     'new york city': { timeZone: 'America/New_York', label: 'ET' },
+    london: { timeZone: 'Europe/London' },
     'san francisco': { timeZone: 'America/Los_Angeles', label: 'PT' },
     'shelter island': { timeZone: 'America/New_York', label: 'ET' },
   };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FeaturedPartnerCard, PartnerDetailModal, PartnerListRow } from '../../components/capital-markets/PartnerCards';
 import { PageFrame } from '../../components/layout/PageFrame';
 import { Chip } from '../../components/ui/Chip';
@@ -7,7 +7,8 @@ import {
   type CapitalPartner,
   type PartnerCategory,
 } from '../../lib/api/capitalMarkets';
-import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
+import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
+import { useCapitalLoad } from '../../lib/useCapitalLoad';
 import { partnerCategoryLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
@@ -30,44 +31,17 @@ const categorySortOrder: PartnerCategory[] = [
 ];
 
 export default function PartnersPage() {
-  const [partners, setPartners] = useState<CapitalPartner[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<'all' | PartnerCategory>('all');
   const [search, setSearch] = useState('');
-  const [reloadNonce, setReloadNonce] = useState(0);
   const [selectedPartner, setSelectedPartner] = useState<CapitalPartner | null>(null);
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadPartners() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const partnerData = await withTimeout(
-          getCapitalPartners(),
-          CAPITAL_SUPABASE_TIMEOUT_MS,
-          'partners'
-        );
-
-        if (!ignore) {
-          setPartners(partnerData);
-        }
-      } catch (err) {
-        if (!ignore) setError(describeCapitalLoadFailure(err, 'Unable to load partners.'));
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
-
-    loadPartners();
-
-    return () => {
-      ignore = true;
-    };
-  }, [reloadNonce]);
+  const loaded = useCapitalLoad(
+    'partners',
+    () => withTimeout(getCapitalPartners(), CAPITAL_SUPABASE_TIMEOUT_MS, 'partners'),
+    'Unable to load partners.'
+  );
+  const partners = useMemo(() => loaded.data ?? [], [loaded.data]);
+  const loading = loaded.loading;
+  const error = loaded.error;
 
   const query = search.trim().toLowerCase();
 
@@ -117,8 +91,8 @@ export default function PartnersPage() {
         <div className="gilt-rule mt-6 w-12" />
       </div>
 
-      {loading ? <LoadingState label="Loading partners..." /> : null}
-      {error ? <ErrorState message={error} onRetry={() => setReloadNonce((n) => n + 1)} /> : null}
+      {loading ? <LoadingState label="Loading partners" variant="cards" /> : null}
+      {error ? <ErrorState message={error} onRetry={loaded.reload} /> : null}
       {!loading && !error ? (
         <>
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

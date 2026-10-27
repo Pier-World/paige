@@ -32,6 +32,9 @@ test('billing leftovers and aliases are not Pier+', () => {
 });
 
 test('badge copy follows membership_level, not role', () => {
-  assert.equal(membershipBadgeLabel({ membership_level: 'Standard', role: 'admin' }), 'Standard');
-  assert.equal(membershipBadgeLabel({ membership_level: 'Premium', role: 'member' }), 'Pier+');
+  assert.equal(membershipBadgeLabel(null), 'Community');
+  assert.equal(membershipBadgeLabel({ membership_level: 'Standard', role: 'admin' }), 'Community');
+  assert.equal(membershipBadgeLabel({ membership_level: 'Premium', role: 'member' }), 'Member');
+  assert.equal(membershipBadgeLabel({ membership_level: 'Executive', role: 'member' }), 'Member');
+  assert.equal(membershipBadgeLabel({ membership_level: 'Founding Member', role: 'member' }), 'Member');
 });

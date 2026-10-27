@@ -41,6 +41,6 @@ export function isStaffAdmin(user: PierPlusUserLike): boolean {
 }
 
 export function membershipBadgeLabel(user: PierPlusUserLike): string {
-  if (!user) return 'Standard';
-  return isPierPlus(user) ? 'Pier+' : 'Standard';
+  if (!user) return 'Community';
+  return isPierPlus(user) ? 'Member' : 'Community';
 }

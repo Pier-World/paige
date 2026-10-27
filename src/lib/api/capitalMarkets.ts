@@ -89,6 +89,7 @@ export interface CapitalEvent {
   registrationUrl: string;
   registrationLabel: string;
   recapUrl: string;
+  coverImageUrl: string;
 }
 
 export interface CapitalPartner {
@@ -341,7 +342,28 @@ type CapitalEventRowExtended = CapitalEventRow & {
   host_name?: string | null;
   location_is_public?: boolean;
   event_type: EventType | 'tour';
+  cover_image_url?: string | null;
+  luma_event_id?: string | null;
 };
+
+export const PAST_EVENT_LOOKBACK_MS = 90 * 24 * 60 * 60 * 1000;
+
+export function isUpcomingCapitalEvent(
+  event: Pick<CapitalEvent, 'date' | 'endDate'>,
+  now = Date.now()
+): boolean {
+  const end = new Date(event.endDate || event.date).getTime();
+  return Number.isFinite(end) && end >= now;
+}
+
+export function isRecentCapitalEvent(
+  event: Pick<CapitalEvent, 'date' | 'endDate'>,
+  now = Date.now()
+): boolean {
+  if (isUpcomingCapitalEvent(event, now)) return false;
+  const start = new Date(event.date).getTime();
+  return Number.isFinite(start) && start >= now - PAST_EVENT_LOOKBACK_MS;
+}
 
 type CapitalPartnerRowExtended = CapitalPartnerRow & {
   location?: string | null;
@@ -382,7 +404,7 @@ function mapDeal(row: CapitalDealRowExtended, documents: CapitalDealDocumentRow[
       (row.target_size > 0 ? Math.min(100, Math.round((row.raised_size / row.target_size) * 100)) : 0),
     minCommitment: row.min_commitment ?? 0,
     currencyCode: row.currency_code,
-    closeDate: row.close_date ?? row.created_at,
+    closeDate: row.close_date ?? '',
     publishedAt: row.published_at,
     targetIrr: row.target_irr ?? 0,
     moicTarget: row.moic_target ?? 0,
@@ -390,7 +412,7 @@ function mapDeal(row: CapitalDealRowExtended, documents: CapitalDealDocumentRow[
     returnDisplay: row.return_display ?? '',
     holdingPeriodYears: row.holding_period_years ?? null,
     liquidityNote: row.liquidity_note ?? '',
-    vintage: row.vintage ?? new Date(row.created_at).getFullYear(),
+    vintage: row.vintage ?? 0,
     geography: row.geography ?? 'Global',
     sectors: row.sectors,
     description: row.description,
@@ -428,11 +450,15 @@ function mapEvent(row: CapitalEventRowExtended): CapitalEvent {
     registeredCount: row.registered_count,
     registered: false,
     description: row.description,
-    upcoming: row.status === 'upcoming',
+    upcoming: isUpcomingCapitalEvent({
+      date: row.starts_at,
+      endDate: row.ends_at ?? row.starts_at,
+    }),
     featured: row.featured,
     registrationUrl: row.external_registration_url ?? '',
     registrationLabel: (row.external_registration_label ?? '').trim() || 'Register',
     recapUrl: row.recap_url ?? '',
+    coverImageUrl: row.cover_image_url ?? '',
   };
 }
 
@@ -885,7 +911,10 @@ export async function getCapitalEvents(): Promise<CapitalEvent[]> {
 
   if (error) throw new Error(`Unable to load capital events: ${error.message}`);
 
-  return (data ?? []).map(mapEvent);
+  const now = Date.now();
+  return (data ?? [])
+    .map(mapEvent)
+    .filter((event) => isUpcomingCapitalEvent(event, now) || isRecentCapitalEvent(event, now));
 }
 
 export async function getCapitalEventsForMember(memberId: string): Promise<CapitalEvent[]> {

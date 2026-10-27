@@ -1,5 +1,5 @@
 import type { CapitalDeal } from '../../lib/api/capitalMarkets';
-import { formatDealReturn } from '../../lib/utils';
+import { formatDealReturn, hasPublicDealReturn } from '../../lib/utils';
 
 type DealReturnCellProps = {
   deal: Pick<
@@ -11,6 +11,17 @@ type DealReturnCellProps = {
 };
 
 export function DealReturnCell({ deal, className = '', label = false }: DealReturnCellProps) {
+  if (
+    !hasPublicDealReturn(
+      deal.returnMetricType,
+      deal.targetIrr,
+      deal.moicTarget,
+      deal.returnDisplay
+    )
+  ) {
+    return null;
+  }
+
   const value = formatDealReturn(
     deal.returnMetricType,
     deal.targetIrr,

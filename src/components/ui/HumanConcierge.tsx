@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MessageCircle, Mail, MessageSquare, X, ArrowRight, Clock, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIntercom } from '../../hooks/useIntercom';
+import { CONCIERGE_EMAIL } from '../../lib/conciergeMailto';
 
 interface HumanConciergeProps {
   membershipLevel: string;
@@ -20,8 +21,6 @@ interface ContactChannel {
 const WHATSAPP_PHONE = '19179354877';
 const WHATSAPP_LINK = `https://wa.me/${WHATSAPP_PHONE}`;
 const WHATSAPP_API_LINK = `https://api.whatsapp.com/send/?phone=${WHATSAPP_PHONE}&text&type=phone_number&app_absent=0`;
-const CONCIERGE_EMAIL = 'concierge@joinpier.com';
-
 // Check if user has access to human concierge
 const hasConciergeAccess = (level: string): boolean => {
   return ['Premium', 'Executive', 'Founding Member'].includes(level);

@@ -7,6 +7,7 @@ import { ScrollToTop } from './components/layout/ScrollToTop';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationGuard } from './components/NavigationGuard';
 import { CapitalMarketsLayout } from './components/layout/CapitalMarketsLayout';
+import { AuthLoading } from './pages/auth/AuthShell';
 import { AnonymizedDealPreview } from './components/capital-markets/AnonymizedDealPreview';
 import { PierPlusGate } from './components/capital-markets/PierPlusGate';
 import { importWithChunkReloadOnce } from './lib/chunkLoadRetry';
@@ -49,12 +50,6 @@ const CapitalProfilePage = lazy(() =>
  * - Legacy marketing shell (`HomePage`, `MembershipsPage`, `ExperiencesPage`) removed; capital markets routes are canonical.
  */
 
-const LoadingSpinner = () => (
-  <div className="flex min-h-screen items-center justify-center bg-parchment">
-    <div className="rounded-pier border border-border bg-surface p-6 text-[14px] text-slate">Loading…</div>
-  </div>
-);
-
 // Protected route component - redirects to onboarding if not completed
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
@@ -63,7 +58,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   // Always wait for auth to finish loading before making routing decisions
   if (isLoading) {
-    return <LoadingSpinner />;
+    return <AuthLoading />;
   }
 
   if (!user) {
@@ -83,7 +78,7 @@ const OnboardingRoute: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const { user, isLoading } = useAuth();
   
   if (isLoading) {
-    return <LoadingSpinner />;
+    return <AuthLoading />;
   }
   
   if (!user) {
@@ -105,7 +100,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   // Always wait for auth to finish loading before making routing decisions
   if (isLoading) {
-    return <LoadingSpinner />;
+    return <AuthLoading />;
   }
 
   // Only redirect if we're sure user is authenticated (after loading is complete)
@@ -116,10 +111,10 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
-const CapitalMarketsRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const CapitalMarketsRoute = () => {
   return (
     <ProtectedRoute>
-      <CapitalMarketsLayout>{children}</CapitalMarketsLayout>
+      <CapitalMarketsLayout />
     </ProtectedRoute>
   );
 };
@@ -134,7 +129,7 @@ function App() {
               <ScrollToTop />
               <NavigationGuard />
               <ErrorBoundary>
-                <Suspense fallback={<LoadingSpinner />}>
+                <Suspense fallback={<AuthLoading />}>
                   <Routes>
             {/* Public routes with redirect if authenticated */}
             <Route
@@ -171,19 +166,12 @@ function App() {
               }
             />
 
-            {/* Capital Markets Routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <CapitalMarketsRoute>
-                  <CapitalMarketsDashboardPage />
-                </CapitalMarketsRoute>
-              }
-            />
-            <Route
-              path="/deals"
-              element={
-                <CapitalMarketsRoute>
+            {/* Capital Markets Routes. The shell stays mounted so page changes don't flash the sidebar. */}
+            <Route element={<CapitalMarketsRoute />}>
+              <Route path="/dashboard" element={<CapitalMarketsDashboardPage />} />
+              <Route
+                path="/deals"
+                element={
                   <PierPlusGate
                     title="Deal Flow is included with Pier+"
                     description="Curated funds, co-investments, and SPVs are available to Pier+ members. Request an upgrade and the Pier team will follow up."
@@ -191,13 +179,11 @@ function App() {
                   >
                     <CapitalMarketsDealsPage />
                   </PierPlusGate>
-                </CapitalMarketsRoute>
-              }
-            />
-            <Route
-              path="/deals/:id"
-              element={
-                <CapitalMarketsRoute>
+                }
+              />
+              <Route
+                path="/deals/:id"
+                element={
                   <PierPlusGate
                     title="Deal Flow is included with Pier+"
                     description="Opportunity details and materials are available to Pier+ members. Request an upgrade and the Pier team will follow up."
@@ -205,25 +191,12 @@ function App() {
                   >
                     <CapitalMarketsDealDetailPage />
                   </PierPlusGate>
-                </CapitalMarketsRoute>
-              }
-            />
-            <Route
-              path="/events"
-              element={
-                <CapitalMarketsRoute>
-                  <CapitalMarketsEventsPage />
-                </CapitalMarketsRoute>
-              }
-            />
-            <Route
-              path="/partners"
-              element={
-                <CapitalMarketsRoute>
-                  <CapitalMarketsPartnersPage />
-                </CapitalMarketsRoute>
-              }
-            />
+                }
+              />
+              <Route path="/events" element={<CapitalMarketsEventsPage />} />
+              <Route path="/partners" element={<CapitalMarketsPartnersPage />} />
+              <Route path="/profile" element={<CapitalProfilePage />} />
+            </Route>
             <Route path="/concierge" element={<Navigate to="/dashboard" replace />} />
             <Route path="/members" element={<Navigate to="/dashboard" replace />} />
 
@@ -255,14 +228,6 @@ function App() {
             />
             <Route path="/memberships" element={<Navigate to="/dashboard" replace />} />
             <Route path="/experiences" element={<Navigate to="/dashboard" replace />} />
-            <Route
-              path="/profile"
-              element={
-                <CapitalMarketsRoute>
-                  <CapitalProfilePage />
-                </CapitalMarketsRoute>
-              }
-            />
             <Route path="/preferences/all" element={<Navigate to="/profile" replace />} />
             <Route path="/conversation/:taskId?" element={<Navigate to="/dashboard" replace />} />
 
