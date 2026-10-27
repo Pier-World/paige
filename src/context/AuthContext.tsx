@@ -209,14 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         new Promise<null>((resolve) => setTimeout(() => resolve(null), PROFILE_FETCH_TIMEOUT_MS)),
       ]);
       if (!mounted) return;
-      if (profile) {
-        setUser(profile);
-        setLoadingFalse();
-        return;
-      }
-      const retry = await fetchUserProfile(userId).catch(() => null);
-      if (!mounted) return;
-      if (retry) setUser(retry);
+      if (profile) setUser(profile);
       setLoadingFalse();
     };
 
@@ -234,7 +227,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (mounted) setLoadingFalse();
     }, RESTORE_CEILING_MS);
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Keep this callback synchronous. Awaiting Supabase calls here holds the
+    // auth lock, so verifyOtp/getSession never return (login spinner, reload splash).
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
 
       if (event === 'SIGNED_OUT') {
@@ -245,7 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
-        await applySessionUser(session.user.id);
+        void applySessionUser(session.user.id);
       }
     });
     authSubscription = listener.subscription;
