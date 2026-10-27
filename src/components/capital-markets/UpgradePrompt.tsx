@@ -1,12 +1,8 @@
 import { Lock, X } from 'lucide-react';
 import { useIntercom } from '../../hooks/useIntercom';
-import { conciergeMailto } from '../../lib/conciergeMailto';
 import { cn } from '../../lib/utils';
 
-export const PIER_PLUS_UPGRADE_MAILTO = conciergeMailto(
-  'Pier+ upgrade request',
-  'I would like to request a Pier+ upgrade.'
-);
+export const PIER_PLUS_CHECKOUT_URL = 'https://buy.stripe.com/7sY14p6Ep0vFdShfvZ1wY05';
 
 type UpgradePromptProps = {
   open?: boolean;
@@ -22,16 +18,16 @@ export function UpgradePrompt({
   onClose,
   variant = 'modal',
   title = 'Pier+ members only',
-  description = 'Deal Flow and the member directory are included with Pier+. Request an upgrade and the Pier team will follow up.',
+  description = 'Deal Flow and the member directory are included with Pier+.',
   className,
 }: UpgradePromptProps) {
   const { show, showNewMessage, trackEvent } = useIntercom();
 
   if (!open) return null;
 
-  function logCta(channel: 'mailto' | 'intercom') {
+  function logCta(channel: 'stripe' | 'intercom') {
     try {
-      trackEvent('upgrade_request_click', { channel, copy: 'Pier+' });
+      trackEvent('upgrade_request_click', { channel, copy: 'Join Pier+' });
     } catch {
       // Intercom may not be booted (logged-out welcome, etc.)
     }
@@ -47,11 +43,13 @@ export function UpgradePrompt({
   const actions = (
     <div className="mt-6 flex flex-col gap-2 sm:flex-row">
       <a
-        href={PIER_PLUS_UPGRADE_MAILTO}
-        onClick={() => logCta('mailto')}
+        href={PIER_PLUS_CHECKOUT_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => logCta('stripe')}
         className="flex h-9 flex-1 items-center justify-center rounded-[6px] border border-ink bg-ink text-[12px] text-parchment hover:bg-ink/90"
       >
-        Request upgrade
+        Join Pier+
       </a>
       <button
         type="button"

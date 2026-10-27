@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { UpgradePrompt } from '../../components/capital-markets/UpgradePrompt';
 import { PageFrame } from '../../components/layout/PageFrame';
+import { Chip } from '../../components/ui/Chip';
 import { useAuth } from '../../context/AuthContext';
 import { isPierPlus } from '../../lib/membership';
 import {
@@ -72,6 +73,93 @@ function displayBool(value: boolean | undefined) {
   if (value === true) return 'Yes';
   if (value === false) return 'No';
   return 'Not provided';
+}
+
+const PREFERRED_CITIES = ['New York', 'San Francisco', 'Miami', 'London', 'Hamptons'] as const;
+
+const EVENT_INTERESTS = ['Dinner', 'Summit', 'Roundtable', 'Experience', 'Webinar'] as const;
+
+function splitPreferenceList(value?: string) {
+  if (!value?.trim()) return [];
+  return value
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function matchesPreferenceOption(value: string, option: string) {
+  const normalized = value.trim().toLowerCase();
+  const target = option.toLowerCase();
+  return normalized === target || normalized === `${target}s` || normalized === `${target}es`;
+}
+
+function selectedPreferences(value: string | undefined, options: readonly string[]) {
+  const parts = splitPreferenceList(value);
+  const known = options.filter((option) => parts.some((part) => matchesPreferenceOption(part, option)));
+  const custom = parts.filter((part) => !options.some((option) => matchesPreferenceOption(part, option)));
+  return [...known, ...custom];
+}
+
+function PreferenceChips({
+  label,
+  options,
+  value,
+  editing,
+  onChange,
+  className,
+}: {
+  label: string;
+  options: readonly string[];
+  value?: string;
+  editing: boolean;
+  onChange?: (value: string) => void;
+  className?: string;
+}) {
+  const selected = selectedPreferences(value, options);
+
+  function toggle(option: string) {
+    const next = selected.includes(option)
+      ? selected.filter((item) => item !== option)
+      : [...selected, option];
+    onChange?.(next.join(', '));
+  }
+
+  return (
+    <div className={className}>
+      <p className="eyebrow mb-2">{label}</p>
+      {editing ? (
+        <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
+          {options.map((option) => (
+            <Chip
+              key={option}
+              active={selected.includes(option)}
+              aria-pressed={selected.includes(option)}
+              onClick={() => toggle(option)}
+            >
+              {option}
+            </Chip>
+          ))}
+          {selected
+            .filter((item) => !options.includes(item))
+            .map((item) => (
+              <Chip key={item} active aria-pressed onClick={() => toggle(item)}>
+                {item}
+              </Chip>
+            ))}
+        </div>
+      ) : selected.length === 0 ? (
+        <p className="text-[14px] leading-snug text-slate">Not provided</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {selected.map((item) => (
+            <span key={item} className="chip chip-active">
+              {item}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function CapitalProfilePage() {
@@ -186,9 +274,9 @@ export default function CapitalProfilePage() {
   }, [user?.id, pierPlus]);
 
   useEffect(() => {
-    if (!user?.id || loading) return;
+    if (!user?.id || loading || editingSection) return;
     hydrateFromUser(capitalProfile);
-  }, [user, capitalProfile, loading]);
+  }, [user, capitalProfile, loading, editingSection]);
 
   useEffect(() => {
     if (loading) return;
@@ -613,17 +701,19 @@ export default function CapitalProfilePage() {
             >
               {editingSection === 'events' ? (
                 <div className="grid gap-4">
-                  <ProfileInput
+                  <PreferenceChips
                     label="Preferred cities"
-                    value={eventPrefs.preferred_cities || ''}
+                    options={PREFERRED_CITIES}
+                    value={eventPrefs.preferred_cities}
+                    editing
                     onChange={(v) => setEventPrefs((p) => ({ ...p, preferred_cities: v }))}
-                    placeholder="New York, Miami, Austin..."
                   />
-                  <ProfileInput
+                  <PreferenceChips
                     label="Event interests"
-                    value={eventPrefs.interests || eventPrefs.formats || ''}
+                    options={EVENT_INTERESTS}
+                    value={eventPrefs.interests || eventPrefs.formats}
+                    editing
                     onChange={(v) => setEventPrefs((p) => ({ ...p, interests: v, formats: v }))}
-                    placeholder="Dinners, summits, wine tastings..."
                   />
                   <ProfileInput
                     label="Dietary / hospitality notes"
@@ -650,10 +740,18 @@ export default function CapitalProfilePage() {
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <ProfileField label="Preferred cities" value={eventPrefs.preferred_cities} className="sm:col-span-2" />
-                  <ProfileField
+                  <PreferenceChips
+                    label="Preferred cities"
+                    options={PREFERRED_CITIES}
+                    value={eventPrefs.preferred_cities}
+                    editing={false}
+                    className="sm:col-span-2"
+                  />
+                  <PreferenceChips
                     label="Event interests"
+                    options={EVENT_INTERESTS}
                     value={eventPrefs.interests || eventPrefs.formats}
+                    editing={false}
                     className="sm:col-span-2"
                   />
                   <ProfileField label="Dietary / hospitality notes" value={eventPrefs.dietary} className="sm:col-span-2" />
