@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { isRetryableOtpFailure, SIGN_IN_CODE_TYPES, type EmailLinkType } from '../lib/authEmailLink';
 import {
   AuthUserFacingError,
   mapAuthErrorMessage,
   shouldClearLocalSessionOnInitError,
 } from '../lib/authErrors';
 import { supabase } from '../lib/supabase';
+import { ANALYTICS_EVENTS, captureAnalytics } from '../lib/analytics';
 import { isOnboardingMarkedComplete } from '../lib/capitalOnboarding';
 import type { User } from '../types';
 
@@ -18,6 +20,13 @@ interface AuthContextType {
   }>;
   sendMagicLink: (email: string) => Promise<{ error: Error | null }>;
   verifyMagicLinkCode: (email: string, token: string) => Promise<{
+    error: Error | null;
+    data: User | null;
+  }>;
+  verifyEmailTokenHash: (
+    tokenHash: string,
+    type: EmailLinkType
+  ) => Promise<{
     error: Error | null;
     data: User | null;
   }>;
@@ -372,6 +381,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       setUser(profile);
+      captureAnalytics(ANALYTICS_EVENTS.login, { method: 'password' });
       return { data: profile, error: null };
     } catch (error) {
       console.error('Sign in error:', error);
@@ -416,22 +426,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     token: string
   ): Promise<{ error: Error | null; data: User | null }> => {
     try {
+      let lastVerifyError: { message: string; code?: string } | null = null;
+      for (const type of SIGN_IN_CODE_TYPES) {
+        const { data, error: verifyError } = await supabase.auth.verifyOtp({
+          email,
+          token,
+          type,
+        });
+        if (!verifyError && data?.user) {
+          const profile = await fetchUserProfile(data.user.id);
+          if (!profile) {
+            return {
+              data: null,
+              error: new AuthUserFacingError(mapAuthErrorMessage(undefined, 'profile')),
+            };
+          }
+          setUser(profile);
+          captureAnalytics(ANALYTICS_EVENTS.login, { method: 'code' });
+          return { data: profile, error: null };
+        }
+        const errorCode =
+          verifyError && typeof (verifyError as { code?: string }).code === 'string'
+            ? (verifyError as { code?: string }).code
+            : undefined;
+        lastVerifyError = {
+          message: verifyError?.message || 'Verification failed. Please try again.',
+          code: errorCode,
+        };
+        if (!verifyError || !isRetryableOtpFailure(verifyError.message, errorCode)) {
+          break;
+        }
+      }
+      return {
+        data: null,
+        error: new AuthUserFacingError(
+          mapAuthErrorMessage(lastVerifyError?.message, 'otp_verify', {
+            errorCode: lastVerifyError?.code,
+          })
+        ),
+      };
+    } catch (err) {
+      console.error('Verify OTP error:', err);
+      return {
+        data: null,
+        error: new AuthUserFacingError(
+          mapAuthErrorMessage(err instanceof Error ? err.message : undefined, 'otp_verify', {
+            errorCode:
+              err instanceof Error && typeof (err as { code?: string }).code === 'string'
+                ? (err as { code?: string }).code
+                : undefined,
+          })
+        ),
+      };
+    }
+  };
+
+  const verifyEmailTokenHash = async (
+    tokenHash: string,
+    type: EmailLinkType
+  ): Promise<{ error: Error | null; data: User | null }> => {
+    try {
       const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: 'email',
+        token_hash: tokenHash,
+        type,
       });
       if (verifyError) {
-        const display = mapAuthErrorMessage(verifyError.message, 'otp_verify', {
-          errorCode:
-            typeof (verifyError as { code?: string }).code === 'string'
-              ? (verifyError as { code?: string }).code
-              : undefined,
-        });
         return {
           data: null,
-          error: new AuthUserFacingError(display),
+          error: new AuthUserFacingError(
+            mapAuthErrorMessage(verifyError.message, 'otp_verify', {
+              errorCode:
+                typeof (verifyError as { code?: string }).code === 'string'
+                  ? (verifyError as { code?: string }).code
+                  : undefined,
+            })
+          ),
         };
+      }
+      if (type === 'recovery') {
+        return { data: null, error: null };
       }
       if (!data?.user) {
         return {
@@ -450,9 +523,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         };
       }
       setUser(profile);
+      captureAnalytics(ANALYTICS_EVENTS.login, { method: 'email_link' });
       return { data: profile, error: null };
     } catch (err) {
-      console.error('Verify OTP error:', err);
+      console.error('Verify email link error:', err);
       return {
         data: null,
         error: new AuthUserFacingError(
@@ -677,6 +751,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     signIn,
     sendMagicLink,
     verifyMagicLinkCode,
+    verifyEmailTokenHash,
     signOut,
     resetPassword,
     updateProfile,

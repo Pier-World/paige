@@ -67,7 +67,7 @@
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td align="center" style="padding-bottom: 24px;">
-                    <a href="{{ .ConfirmationURL }}" target="_blank" style="display: inline-block; background-color: #c9b896; color: #0a0a0a; font-size: 13px; font-weight: 500; text-decoration: none; padding: 14px 32px; border-radius: 8px; letter-spacing: 0.05em; text-transform: uppercase;">
+                    <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup" target="_blank" style="display: inline-block; background-color: #c9b896; color: #0a0a0a; font-size: 13px; font-weight: 500; text-decoration: none; padding: 14px 32px; border-radius: 8px; letter-spacing: 0.05em; text-transform: uppercase;">
                       Confirm Email
                     </a>
                   </td>
@@ -91,7 +91,7 @@
                       If the button doesn't work, copy and paste this link into your browser:
                     </p>
                     <p style="margin: 8px 0 0 0; font-size: 12px; color: #c9b896; word-break: break-all;">
-                      {{ .ConfirmationURL }}
+                      {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup
                     </p>
                   </td>
                 </tr>

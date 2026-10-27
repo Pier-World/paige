@@ -91,7 +91,7 @@ export function mapAuthErrorMessage(
 
   if (context === 'otp_verify') {
     if (m.includes('expired') || m.includes('has expired')) {
-      return { kind: 'plain', text: 'That code has expired. Request a new code and try again.' };
+      return { kind: 'plain', text: 'That code is no longer valid. Request a new code and try again.' };
     }
     if (
       m.includes('invalid') ||

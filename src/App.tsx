@@ -18,6 +18,7 @@ const WelcomePage = lazy(() => importWithChunkReloadOnce(() => import('./pages/W
 const LoginPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/LoginPage')));
 const ForgotPasswordPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ForgotPasswordPage')));
 const ResetPasswordPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ResetPasswordPage')));
+const AuthConfirmPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/AuthConfirmPage')));
 const NotFoundPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/NotFoundPage')));
 const OAuthCallback = lazy(() => importWithChunkReloadOnce(() => import('./pages/OAuthCallback')));
 const OnboardingPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/onboarding/OnboardingPage')));
@@ -150,6 +151,8 @@ function App() {
             />
             {/* Recovery links from email; must not use PublicRoute (would bounce authed session to /) */}
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            {/* Email links land here. Must not use PublicRoute, and must not verify on load. */}
+            <Route path="/auth/confirm" element={<AuthConfirmPage />} />
             <Route path="/auth/callback" element={<Navigate to="/dashboard" replace />} />
             <Route path="/welcome" element={<WelcomePage />} />
             
