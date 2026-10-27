@@ -17,6 +17,7 @@ export function OnboardingShell({
   hideFooter = false,
   skipLabel = 'Skip for now',
   skipHint,
+  skipInFooter = false,
 }: {
   stepIndex: number;
   totalSteps: number;
@@ -33,6 +34,7 @@ export function OnboardingShell({
   hideFooter?: boolean;
   skipLabel?: string;
   skipHint?: string;
+  skipInFooter?: boolean;
 }) {
   const progress = ((stepIndex + 1) / totalSteps) * 100;
 
@@ -43,7 +45,7 @@ export function OnboardingShell({
       </div>
 
       <div className="fixed right-6 top-5 z-50 flex flex-col items-end gap-2">
-        {onSkip ? (
+        {onSkip && !skipInFooter ? (
           <button
             type="button"
             onClick={onSkip}
@@ -63,7 +65,7 @@ export function OnboardingShell({
       </div>
 
       <div
-        className={`mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 pt-20 sm:px-8 ${hideFooter ? 'pb-16' : 'pb-32'}`}
+        className={`mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 pt-20 sm:px-8 ${hideFooter ? 'pb-16' : skipInFooter ? 'pb-48' : 'pb-32'}`}
       >
         <p className="eyebrow mb-6 text-slate">
           {String(stepIndex + 1).padStart(2, '0')} of {String(totalSteps).padStart(2, '0')}
@@ -81,23 +83,36 @@ export function OnboardingShell({
             ) : (
               <span />
             )}
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-col items-stretch gap-2 sm:items-end">
               {continueHint ? (
-                <p className="text-[12px] text-slate" role="status">
+                <p className="max-w-[220px] text-right text-[12px] text-slate sm:max-w-xs" role="status">
                   {continueHint}
                 </p>
               ) : null}
-              {hideContinue ? null : (
-                <Button
-                  type="button"
-                  onClick={onContinue}
-                  disabled={continueDisabled || busy}
-                  loading={busy}
-                  className="min-h-11 min-w-[140px]"
-                >
-                  {continueLabel}
-                </Button>
-              )}
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+                {skipInFooter && onSkip ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={onSkip}
+                    disabled={busy}
+                    className="min-h-11"
+                  >
+                    {busy ? 'Saving…' : skipLabel}
+                  </Button>
+                ) : null}
+                {hideContinue ? null : (
+                  <Button
+                    type="button"
+                    onClick={onContinue}
+                    disabled={continueDisabled || busy}
+                    loading={busy}
+                    className="min-h-11 min-w-[140px]"
+                  >
+                    {continueLabel}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

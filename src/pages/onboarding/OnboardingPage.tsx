@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { emptyAccreditationDraft, isAccreditationDraftComplete } from '../../lib/accreditation';
 import {
   buildOnboardingMemberPreferences,
   buildPersonalContext,
   clampOnboardingStep,
+  ONBOARDING_STEP_COUNT,
   onboardingDraftKey,
   parseOnboardingDraft,
   prefillOnboardingFromUser,
@@ -12,12 +14,11 @@ import {
 } from '../../lib/capitalOnboarding';
 import type { OnboardingData } from '../../types/onboarding';
 import { OnboardingShell } from './OnboardingShell';
+import { AccreditationStep } from './steps/AccreditationStep';
 import { IdentityStep } from './steps/IdentityStep';
 import { IntentStep } from './steps/IntentStep';
 import { PrivacyStep } from './steps/PrivacyStep';
 import { WelcomeStep } from './steps/WelcomeStep';
-
-const TOTAL_STEPS = 4;
 
 export default function OnboardingPage() {
   const { user, completeOnboarding } = useAuth();
@@ -82,31 +83,44 @@ export default function OnboardingPage() {
   };
 
   const skip = () => {
-    void finish(data, true);
+    void finish({ ...data, accreditation: emptyAccreditationDraft() }, true);
   };
 
   const next = () =>
-    setCurrentStep((prev) => clampOnboardingStep(Math.min(prev + 1, TOTAL_STEPS - 1), data.capitalRole));
+    setCurrentStep((prev) =>
+      clampOnboardingStep(Math.min(prev + 1, ONBOARDING_STEP_COUNT - 1), data.capitalRole)
+    );
   const back = () => setCurrentStep((prev) => Math.max(prev - 1, 0));
 
-  const continueDisabled = currentStep === 1 && !data.capitalRole;
+  const onAccreditationStep = currentStep === ONBOARDING_STEP_COUNT - 1;
+  const roleMissing = currentStep === 1 && !data.capitalRole;
+  const accreditationMissing = onAccreditationStep && !isAccreditationDraftComplete(data.accreditation);
+  const continueDisabled = roleMissing || accreditationMissing;
 
   return (
     <OnboardingShell
       stepIndex={currentStep}
-      totalSteps={TOTAL_STEPS}
+      totalSteps={ONBOARDING_STEP_COUNT}
       onBack={currentStep > 0 ? back : undefined}
-      onContinue={currentStep === TOTAL_STEPS - 1 ? () => void finish(data, false) : next}
+      onContinue={onAccreditationStep ? () => void finish(data, false) : next}
       onSkip={skip}
-      continueLabel={currentStep === TOTAL_STEPS - 1 ? 'Enter Pier' : 'Continue'}
+      continueLabel={onAccreditationStep ? 'Enter Pier' : 'Continue'}
       continueDisabled={continueDisabled}
       continueHint={
-        continueDisabled ? 'Choose allocator or fund manager to continue.' : undefined
+        roleMissing
+          ? 'Choose allocator or fund manager to continue.'
+          : accreditationMissing
+            ? data.accreditation.confirmed
+              ? 'Select how you qualify, and whether you are a qualified purchaser.'
+              : 'Choose yes or no, or verify later.'
+            : undefined
       }
       busy={busy}
       saveError={saveError}
       hideContinue={currentStep === 0}
       hideFooter={currentStep === 0}
+      skipLabel={onAccreditationStep ? 'Verify later' : 'Skip for now'}
+      skipInFooter={onAccreditationStep}
       skipHint={currentStep === 0 ? 'You can finish in Profile anytime.' : undefined}
     >
       {currentStep === 0 ? <WelcomeStep firstName={firstName} onNext={next} busy={busy} /> : null}
@@ -120,6 +134,12 @@ export default function OnboardingPage() {
       ) : null}
       {currentStep === 2 ? <IntentStep data={data} updateData={updateData} /> : null}
       {currentStep === 3 ? <PrivacyStep data={data} updateData={updateData} /> : null}
+      {currentStep === 4 ? (
+        <AccreditationStep
+          value={data.accreditation}
+          onChange={(accreditation) => updateData({ accreditation })}
+        />
+      ) : null}
     </OnboardingShell>
   );
 }

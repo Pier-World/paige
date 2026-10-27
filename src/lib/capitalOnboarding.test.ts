@@ -182,6 +182,48 @@ test('profile completeness and draft parsing', () => {
   assert.equal(parseOnboardingDraft('not-json'), null);
   assert.equal(clampOnboardingStep(3, null), 1);
   assert.equal(clampOnboardingStep(2, 'lp'), 2);
+  assert.equal(clampOnboardingStep(4, 'lp'), 4);
+  assert.equal(clampOnboardingStep(8, 'gp'), 4);
+});
+
+test('completed accreditation is stored and a skip leaves it unset', () => {
+  const verified = {
+    ...emptyOnboardingData(),
+    capitalRole: 'lp' as const,
+    accreditation: {
+      confirmed: true,
+      basis: 'net_worth' as const,
+      qualifiedPurchaser: true,
+      declined: false,
+    },
+  };
+  const prefs = buildOnboardingMemberPreferences(verified);
+  assert.equal(prefs.accredited_investor, 'Yes');
+  assert.equal(prefs.accreditation?.accredited, true);
+  assert.equal(prefs.accreditation?.basis, 'net_worth');
+  assert.equal(prefs.accreditation?.qualified_purchaser, true);
+  assert.equal(typeof prefs.accreditation?.attested_at, 'string');
+
+  const skipped = buildOnboardingMemberPreferences(emptyOnboardingData(), {
+    accredited_investor: 'Yes',
+  });
+  assert.equal(skipped.accredited_investor, 'Yes');
+  assert.equal(skipped.accreditation, undefined);
+
+  const ctx = buildPersonalContext(verified, 'Ada Lovelace', false);
+  assert.equal(ctx.accreditation_basis, 'net_worth');
+  assert.equal(ctx.qualified_purchaser, true);
+});
+
+test('onboarding ends on a skippable accreditation step', () => {
+  const page = readFileSync(join(root, 'src/pages/onboarding/OnboardingPage.tsx'), 'utf8');
+  const step = readFileSync(join(root, 'src/pages/onboarding/steps/AccreditationStep.tsx'), 'utf8');
+  const profile = readFileSync(join(root, 'src/pages/capital-markets/CapitalProfilePage.tsx'), 'utf8');
+  assert.match(page, /AccreditationStep/);
+  assert.match(page, /Verify later/);
+  assert.match(step, /verify later in Profile/);
+  assert.match(profile, /AccreditationField/);
+  assert.doesNotMatch(profile, /<option value="Yes">Yes<\/option>/);
 });
 
 test('skip copy does not imply the wizard will resume', () => {

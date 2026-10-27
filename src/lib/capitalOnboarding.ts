@@ -1,5 +1,14 @@
+import {
+  accreditationPreferences,
+  draftFromAccreditation,
+  emptyAccreditationDraft,
+  parseAccreditationDraft,
+  readAccreditation,
+} from './accreditation.ts';
 import type { User, UserPreferences } from '../types';
 import type { CapitalRole, OnboardingData } from '../types/onboarding';
+
+export const ONBOARDING_STEP_COUNT = 5;
 
 export const LP_INTENT_OPTIONS = [
   { id: 'dinners', label: 'Dinners and member gatherings' },
@@ -55,6 +64,7 @@ export function emptyOnboardingData(): OnboardingData {
     intents: [],
     allowIntroRequests: false,
     shareEventAttendance: false,
+    accreditation: emptyAccreditationDraft(),
   };
 }
 
@@ -114,6 +124,7 @@ export function buildOnboardingMemberPreferences(
       share_event_attendance:
         data.shareEventAttendance ?? existing?.member_preferences?.share_event_attendance ?? false,
     },
+    ...(accreditationPreferences(data.accreditation) ?? {}),
   };
 }
 
@@ -122,6 +133,7 @@ export function buildPersonalContext(
   name: string,
   skipped = false
 ): Record<string, unknown> {
+  const accreditation = accreditationPreferences(data.accreditation);
   return {
     name: name.trim() || null,
     capital_role: data.capitalRole,
@@ -130,6 +142,13 @@ export function buildPersonalContext(
     city: data.city.trim() || null,
     intents: data.intents,
     skipped,
+    ...(accreditation?.accreditation
+      ? {
+          accredited_investor: accreditation.accredited_investor,
+          accreditation_basis: accreditation.accreditation.basis,
+          qualified_purchaser: accreditation.accreditation.qualified_purchaser,
+        }
+      : {}),
   };
 }
 
@@ -198,7 +217,8 @@ export function dashboardIntroKey(userId: string): string {
 }
 
 export function clampOnboardingStep(step: number, role: CapitalRole | null): number {
-  const safe = Number.isInteger(step) ? Math.max(0, Math.min(3, step)) : 0;
+  const max = ONBOARDING_STEP_COUNT - 1;
+  const safe = Number.isInteger(step) ? Math.max(0, Math.min(max, step)) : 0;
   if (safe > 1 && !role) return 1;
   return safe;
 }
@@ -216,6 +236,9 @@ export function parseOnboardingDraft(raw: string | null): { data: OnboardingData
       intents: Array.isArray(parsed.intents) ? parsed.intents.filter((item) => typeof item === 'string') : [],
       allowIntroRequests: parsed.allowIntroRequests === true,
       shareEventAttendance: parsed.shareEventAttendance === true,
+      accreditation: parseAccreditationDraft(
+        (parsed as { accreditation?: unknown }).accreditation
+      ),
     };
     const step = typeof parsed.step === 'number' ? parsed.step : 0;
     return { data, step: clampOnboardingStep(step, data.capitalRole) };
@@ -240,5 +263,6 @@ export function prefillOnboardingFromUser(user: User | null): OnboardingData {
     city: user.preferences?.primary_city || '',
     allowIntroRequests: user.preferences?.member_preferences?.allow_intro_requests === true,
     shareEventAttendance: user.preferences?.member_preferences?.share_event_attendance === true,
+    accreditation: draftFromAccreditation(readAccreditation(user.preferences)),
   };
 }

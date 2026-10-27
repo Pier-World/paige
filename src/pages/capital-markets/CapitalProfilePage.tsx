@@ -7,6 +7,7 @@ import {
   Shield,
   User,
 } from 'lucide-react';
+import { AccreditationField } from '../../components/accreditation/AccreditationField';
 import { UpgradePrompt } from '../../components/capital-markets/UpgradePrompt';
 import { PageFrame } from '../../components/layout/PageFrame';
 import { Chip } from '../../components/ui/Chip';
@@ -188,7 +189,6 @@ export default function CapitalProfilePage() {
   const [aumDisplay, setAumDisplay] = useState('');
   const [checkSizeDisplay, setCheckSizeDisplay] = useState('');
   const [focusSectors, setFocusSectors] = useState('');
-  const [accredited, setAccredited] = useState('');
 
   const [eventPrefs, setEventPrefs] = useState<EventPrefs>({});
   const [memberPrefs, setMemberPrefs] = useState<MemberPrefs>({});
@@ -215,7 +215,6 @@ export default function CapitalProfilePage() {
     }
 
     setInvestorType(user.preferences?.investor_type || '');
-    setAccredited(user.preferences?.accredited_investor || '');
     const storedEventPrefs = parsePrefs<EventPrefs>(user.preferences?.event_preferences);
     const storedConciergePrefs = parsePrefs<ConciergePrefs>(user.preferences?.concierge_preferences);
     setEventPrefs({
@@ -386,7 +385,6 @@ export default function CapitalProfilePage() {
           ...user.preferences,
           capital_role: capitalRole || user.preferences?.capital_role,
           investor_type: investorType.trim() || undefined,
-          accredited_investor: accredited.trim() || undefined,
         },
       });
 
@@ -552,6 +550,7 @@ export default function CapitalProfilePage() {
                     value={primaryCity}
                     onChange={setPrimaryCity}
                   />
+                  {pierPlus ? null : <AccreditationField className="sm:col-span-2" />}
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -562,6 +561,7 @@ export default function CapitalProfilePage() {
                   <ProfileField label="Title / role" value={roleLabel} />
                   <ProfileField label="Capital role" value={capitalRoleLabel} />
                   <ProfileField label="Primary city" value={primaryCity} />
+                  {pierPlus ? null : <AccreditationField className="sm:col-span-2" />}
                 </div>
               )}
             </ProfileSectionCard>
@@ -582,6 +582,7 @@ export default function CapitalProfilePage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   {capitalRole === 'gp' ? (
                     <>
+                      <AccreditationField className="sm:col-span-2" />
                       <ProfileInput
                         label="Strategy / asset class"
                         value={focusSectors}
@@ -618,18 +619,7 @@ export default function CapitalProfilePage() {
                         onChange={setInvestorType}
                         placeholder="Family office, endowment, fund of funds..."
                       />
-                      <label className="block">
-                        <span className="eyebrow mb-1 block">Accredited investor</span>
-                        <select
-                          value={accredited}
-                          onChange={(e) => setAccredited(e.target.value)}
-                          className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
-                        >
-                          <option value="">Select</option>
-                          <option value="Yes">Yes</option>
-                          <option value="No">No</option>
-                        </select>
-                      </label>
+                      <AccreditationField />
                       <ProfileInput
                         label="Allocation / check size"
                         value={checkSizeDisplay}
@@ -655,6 +645,7 @@ export default function CapitalProfilePage() {
                 </div>
               ) : capitalRole === 'gp' ? (
                 <div className="grid gap-4 sm:grid-cols-2">
+                  <AccreditationField className="sm:col-span-2" />
                   <ProfileField
                     label="Strategy / asset class"
                     value={focusSectors || capitalProfile?.focusSectors.join(', ')}
@@ -667,7 +658,7 @@ export default function CapitalProfilePage() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <ProfileField label="Investor type" value={investorType} />
-                  <ProfileField label="Accredited investor" value={accredited} />
+                  <AccreditationField />
                   <ProfileField
                     label="Investment interests"
                     value={focusSectors || capitalProfile?.focusSectors.join(', ')}

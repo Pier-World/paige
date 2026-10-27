@@ -1,6 +1,6 @@
-import type { CapitalRole } from './onboarding';
+import type { AccreditationRecord, CapitalRole } from './onboarding';
 
-export type { CapitalRole };
+export type { AccreditationRecord, CapitalRole };
 
 export interface User {
   id: string;
@@ -39,7 +39,9 @@ export interface UserPreferences {
     partners?: string;
   };
   investor_type?: string;
+  /** Legacy yes/no. Kept in sync when someone completes the attestation. */
   accredited_investor?: string;
+  accreditation?: AccreditationRecord;
 }
 
 export interface Perk {
