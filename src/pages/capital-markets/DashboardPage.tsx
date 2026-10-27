@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, X } from 'lucide-react';
-import { DashboardConciergeTeaser } from '../../components/capital-markets/DashboardConciergeTeaser';
 import { DealReturnCell } from '../../components/capital-markets/DealReturnCell';
 import { AnonymizedDealPreview } from '../../components/capital-markets/AnonymizedDealPreview';
+import { PageFrame } from '../../components/layout/PageFrame';
 import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -20,28 +20,24 @@ import {
 import { isPierPlus } from '../../lib/membership';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
 import { formatCurrency, formatDate } from '../../lib/utils';
-import { eventTypeLabels, typeLabels } from './mockData';
+import { typeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
 const THREE_WEEKS_MS = 21 * 24 * 60 * 60 * 1000;
 
 function roleCopy(role?: string) {
   if (role === 'gp') {
-    return {
-      subtitle: 'Private gatherings and allocator context. Introductions stay Pier-mediated.',
-      detail: 'Start with an upcoming dinner. Complete your firm and city so we can place you in the right room.',
-    };
+    return 'Private gatherings and allocator context. Introductions stay Pier-mediated.';
   }
   if (role === 'lp') {
-    return {
-      subtitle: 'Private gatherings, curated managers, and capital in context. You stay unlisted by default.',
-      detail: 'RSVP to a gathering when you are ready. Deal Flow is available with Pier+.',
-    };
+    return 'Private gatherings, curated managers, and capital in context. You stay unlisted by default.';
   }
-  return {
-    subtitle: 'A private community of managers and allocators.',
-    detail: 'Explore upcoming member gatherings, then finish your profile so Pier can route the right invitations.',
-  };
+  return 'A private community of managers and allocators.';
+}
+
+function eventMonthDay(event: CapitalEvent) {
+  const [month, day] = formatDate(event.date, 'month-day').split(' ');
+  return { month, day };
 }
 
 export default function DashboardPage() {
@@ -113,7 +109,7 @@ export default function DashboardPage() {
   const firstName = user?.first_name || user?.full_name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  const copy = roleCopy(capitalRole);
+  const subtitle = roleCopy(capitalRole);
 
   const openDeals = deals.filter((deal) => deal.status === 'open' || deal.status === 'closing');
   const upcomingEvents = useMemo(() => {
@@ -138,19 +134,18 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
+    <PageFrame>
       <div className="mb-10">
         <p className="eyebrow mb-2">Dashboard</p>
-        <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.02em] text-ink">
+        <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.02em] text-ink">
           {greeting}, {firstName}.
         </h1>
-        <p className="mt-3 max-w-2xl text-[15px] text-slate">{copy.subtitle}</p>
-        <p className="mt-2 max-w-2xl text-[14px] text-slate/80">{copy.detail}</p>
+        <p className="mt-3 max-w-2xl text-[15px] text-slate">{subtitle}</p>
         <div className="gilt-rule mt-6 w-12" />
       </div>
 
       {showIntro ? (
-        <div className="mb-8 flex items-start justify-between gap-4 rounded-[4px] border border-border bg-surface p-5">
+        <div className="mb-8 flex items-start justify-between gap-4 rounded-pier border border-border bg-surface p-5">
           <div>
             <p className="eyebrow mb-2">Start here</p>
             <p className="text-[14px] text-ink">A short path into Pier this week.</p>
@@ -172,7 +167,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={dismissIntro}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[4px] text-slate hover:bg-parchment hover:text-ink"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pier text-slate hover:bg-parchment hover:text-ink"
             aria-label="Dismiss getting started"
           >
             <X className="h-4 w-4" />
@@ -200,36 +195,48 @@ export default function DashboardPage() {
                 description="Nothing is on the calendar in the next three weeks. Add your city in Profile so invitations can meet you there."
               />
             ) : (
-              <div className="space-y-4">
-                {upcomingEvents.map((event) => (
-                  <div key={event.id} className="rounded-[4px] border border-border bg-surface p-5">
-                    <p className="text-[16px] font-medium leading-snug text-ink">{event.title}</p>
-                    <p className="mt-2 text-[13px] text-slate">
-                      {formatDate(event.date, 'month-day')} · {event.city}
-                    </p>
-                    <p className="mt-1 text-[12px] text-slate">
-                      {eventTypeLabels[event.type]}
-                      {event.audience ? ` · ${event.audience}` : ''}
-                    </p>
-                    {event.registrationUrl ? (
-                      <a
-                        href={event.registrationUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="relative z-20 mt-3 inline-block text-[13px] font-medium text-ink underline-offset-4 hover:underline"
-                      >
-                        RSVP →
-                      </a>
-                    ) : (
-                      <Link
-                        to={`/events#event-${event.id}`}
-                        className="relative z-20 mt-3 inline-block text-[13px] font-medium text-ink underline-offset-4 hover:underline"
-                      >
-                        View event →
-                      </Link>
-                    )}
-                  </div>
-                ))}
+              <div className="grid gap-3">
+                {upcomingEvents.map((event) => {
+                  const { month, day } = eventMonthDay(event);
+                  return (
+                    <div
+                      key={event.id}
+                      className="flex flex-col gap-4 rounded-pier border border-border bg-surface px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="text-center">
+                          <p className="font-mono-data text-[13px] font-medium text-ink">{month}</p>
+                          <p className="font-mono-data text-[20px] font-medium leading-none text-ink">{day}</p>
+                        </div>
+                        <div className="w-px self-stretch bg-border" />
+                        <div>
+                          <p className="font-medium text-ink">{event.title}</p>
+                          <p className="mt-0.5 text-[13px] text-slate">
+                            {event.city}
+                            {event.audience ? ` · ${event.audience}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      {event.registrationUrl ? (
+                        <a
+                          href={event.registrationUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[13px] font-medium text-ink underline-offset-4 hover:underline"
+                        >
+                          RSVP →
+                        </a>
+                      ) : (
+                        <Link
+                          to={`/events#event-${event.id}`}
+                          className="text-[13px] font-medium text-ink underline-offset-4 hover:underline"
+                        >
+                          View event →
+                        </Link>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -252,7 +259,7 @@ export default function DashboardPage() {
                     description="When Pier publishes a fund, co-invest, or SPV, it will appear here."
                   />
                 ) : (
-                  <div className="overflow-hidden rounded-[4px] border border-border bg-surface">
+                  <div className="overflow-hidden rounded-pier border border-border bg-surface">
                     {openDeals.slice(0, 4).map((deal) => (
                       <Link
                         key={deal.id}
@@ -276,11 +283,9 @@ export default function DashboardPage() {
             ) : (
               <AnonymizedDealPreview variant="aside" />
             )}
-
-            {pierPlus ? <DashboardConciergeTeaser /> : null}
           </aside>
         </div>
       ) : null}
-    </div>
+    </PageFrame>
   );
 }

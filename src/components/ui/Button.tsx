@@ -18,9 +18,9 @@ const variantClasses = {
 };
 
 const sizeClasses = {
-  sm: 'h-8 rounded-[6px] px-3 text-[13px]',
-  md: 'h-11 rounded-[8px] px-5 text-[14px]',
-  lg: 'h-[52px] rounded-[8px] px-6 text-[15px]',
+  sm: 'h-8 rounded-pier-md px-3 text-[13px]',
+  md: 'h-11 rounded-pier-md px-5 text-[14px]',
+  lg: 'h-[52px] rounded-pier-md px-6 text-[15px]',
 };
 
 export const Button = ({

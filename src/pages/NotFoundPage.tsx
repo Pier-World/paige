@@ -1,26 +1,21 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import { PageLayout } from '../components/layout/PageLayout';
 import { Button } from '../components/ui/Button';
-import { ArrowLeft } from 'lucide-react';
+import { AuthBrand } from './auth/AuthShell';
 
-const NotFoundPage: React.FC = () => {
+const NotFoundPage = () => {
   return (
-    <PageLayout>
-      <div className="container-custom py-20 text-center">
-        <h1 className="text-6xl font-display font-bold mb-4">404</h1>
-        <h2 className="text-3xl font-display mb-6">Page Not Found</h2>
-        <p className="text-primary-600 max-w-md mx-auto mb-8">
-          The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
-        </p>
-        <Link to="/dashboard">
-          <Button className="inline-flex items-center">
-            <ArrowLeft size={16} className="mr-2" />
-            Return to Home
-          </Button>
-        </Link>
-      </div>
-    </PageLayout>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-parchment px-6 py-16">
+      <AuthBrand />
+      <h1 className="mt-10 font-display text-[40px] leading-[1.05] tracking-[-0.02em] text-ink">
+        Page not found.
+      </h1>
+      <p className="mt-3 max-w-md text-center text-sm leading-relaxed text-slate">
+        This page does not exist or is no longer available.
+      </p>
+      <Link to="/dashboard" className="mt-8">
+        <Button>Return to dashboard</Button>
+      </Link>
+    </div>
   );
 };
 

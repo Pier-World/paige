@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 import { DealReturnCell } from '../../components/capital-markets/DealReturnCell';
+import { PageFrame } from '../../components/layout/PageFrame';
 import { Badge } from '../../components/ui/Badge';
+import { Chip } from '../../components/ui/Chip';
 import { getCapitalDeals, type CapitalDeal, type DealType } from '../../lib/api/capitalMarkets';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
 import { formatCurrency, formatDate } from '../../lib/utils';
@@ -48,23 +50,12 @@ export default function DealsPage() {
 
   const filteredDeals =
     activeFilter === 'all' ? deals : deals.filter((deal) => deal.type === activeFilter);
-  const aggregateCurrency =
-    deals.length > 0 && deals.every((deal) => deal.currencyCode === deals[0].currencyCode)
-      ? deals[0].currencyCode
-      : null;
-  const aggregateTarget = aggregateCurrency
-    ? formatCurrency(
-        deals.reduce((sum, deal) => sum + deal.targetSize, 0),
-        aggregateCurrency,
-        true
-      )
-    : 'Mixed currencies';
 
   return (
-    <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
+    <PageFrame>
       <div className="mb-10">
         <p className="eyebrow mb-2">Deal Flow</p>
-        <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.02em] text-ink">
+        <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.02em] text-ink">
           Curated opportunities.
         </h1>
         <p className="mt-3 max-w-2xl text-[15px] text-slate">
@@ -73,7 +64,7 @@ export default function DealsPage() {
         <div className="gilt-rule mt-6 w-12" />
       </div>
 
-      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-3">
         {[
           { label: 'Total opportunities', value: deals.length.toString() },
           { label: 'Open now', value: deals.filter((deal) => deal.status === 'open').length.toString() },
@@ -81,12 +72,8 @@ export default function DealsPage() {
             label: 'Closing soon',
             value: deals.filter((deal) => deal.status === 'closing').length.toString(),
           },
-          {
-            label: 'Aggregate target',
-            value: aggregateTarget,
-          },
         ].map((stat) => (
-          <div key={stat.label} className="rounded-[4px] border border-border bg-surface px-4 py-3">
+          <div key={stat.label} className="rounded-pier border border-border bg-surface px-4 py-3">
             <p className="eyebrow mb-1">{stat.label}</p>
             <p className="font-mono-data text-[20px] font-medium text-ink">{stat.value}</p>
           </div>
@@ -102,18 +89,13 @@ export default function DealsPage() {
         <>
       <div className="mb-6 flex flex-wrap gap-2">
         {filters.map((filter) => (
-          <button
+          <Chip
             key={filter}
-            type="button"
+            active={activeFilter === filter}
             onClick={() => setActiveFilter(filter)}
-            className={`rounded-full border px-3 py-1.5 text-[12px] transition-colors ${
-              activeFilter === filter
-                ? 'border-gilt bg-gilt/15 text-ink'
-                : 'border-border bg-transparent text-slate hover:border-ink/30 hover:text-ink'
-            }`}
           >
             {filter === 'all' ? 'All' : typeLabels[filter]}
-          </button>
+          </Chip>
         ))}
       </div>
 
@@ -133,7 +115,7 @@ export default function DealsPage() {
               <div className="mb-4 flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[13px] text-slate">{deal.manager}</p>
-                  <p className="mt-0.5 font-medium leading-snug text-ink transition-colors group-hover:text-gilt">
+                  <p className="mt-0.5 font-medium leading-snug text-ink">
                     {deal.name}
                   </p>
                 </div>
@@ -202,6 +184,6 @@ export default function DealsPage() {
       )}
         </>
       ) : null}
-    </div>
+    </PageFrame>
   );
 }

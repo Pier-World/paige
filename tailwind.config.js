@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -59,10 +60,10 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['var(--font-body)', 'AF Another Sans', 'Inter', 'system-ui', 'sans-serif'],
-        body: ['var(--font-body)', 'AF Another Sans', 'Inter', 'system-ui', 'sans-serif'],
-        display: ['var(--font-display)', 'TT Neoris', 'Georgia', 'serif'],
-        mono: ['var(--font-mono)', 'Departure Mono', 'Menlo', 'monospace'],
+        sans: ['var(--font-body)', 'Inter', 'system-ui', 'sans-serif'],
+        body: ['var(--font-body)', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'Georgia', 'serif'],
+        mono: ['var(--font-body)', 'Inter', 'system-ui', 'sans-serif'],
       },
       fontWeight: {
         light: '300',

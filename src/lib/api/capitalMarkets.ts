@@ -1,5 +1,6 @@
 import { supabase } from '../supabase';
 import type { Database, Json } from '../../types/supabase';
+import { conciergeMailto } from '../conciergeMailto';
 
 export type DealType = 'fund' | 'co-invest' | 'secondary' | 'spv';
 export type DealStatus = 'open' | 'closing' | 'closed' | 'pending';
@@ -452,7 +453,10 @@ function mapPartner(row: CapitalPartnerRowExtended): CapitalPartner {
     imageUrl: '',
     minimumLevel: '',
     redemptionInstructions: '',
-    ctaHref: `/concierge?partner=${encodeURIComponent(row.name)}`,
+    ctaHref: conciergeMailto(
+      `Introduction: ${row.name}`,
+      `I would like an introduction to ${row.name}.`
+    ),
     ctaLabel: 'Request introduction',
     ctaExternal: false,
   };
@@ -490,13 +494,8 @@ function compactBenefitList(benefits: string[]): string {
   return normalized.join(', ');
 }
 
-function conciergeHref(source: CapitalPartnerSource, id: string, name: string): string {
-  const params = new URLSearchParams({
-    source,
-    id,
-    partner: name,
-  });
-  return `/concierge?${params.toString()}`;
+function partnerRequestMailto(name: string): string {
+  return conciergeMailto(`Introduction: ${name}`, `I would like an introduction to ${name}.`);
 }
 
 function mapPerkPartner(row: PerkRow): CapitalPartner {
@@ -520,8 +519,8 @@ function mapPerkPartner(row: PerkRow): CapitalPartner {
     imageUrl: row.image_url,
     minimumLevel: row.minimum_level ?? '',
     redemptionInstructions: row.redemption_instructions ?? '',
-    ctaHref: externalLink || conciergeHref('perk', row.id, row.title),
-    ctaLabel: externalLink ? 'Redeem perk' : 'Request via concierge',
+    ctaHref: externalLink || partnerRequestMailto(row.title),
+    ctaLabel: externalLink ? 'Visit partner' : 'Request introduction',
     ctaExternal: Boolean(externalLink),
   };
 }
@@ -915,7 +914,7 @@ export async function getCapitalPartners(): Promise<CapitalPartner[]> {
     .order('featured', { ascending: false })
     .order('created_at', { ascending: false });
 
-  if (error) throw new Error(`Unable to load member perks: ${error.message}`);
+  if (error) throw new Error(`Unable to load partners: ${error.message}`);
 
   return (data ?? []).map(mapPerkPartner).sort(sortPartners);
 }

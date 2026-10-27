@@ -113,7 +113,7 @@ export function ProfileInput({
   rows = 3,
 }: ProfileInputProps) {
   const inputClass =
-    'w-full rounded-[4px] border border-border bg-parchment px-3 py-2 text-[14px] text-ink placeholder:text-slate/70 focus:border-ledger/40 focus:outline-none disabled:bg-border/20 disabled:text-slate';
+    'w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink placeholder:text-slate focus:border-ink/30 focus:outline-none disabled:bg-border/20 disabled:text-slate';
 
   return (
     <label className={cn('block', className)}>

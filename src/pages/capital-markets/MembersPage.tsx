@@ -101,7 +101,7 @@ export default function MembersPage() {
       <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="eyebrow mb-2">06 / Members</p>
-          <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.02em] text-ink">
+          <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.02em] text-ink">
             The network.
           </h1>
           <p className="mt-3 max-w-2xl text-[15px] text-slate">

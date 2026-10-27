@@ -9,7 +9,7 @@ function displayWebsite(website: string) {
 }
 
 function sourceLabel(partner: CapitalPartner) {
-  return partner.minimumLevel || 'Member perk';
+  return partner.minimumLevel || 'Member partner';
 }
 
 function showVisitLink(partner: CapitalPartner) {
@@ -47,7 +47,7 @@ export function FeaturedPartnerCard({ partner, onSelect }: FeaturedPartnerCardPr
         </div>
       ) : null}
       <div className="mb-3 flex items-start justify-between gap-2">
-        <p className="eyebrow text-gilt">{locationLine}</p>
+        <p className="eyebrow">{locationLine}</p>
         <Badge variant="members">{sourceLabel(partner)}</Badge>
       </div>
       <h2 className="font-display text-[22px] leading-tight tracking-[-0.01em] text-ink">{partner.name}</h2>
@@ -162,22 +162,21 @@ export function PartnerDetailModal({ partner, onClose }: PartnerDetailModalProps
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="perk-detail-title"
-        className="mx-auto w-full max-w-3xl overflow-hidden rounded-[6px] border border-border bg-surface shadow-2xl"
+        aria-labelledby="partner-detail-title"
+        className="mx-auto w-full max-w-3xl overflow-hidden rounded-pier-md border border-border bg-surface shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         {partner.imageUrl ? (
-          <div className="relative aspect-[16/7] bg-parchment">
+          <div className="aspect-[16/7] bg-parchment">
             <img src={partner.imageUrl} alt={partner.name} className="h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-ink/50 to-transparent" />
           </div>
         ) : null}
 
         <div className="p-6 sm:p-8">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-              <p className="eyebrow mb-2 text-gilt">{locationLine || 'Member perk'}</p>
-              <h2 id="perk-detail-title" className="font-display text-[32px] leading-none tracking-[-0.02em] text-ink">
+              <p className="eyebrow mb-2">{locationLine || 'Member partner'}</p>
+              <h2 id="partner-detail-title" className="font-display text-[32px] leading-none tracking-[-0.02em] text-ink">
                 {partner.name}
               </h2>
               {partner.minimumLevel ? <p className="mt-2 text-[13px] text-slate">{partner.minimumLevel}</p> : null}
@@ -186,7 +185,7 @@ export function PartnerDetailModal({ partner, onClose }: PartnerDetailModalProps
               type="button"
               onClick={onClose}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border text-slate hover:border-ink/30 hover:text-ink"
-              aria-label="Close perk details"
+              aria-label="Close partner details"
             >
               <X className="h-4 w-4" />
             </button>
@@ -223,7 +222,7 @@ export function PartnerDetailModal({ partner, onClose }: PartnerDetailModalProps
             <aside className="rounded-[4px] border border-border bg-parchment p-4">
               <p className="eyebrow mb-2">How to redeem</p>
               <p className="text-[13px] leading-relaxed text-slate">
-                {partner.redemptionInstructions || 'Contact Pier Concierge and mention this perk.'}
+                {partner.redemptionInstructions || 'Contact the Pier team to redeem this benefit.'}
               </p>
               <div className="mt-4 flex flex-col gap-2">
                 <a

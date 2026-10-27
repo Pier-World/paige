@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { EventCard } from '../../components/capital-markets/EventCard';
+import { PageFrame } from '../../components/layout/PageFrame';
 import { Badge } from '../../components/ui/Badge';
+import { Chip } from '../../components/ui/Chip';
 import { useAuth } from '../../context/AuthContext';
 import {
   getCapitalEvents,
@@ -10,50 +12,18 @@ import {
   type CapitalEventRsvp,
 } from '../../lib/api/capitalMarkets';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
-import { cn, formatEventDate } from '../../lib/utils';
+import { formatEventDate } from '../../lib/utils';
 import { eventTypeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
-type EventFilter =
-  | 'all'
-  | 'pier'
-  | 'partner'
-  | 'dinner'
-  | 'summit'
-  | 'experience'
-  | 'gp'
-  | 'lp'
-  | 'founders';
+type EventFilter = 'all' | 'pier' | 'partner' | 'past';
 
 const filterOptions: Array<{ id: EventFilter; label: string }> = [
   { id: 'all', label: 'All' },
-  { id: 'pier', label: 'Pier hosted' },
-  { id: 'partner', label: 'Partner events' },
-  { id: 'dinner', label: 'Dinners' },
-  { id: 'summit', label: 'Summits' },
-  { id: 'experience', label: 'Experiences' },
-  { id: 'gp', label: 'GPs' },
-  { id: 'lp', label: 'LPs' },
-  { id: 'founders', label: 'Founders' },
+  { id: 'pier', label: 'Pier' },
+  { id: 'partner', label: 'Partners' },
+  { id: 'past', label: 'Past' },
 ];
-
-function matchesAudienceFilter(event: CapitalEvent, filter: EventFilter): boolean {
-  const aud = event.audience.toLowerCase();
-  if (filter === 'gp') return aud.includes('gp');
-  if (filter === 'lp') return aud.includes('lp');
-  if (filter === 'founders') return aud.includes('founder');
-  return true;
-}
-
-function matchesFilter(event: CapitalEvent, filter: EventFilter): boolean {
-  if (filter === 'all') return true;
-  if (filter === 'pier') return event.hostType === 'pier';
-  if (filter === 'partner') return event.hostType === 'partner';
-  if (filter === 'dinner' || filter === 'summit' || filter === 'experience') {
-    return event.type === filter;
-  }
-  return matchesAudienceFilter(event, filter);
-}
 
 function getLocalStartOfToday(): number {
   const now = new Date();
@@ -138,25 +108,25 @@ export default function CapitalMarketsEventsPage() {
 
   const upcoming = useMemo(() => {
     return events
-      .filter((event) => !isPastEvent(event, localStartOfToday) && matchesFilter(event, activeFilter))
+      .filter((event) => !isPastEvent(event, localStartOfToday))
       .slice()
       .sort((a, b) => getEventTime(a) - getEventTime(b));
-  }, [events, activeFilter, localStartOfToday]);
+  }, [events, localStartOfToday]);
 
   const pierUpcoming = upcoming.filter((e) => e.hostType === 'pier');
   const partnerUpcoming = upcoming.filter((e) => e.hostType === 'partner');
   const past = useMemo(() => {
     return events
-      .filter((event) => isPastEvent(event, localStartOfToday) && matchesFilter(event, activeFilter))
+      .filter((event) => isPastEvent(event, localStartOfToday))
       .slice()
       .sort((a, b) => getEventTime(b) - getEventTime(a));
-  }, [events, activeFilter, localStartOfToday]);
+  }, [events, localStartOfToday]);
 
-  function renderEventList(list: CapitalEvent[]) {
+  function renderEventList(list: CapitalEvent[], emptyTitle: string) {
     if (list.length === 0) {
       return (
         <EmptyState
-          title="No events match this filter."
+          title={emptyTitle}
           description="Try another filter or check back when new gatherings are published."
         />
       );
@@ -175,11 +145,69 @@ export default function CapitalMarketsEventsPage() {
     );
   }
 
+  function renderPastList() {
+    if (past.length === 0) {
+      return <EmptyState title="No past events." description="Completed events will appear here." />;
+    }
+
+    return (
+      <div className="grid gap-3">
+        {past.map((event) => {
+          const { month, day } = getEventMonthDay(event);
+
+          return (
+            <div
+              key={event.id}
+              className="flex flex-col gap-4 rounded-pier border border-border bg-surface px-5 py-4 opacity-70 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex items-center gap-4">
+                <div className="text-center">
+                  <p className="font-mono-data text-[13px] font-medium text-ink">{month}</p>
+                  <p className="font-mono-data text-[20px] font-medium leading-none text-ink">{day}</p>
+                </div>
+                <div className="w-px self-stretch bg-border" />
+                <div>
+                  <p className="font-medium text-ink">{event.title}</p>
+                  <p className="mt-0.5 text-[13px] text-slate">
+                    {event.city}
+                    {event.audience ? ` · ${event.audience}` : ''}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {event.registered ? <Badge variant="muted">Attended</Badge> : null}
+                <Badge variant="closed">{eventTypeLabels[event.type]}</Badge>
+                {event.recapUrl?.trim() ? (
+                  <a
+                    href={event.recapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink underline-offset-4 hover:underline"
+                  >
+                    Recap
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const showPier = activeFilter === 'all' || activeFilter === 'pier';
+  const showPartner = activeFilter === 'all' || activeFilter === 'partner';
+  const showPast = activeFilter === 'all' || activeFilter === 'past';
+  const forceEmptyPier = activeFilter === 'pier' && pierUpcoming.length === 0;
+  const forceEmptyPartner = activeFilter === 'partner' && partnerUpcoming.length === 0;
+  const forceEmptyPast = activeFilter === 'past' && past.length === 0;
+
   return (
-    <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
+    <PageFrame>
       <div className="mb-10">
         <p className="eyebrow mb-2">Events</p>
-        <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.02em] text-ink">
+        <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.02em] text-ink">
           Invite-only gatherings.
         </h1>
         <p className="mt-3 max-w-2xl text-[15px] text-slate">
@@ -195,85 +223,45 @@ export default function CapitalMarketsEventsPage() {
         <>
           <div className="mb-8 flex flex-wrap gap-2">
             {filterOptions.map((opt) => (
-              <button
+              <Chip
                 key={opt.id}
-                type="button"
+                active={activeFilter === opt.id}
                 onClick={() => setActiveFilter(opt.id)}
-                className={cn(
-                  'rounded-full border px-3 py-1.5 text-[12px] transition-colors',
-                  activeFilter === opt.id
-                    ? 'border-gilt bg-gilt/15 text-ink'
-                    : 'border-border bg-transparent text-slate hover:border-ink/30 hover:text-ink'
-                )}
               >
                 {opt.label}
-              </button>
+              </Chip>
             ))}
           </div>
 
-          <section className="mb-12">
-            <p className="eyebrow mb-5">Pier-hosted events</p>
-            {renderEventList(pierUpcoming)}
-          </section>
+          {showPier && (pierUpcoming.length > 0 || forceEmptyPier) ? (
+            <section className="mb-12">
+              <p className="eyebrow mb-5">Pier-hosted events</p>
+              {renderEventList(pierUpcoming, 'No upcoming Pier events.')}
+            </section>
+          ) : null}
 
-          <section className="mb-12">
-            <p className="eyebrow mb-5">Partner & network events</p>
-            {renderEventList(partnerUpcoming)}
-          </section>
+          {showPartner && (partnerUpcoming.length > 0 || forceEmptyPartner) ? (
+            <section className="mb-12">
+              <p className="eyebrow mb-5">Partner & network events</p>
+              {renderEventList(partnerUpcoming, 'No upcoming partner events.')}
+            </section>
+          ) : null}
 
-          <section>
-            <p className="eyebrow mb-5">Past events</p>
-            {past.length === 0 ? (
-              <EmptyState title="No past events." description="Completed events will appear here." />
-            ) : (
-              <div className="grid gap-3">
-                {past.map((event) => (
-                  (() => {
-                    const { month, day } = getEventMonthDay(event);
+          {showPast && (past.length > 0 || forceEmptyPast) ? (
+            <section>
+              <p className="eyebrow mb-5">Past events</p>
+              {renderPastList()}
+            </section>
+          ) : null}
 
-                    return (
-                      <div
-                        key={event.id}
-                        className="flex flex-col gap-4 rounded-[4px] border border-border bg-surface px-5 py-4 opacity-70 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="text-center">
-                            <p className="font-mono-data text-[13px] font-medium text-ink">{month}</p>
-                            <p className="font-mono-data text-[20px] font-medium leading-none text-ink">{day}</p>
-                          </div>
-                          <div className="w-px self-stretch bg-border" />
-                          <div>
-                            <p className="font-medium text-ink">{event.title}</p>
-                            <p className="mt-0.5 text-[13px] text-slate">
-                              {event.city}
-                              {event.audience ? ` · ${event.audience}` : ''}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          {event.registered ? <Badge variant="muted">Attended</Badge> : null}
-                          <Badge variant="closed">{eventTypeLabels[event.type]}</Badge>
-                          {event.recapUrl?.trim() ? (
-                            <a
-                              href={event.recapUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink underline-offset-4 hover:underline"
-                            >
-                              Recap
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })()
-                ))}
-              </div>
-            )}
-          </section>
+          {activeFilter === 'all' && pierUpcoming.length === 0 && partnerUpcoming.length === 0 && past.length === 0 ? (
+            <EmptyState
+              title="No events yet."
+              description="New gatherings will appear here when they are published."
+            />
+          ) : null}
         </>
       ) : null}
-    </div>
+    </PageFrame>
   );
 }

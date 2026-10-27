@@ -18,7 +18,6 @@ const LoginPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/Log
 const ForgotPasswordPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ForgotPasswordPage')));
 const ResetPasswordPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ResetPasswordPage')));
 const NotFoundPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/NotFoundPage')));
-const ConversationPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/ConversationPage')));
 const OAuthCallback = lazy(() => importWithChunkReloadOnce(() => import('./pages/OAuthCallback')));
 const OnboardingPage = lazy(() => importWithChunkReloadOnce(() => import('./pages/onboarding/OnboardingPage')));
 const NewMember = lazy(() => importWithChunkReloadOnce(() => import('./pages/admin/NewMember')));
@@ -36,9 +35,6 @@ const CapitalMarketsEventsPage = lazy(() =>
 const CapitalMarketsPartnersPage = lazy(() =>
   importWithChunkReloadOnce(() => import('./pages/capital-markets/PartnersPage'))
 );
-const CapitalMarketsConciergePage = lazy(() =>
-  importWithChunkReloadOnce(() => import('./pages/capital-markets/ConciergePage'))
-);
 const CapitalProfilePage = lazy(() =>
   importWithChunkReloadOnce(() => import('./pages/capital-markets/CapitalProfilePage'))
 );
@@ -47,15 +43,15 @@ const CapitalProfilePage = lazy(() =>
  * Retired full-page routes (components removed from repo; `<Navigate>` aliases remain below):
  * - `/calendar` → `/events`
  * - `/perks`, `/perks/:id` → `/partners`
- * - `/travel` → `/concierge`
+ * - `/travel`, `/concierge`, `/conversation` → `/dashboard`
  * - `/tasks`, `/home`, `/memberships`, `/experiences`, `/explore`, `/membership` → `/dashboard`
  * - `/admin` (no trailing path) → `/dashboard`
  * - Legacy marketing shell (`HomePage`, `MembershipsPage`, `ExperiencesPage`) removed; capital markets routes are canonical.
  */
 
 const LoadingSpinner = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent"></div>
+  <div className="flex min-h-screen items-center justify-center bg-parchment">
+    <div className="rounded-pier border border-border bg-surface p-6 text-[14px] text-slate">Loading…</div>
   </div>
 );
 
@@ -67,11 +63,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   // Always wait for auth to finish loading before making routing decisions
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (!user) {
@@ -91,11 +83,7 @@ const OnboardingRoute: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const { user, isLoading } = useAuth();
   
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
   
   if (!user) {
@@ -117,11 +105,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   // Always wait for auth to finish loading before making routing decisions
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-accent"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   // Only redirect if we're sure user is authenticated (after loading is complete)
@@ -240,19 +224,7 @@ function App() {
                 </CapitalMarketsRoute>
               }
             />
-            <Route
-              path="/concierge"
-              element={
-                <CapitalMarketsRoute>
-                  <PierPlusGate
-                    title="Concierge is included with Pier+"
-                    description="Pier Concierge is available to Pier+ members. Request an upgrade and the Pier team will follow up."
-                  >
-                    <CapitalMarketsConciergePage />
-                  </PierPlusGate>
-                </CapitalMarketsRoute>
-              }
-            />
+            <Route path="/concierge" element={<Navigate to="/dashboard" replace />} />
             <Route path="/members" element={<Navigate to="/dashboard" replace />} />
 
             {/* Default: capital markets dashboard */}
@@ -292,19 +264,7 @@ function App() {
               }
             />
             <Route path="/preferences/all" element={<Navigate to="/profile" replace />} />
-            <Route
-              path="/conversation/:taskId?"
-              element={
-                <ProtectedRoute>
-                  <PierPlusGate
-                    title="Concierge is included with Pier+"
-                    description="Pier Concierge is available to Pier+ members. Request an upgrade and the Pier team will follow up."
-                  >
-                    <ConversationPage />
-                  </PierPlusGate>
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/conversation/:taskId?" element={<Navigate to="/dashboard" replace />} />
 
             {/* Admin: manual member creation (protected; page enforces admin role) */}
             <Route
@@ -325,7 +285,7 @@ function App() {
             />
 
             {/* Legacy/Redirect routes */}
-            <Route path="/travel" element={<Navigate to="/concierge" replace />} />
+            <Route path="/travel" element={<Navigate to="/dashboard" replace />} />
             <Route path="/tasks" element={<Navigate to="/dashboard" replace />} />
             <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
             <Route path="/perks/:id" element={<Navigate to="/partners" replace />} />

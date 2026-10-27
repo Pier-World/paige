@@ -1,9 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { coerceToAuthUserFacingError, isAuthUserFacingError } from '../lib/authErrors';
 import { postAuthPath } from '../lib/capitalOnboarding';
+import { Button } from '../components/ui/Button';
+import {
+  AuthCard,
+  AuthShell,
+  authInputClass,
+  authLabelClass,
+  authOtpClass,
+  authSecondaryClass,
+} from './auth/AuthShell';
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SEC = 60;
@@ -21,7 +29,7 @@ function AuthAlert({ error }: { error: Error | null }) {
           href={error.display.applyUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground/60"
+          className="font-medium text-ink underline decoration-ink/30 underline-offset-2 hover:decoration-ink/60"
         >
           {error.display.linkLabel}
         </a>
@@ -33,14 +41,12 @@ function AuthAlert({ error }: { error: Error | null }) {
   );
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -6 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-8 rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm leading-relaxed text-muted-foreground shadow-hairline"
+    <div
+      className="mb-8 rounded-pier border border-border bg-muted/40 px-4 py-3 text-sm leading-relaxed text-slate"
       role="alert"
     >
       {content}
-    </motion.div>
+    </div>
   );
 }
 
@@ -164,239 +170,156 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const labelClass = 'mb-2 block text-sm font-normal text-muted-foreground';
-  const inputClass =
-    'w-full rounded-2xl border border-border bg-background px-4 py-3.5 text-base text-foreground placeholder:text-muted-foreground/70 outline-none transition-shadow focus:border-foreground/20 focus:ring-2 focus:ring-foreground/10';
-  const primaryButtonClass =
-    'w-full rounded-full bg-foreground py-3.5 text-center text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50';
-  const linkSecondaryClass =
-    'text-left text-sm text-accent transition-colors hover:underline';
-
-  const brandBlock = (
-    <div className="text-center md:text-left">
-      <h1 className="font-display text-4xl font-normal tracking-tight text-foreground md:text-5xl">PIER</h1>
-      <p className="mt-2 font-sans text-sm font-light tracking-wide text-muted-foreground">Member Portal</p>
-    </div>
-  );
-
   const stepTitle =
     step === 'email' ? 'Sign in' : step === 'code' ? 'Check your email' : 'Welcome back';
 
-  const formCard = (
-    <motion.div
-      className="w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-card md:p-10"
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <h2 className="mb-2 text-left text-xl font-semibold text-foreground">{stepTitle}</h2>
-      <p className="mb-8 text-left text-sm text-muted-foreground">
-        {step === 'email' && 'We’ll email you a one-time code.'}
-        {step === 'code' && 'Enter the code we sent you.'}
-        {step === 'password' && 'Sign in with your member password.'}
-      </p>
+  return (
+    <AuthShell>
+      <AuthCard>
+        <h2 className="mb-2 text-left text-xl font-medium text-ink">{stepTitle}</h2>
+        <p className="mb-8 text-left text-sm text-slate">
+          {step === 'email' && 'We’ll email you a one-time code.'}
+          {step === 'code' && 'Enter the code we sent you.'}
+          {step === 'password' && 'Sign in with your member password.'}
+        </p>
 
-      <AuthAlert error={authError} />
+        <AuthAlert error={authError} />
 
-      {step === 'email' && (
-        <form onSubmit={handleSendMagicLink}>
-          <div className="mb-6">
-            <label htmlFor="email" className={labelClass}>
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
-              required
-              autoComplete="email"
-              placeholder="you@example.com"
-            />
-          </div>
-          <button type="submit" className={primaryButtonClass} disabled={isLoading}>
-            {isLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Sending…
-              </span>
-            ) : (
-              'Continue'
-            )}
-          </button>
-          <div className="mt-8 text-left">
-            <button type="button" onClick={() => setStep('password')} className={linkSecondaryClass}>
-              Sign in with password instead
-            </button>
-          </div>
-        </form>
-      )}
-
-      {step === 'code' && (
-        <>
-          <p className="mb-8 text-left text-sm text-muted-foreground">
-            We sent a code to <span className="font-medium text-foreground">{email}</span>.
-          </p>
-          <form onSubmit={handleVerifyCode}>
-            <div className="mb-8 flex justify-center gap-2">
-              {otpCode.map((digit, i) => (
-                <input
-                  key={i}
-                  ref={(el) => {
-                    inputRefs.current[i] = el;
-                  }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={digit}
-                  onChange={(e) => handleOtpChange(i, e.target.value)}
-                  onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                  className="h-12 w-11 rounded-xl border border-border bg-background text-center text-lg text-foreground outline-none transition-shadow focus:border-foreground/20 focus:ring-2 focus:ring-foreground/10"
-                  aria-label={`Digit ${i + 1}`}
-                />
-              ))}
+        {step === 'email' && (
+          <form onSubmit={handleSendMagicLink}>
+            <div className="mb-6">
+              <label htmlFor="email" className={authLabelClass}>
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={authInputClass}
+                required
+                autoComplete="email"
+                placeholder="Email"
+              />
             </div>
-            <button type="submit" className={primaryButtonClass} disabled={isLoading}>
-              {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Verifying…
-                </span>
-              ) : (
-                'Verify and sign in'
-              )}
-            </button>
-            <div className="mt-8 flex flex-col gap-3 text-left text-sm">
-              {resendCooldown > 0 ? (
-                <span className="text-muted-foreground">Resend code ({resendCooldown}s)</span>
-              ) : (
+            <Button type="submit" className="w-full" loading={isLoading}>
+              Continue
+            </Button>
+            <div className="mt-8 text-left">
+              <button type="button" onClick={() => setStep('password')} className={authSecondaryClass}>
+                Sign in with password instead
+              </button>
+            </div>
+          </form>
+        )}
+
+        {step === 'code' && (
+          <>
+            <p className="mb-8 text-left text-sm text-slate">
+              We sent a code to <span className="font-medium text-ink">{email}</span>.
+            </p>
+            <form onSubmit={handleVerifyCode}>
+              <div className="mb-8 flex justify-center gap-2">
+                {otpCode.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => {
+                      inputRefs.current[i] = el;
+                    }}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={digit}
+                    onChange={(e) => handleOtpChange(i, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                    className={authOtpClass}
+                    aria-label={`Digit ${i + 1}`}
+                  />
+                ))}
+              </div>
+              <Button type="submit" className="w-full" loading={isLoading}>
+                Verify and sign in
+              </Button>
+              <div className="mt-8 flex flex-col gap-3 text-left text-sm">
+                {resendCooldown > 0 ? (
+                  <span className="text-slate">Resend code ({resendCooldown}s)</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleSendMagicLink({ preventDefault: () => {} } as React.FormEvent)}
+                    className={authSecondaryClass}
+                  >
+                    Resend code
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => handleSendMagicLink({ preventDefault: () => {} } as React.FormEvent)}
-                  className={linkSecondaryClass}
+                  onClick={() => {
+                    setStep('email');
+                    setAuthError(null);
+                  }}
+                  className={authSecondaryClass}
                 >
-                  Resend code
+                  Use a different email
                 </button>
-              )}
+              </div>
+            </form>
+          </>
+        )}
+
+        {step === 'password' && (
+          <form onSubmit={handlePasswordSubmit}>
+            <div className="mb-4">
+              <label htmlFor="password-email" className={authLabelClass}>
+                Email
+              </label>
+              <input
+                id="password-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={authInputClass}
+                required
+                autoComplete="email"
+                placeholder="Email"
+              />
+            </div>
+            <div className="mb-6">
+              <label htmlFor="password" className={authLabelClass}>
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={authInputClass}
+                required
+                autoComplete="current-password"
+              />
+            </div>
+            <Button type="submit" className="w-full" loading={isLoading}>
+              Sign in
+            </Button>
+            <div className="mt-8 flex flex-col gap-3 text-left text-sm">
               <button
                 type="button"
                 onClick={() => {
                   setStep('email');
                   setAuthError(null);
                 }}
-                className="text-muted-foreground transition-colors hover:text-foreground hover:underline"
+                className={authSecondaryClass}
               >
-                Use a different email
+                Use magic link instead
               </button>
+              <Link to="/forgot-password" className={authSecondaryClass}>
+                Forgot your password?
+              </Link>
             </div>
           </form>
-        </>
-      )}
-
-      {step === 'password' && (
-        <form onSubmit={handlePasswordSubmit}>
-          <div className="mb-4">
-            <label htmlFor="password-email" className={labelClass}>
-              Email
-            </label>
-            <input
-              id="password-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={inputClass}
-              required
-              autoComplete="email"
-            />
-          </div>
-          <div className="mb-6">
-            <label htmlFor="password" className={labelClass}>
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={inputClass}
-              required
-              autoComplete="current-password"
-            />
-          </div>
-          <button type="submit" className={primaryButtonClass} disabled={isLoading}>
-            {isLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Signing in…
-              </span>
-            ) : (
-              'Sign in'
-            )}
-          </button>
-          <div className="mt-8 flex flex-col gap-3 text-left text-sm">
-            <button
-              type="button"
-              onClick={() => {
-                setStep('email');
-                setAuthError(null);
-              }}
-              className={linkSecondaryClass}
-            >
-              Use magic link instead
-            </button>
-            <Link to="/forgot-password" className="text-muted-foreground transition-colors hover:text-foreground">
-              Forgot your password?
-            </Link>
-          </div>
-        </form>
-      )}
-    </motion.div>
-  );
-
-  return (
-    <div className="min-h-screen bg-parchment text-foreground">
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-        <aside className="hidden flex-col justify-center border-border px-8 md:flex md:border-r md:px-16 md:py-20 lg:px-20">
-          {brandBlock}
-          <p className="mt-10 max-w-xs text-sm font-light leading-relaxed text-muted-foreground">
-            Private access for Pier members. Sign in to events, partners, and your account.
-          </p>
-        </aside>
-
-        <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 md:px-12 md:py-20">
-          <div className="mb-10 md:hidden">{brandBlock}</div>
-          {formCard}
-          <p className="mt-10 max-w-md text-center text-sm text-muted-foreground">
-            Need assistance?{' '}
-            <a href="mailto:concierge@joinpier.com" className="underline decoration-foreground/25 underline-offset-2 hover:text-foreground">
-              concierge@joinpier.com
-            </a>
-          </p>
-        </main>
-      </div>
-    </div>
+        )}
+      </AuthCard>
+    </AuthShell>
   );
 };
 

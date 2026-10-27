@@ -1,9 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { Button } from '../components/ui/Button';
 import { ArrowLeft } from 'lucide-react';
+import {
+  AuthCard,
+  AuthLoading,
+  AuthShell,
+  authInputClass,
+  authLabelClass,
+  authSecondaryClass,
+} from './auth/AuthShell';
 
 /**
  * Landing page for Supabase password recovery links (`redirectTo` → `/reset-password`).
@@ -77,86 +84,75 @@ const ResetPasswordPage: React.FC = () => {
     }
   };
 
+  if (checkingSession) {
+    return <AuthLoading label="Verifying reset link…" />;
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-primary-50 p-4">
-      <motion.div
-        className="w-full max-w-md"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="text-center mb-10">
-          <h1 className="font-display text-4xl font-medium mb-2">PIER</h1>
-          <p className="text-primary-600">Member Portal</p>
-        </div>
+    <AuthShell>
+      <AuthCard>
+        <Link to="/login" className={`${authSecondaryClass} mb-6 inline-flex items-center`}>
+          <ArrowLeft size={16} className="mr-1" />
+          Back to sign in
+        </Link>
 
-        <div className="bg-white rounded-lg shadow-card p-8">
-          <Link
-            to="/login"
-            className="inline-flex items-center text-sm text-primary-600 hover:text-primary-900 mb-6"
-          >
-            <ArrowLeft size={16} className="mr-1" />
-            Back to login
-          </Link>
-
-          {checkingSession ? (
-            <p className="text-primary-600">Verifying reset link…</p>
-          ) : !sessionReady ? (
-            <>
-              <h2 className="text-2xl font-medium mb-4">Link invalid or expired</h2>
-              <p className="text-primary-600 mb-6">
-                Request a new reset email and open the link from the same device/browser if possible.
-              </p>
-              <Link to="/forgot-password" className="text-primary-800 font-medium hover:underline">
-                Send a new reset link
-              </Link>
-            </>
-          ) : (
-            <>
-              <h2 className="text-2xl font-medium mb-6">Set a new password</h2>
-              {error ? (
-                <div className="bg-red-50 text-red-600 p-4 rounded-md mb-6">{error}</div>
-              ) : null}
-              <form onSubmit={handleSubmit}>
-                <div className="mb-4">
-                  <label htmlFor="new-password" className="block text-sm font-medium text-primary-700 mb-1">
-                    New password
-                  </label>
-                  <input
-                    id="new-password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input w-full"
-                    required
-                    minLength={8}
-                  />
-                </div>
-                <div className="mb-6">
-                  <label htmlFor="confirm-password" className="block text-sm font-medium text-primary-700 mb-1">
-                    Confirm password
-                  </label>
-                  <input
-                    id="confirm-password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="input w-full"
-                    required
-                    minLength={8}
-                  />
-                </div>
-                <Button type="submit" className="w-full" isLoading={isSubmitting}>
-                  Update password
-                </Button>
-              </form>
-            </>
-          )}
-        </div>
-      </motion.div>
-    </div>
+        {!sessionReady ? (
+          <>
+            <h2 className="text-xl font-medium text-ink">Link invalid or expired</h2>
+            <p className="mt-3 mb-6 text-sm leading-relaxed text-slate">
+              Request a new reset email and open the link from the same device if possible.
+            </p>
+            <Link to="/forgot-password" className={authSecondaryClass}>
+              Send a new reset link
+            </Link>
+          </>
+        ) : (
+          <>
+            <h2 className="mb-6 text-xl font-medium text-ink">Set a new password</h2>
+            {error ? (
+              <div className="mb-6 rounded-pier border border-danger/30 bg-danger/[0.06] px-4 py-3 text-sm text-danger">
+                {error}
+              </div>
+            ) : null}
+            <form onSubmit={handleSubmit}>
+              <div className="mb-4">
+                <label htmlFor="new-password" className={authLabelClass}>
+                  New password
+                </label>
+                <input
+                  id="new-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={authInputClass}
+                  required
+                  minLength={8}
+                />
+              </div>
+              <div className="mb-6">
+                <label htmlFor="confirm-password" className={authLabelClass}>
+                  Confirm password
+                </label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={authInputClass}
+                  required
+                  minLength={8}
+                />
+              </div>
+              <Button type="submit" className="w-full" loading={isSubmitting}>
+                Update password
+              </Button>
+            </form>
+          </>
+        )}
+      </AuthCard>
+    </AuthShell>
   );
 };
 

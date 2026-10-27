@@ -3,14 +3,12 @@ import {
   Bell,
   Building2,
   Calendar,
-  ConciergeBell,
-  Link2,
   Shield,
   User,
 } from 'lucide-react';
 import { UpgradePrompt } from '../../components/capital-markets/UpgradePrompt';
+import { PageFrame } from '../../components/layout/PageFrame';
 import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
 import { isPierPlus } from '../../lib/membership';
 import {
   ProfileField,
@@ -24,15 +22,12 @@ import {
   type CapitalMemberRole,
 } from '../../lib/api/capitalMarkets';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
-import { supabase } from '../../lib/supabase';
-import { Button } from '../../components/ui/Button';
 import { ErrorState, LoadingState } from './PageStates';
 
 type SectionId =
   | 'personal'
   | 'capital'
   | 'events'
-  | 'concierge'
   | 'member'
   | 'notifications';
 
@@ -41,15 +36,14 @@ type EventPrefs = {
   formats?: string;
   interests?: string;
   dietary?: string;
+  dining?: string;
+  travel?: string;
   notes?: string;
 };
 
 type ConciergePrefs = {
   dining?: string;
   travel?: string;
-  partners?: string;
-  communication?: string;
-  notes?: string;
 };
 
 type MemberPrefs = {
@@ -60,9 +54,13 @@ type MemberPrefs = {
 type NotificationPrefs = {
   deal_flow?: string;
   events?: string;
-  concierge?: string;
   partners?: string;
 };
+
+function channelValue(raw?: string) {
+  if (!raw || raw.toLowerCase() === 'off' || raw.toLowerCase() === 'none') return 'Off';
+  return 'Email';
+}
 
 function parsePrefs<T>(raw: unknown): T {
   if (raw && typeof raw === 'object') return raw as T;
@@ -78,7 +76,6 @@ function displayBool(value: boolean | undefined) {
 export default function CapitalProfilePage() {
   const { user, updateProfile } = useAuth();
   const pierPlus = isPierPlus(user);
-  const { theme, toggleTheme } = useTheme();
   const [capitalProfile, setCapitalProfile] = useState<CapitalMemberProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,12 +101,8 @@ export default function CapitalProfilePage() {
   const [accredited, setAccredited] = useState('');
 
   const [eventPrefs, setEventPrefs] = useState<EventPrefs>({});
-  const [conciergePrefs, setConciergePrefs] = useState<ConciergePrefs>({});
   const [memberPrefs, setMemberPrefs] = useState<MemberPrefs>({});
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>({});
-
-  const [gmailConnected, setGmailConnected] = useState(false);
-  const [calendarConnected, setCalendarConnected] = useState(false);
 
   function hydrateFromUser(profile: CapitalMemberProfile | null) {
     if (!user) return;
@@ -133,8 +126,13 @@ export default function CapitalProfilePage() {
 
     setInvestorType(user.preferences?.investor_type || '');
     setAccredited(user.preferences?.accredited_investor || '');
-    setEventPrefs(parsePrefs<EventPrefs>(user.preferences?.event_preferences));
-    setConciergePrefs(parsePrefs<ConciergePrefs>(user.preferences?.concierge_preferences));
+    const storedEventPrefs = parsePrefs<EventPrefs>(user.preferences?.event_preferences);
+    const storedConciergePrefs = parsePrefs<ConciergePrefs>(user.preferences?.concierge_preferences);
+    setEventPrefs({
+      ...storedEventPrefs,
+      dining: storedEventPrefs.dining || storedConciergePrefs.dining,
+      travel: storedEventPrefs.travel || storedConciergePrefs.travel,
+    });
     const storedMemberPrefs = parsePrefs<MemberPrefs>(user.preferences?.member_preferences);
     setMemberPrefs({
       allow_intro_requests: storedMemberPrefs.allow_intro_requests ?? false,
@@ -186,36 +184,6 @@ export default function CapitalProfilePage() {
     hydrateFromUser(capitalProfile);
   }, [user, capitalProfile, loading]);
 
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadIntegrations() {
-      if (!user?.id) return;
-
-      try {
-        const { data } = await supabase
-          .from('integrations')
-          .select('provider')
-          .eq('user_id', user.id);
-
-        if (ignore || !data) return;
-
-        setGmailConnected(data.some((row) => row.provider === 'google_gmail'));
-        setCalendarConnected(data.some((row) => row.provider === 'google_calendar'));
-      } catch {
-        if (!ignore) {
-          setGmailConnected(false);
-          setCalendarConnected(false);
-        }
-      }
-    }
-
-    loadIntegrations();
-
-    return () => {
-      ignore = true;
-    };
-  }, [user?.id]);
 
   function showSuccess(text: string) {
     setSaveMessage({ type: 'success', text });
@@ -361,26 +329,6 @@ export default function CapitalProfilePage() {
     setSavingSection(null);
   }
 
-  async function saveConciergePrefs() {
-    if (!user) return;
-    setSavingSection('concierge');
-    setSaveMessage(null);
-
-    const { error: profileError } = await updateProfile({
-      preferences: {
-        ...user.preferences,
-        concierge_preferences: conciergePrefs as Record<string, string>,
-      },
-    });
-
-    if (profileError) {
-      showError(profileError.message);
-    } else {
-      showSuccess('Concierge preferences saved.');
-    }
-    setSavingSection(null);
-  }
-
   async function saveMemberPrefs() {
     if (!user) return;
     setSavingSection('member');
@@ -425,10 +373,10 @@ export default function CapitalProfilePage() {
     capitalRole === 'gp' ? 'General Partner' : capitalRole === 'lp' ? 'Limited Partner' : '';
 
   return (
-    <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
+    <PageFrame>
       <div className="mb-10">
         <p className="eyebrow mb-2">Profile</p>
-        <h1 className="font-display text-[40px] leading-[0.95] tracking-[-0.02em] text-ink">Your profile.</h1>
+        <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.02em] text-ink">Your profile.</h1>
         <p className="mt-3 max-w-2xl text-[15px] text-slate">
           Manage your identity, preferences, and access across Pier.
         </p>
@@ -480,7 +428,7 @@ export default function CapitalProfilePage() {
                     <select
                       value={capitalRole}
                       onChange={(e) => setCapitalRole(e.target.value as CapitalMemberRole | '')}
-                      className="w-full rounded-[4px] border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
+                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
                     >
                       <option value="">Select</option>
                       <option value="lp">Allocator (LP)</option>
@@ -557,12 +505,18 @@ export default function CapitalProfilePage() {
                         onChange={setInvestorType}
                         placeholder="Family office, endowment, fund of funds..."
                       />
-                      <ProfileInput
-                        label="Accredited investor"
-                        value={accredited}
-                        onChange={setAccredited}
-                        placeholder="Yes / No"
-                      />
+                      <label className="block">
+                        <span className="eyebrow mb-1 block">Accredited investor</span>
+                        <select
+                          value={accredited}
+                          onChange={(e) => setAccredited(e.target.value)}
+                          className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
+                        >
+                          <option value="">Select</option>
+                          <option value="Yes">Yes</option>
+                          <option value="No">No</option>
+                        </select>
+                      </label>
                       <ProfileInput
                         label="Allocation / check size"
                         value={checkSizeDisplay}
@@ -653,6 +607,16 @@ export default function CapitalProfilePage() {
                     multiline
                   />
                   <ProfileInput
+                    label="Dining notes"
+                    value={eventPrefs.dining || ''}
+                    onChange={(v) => setEventPrefs((p) => ({ ...p, dining: v }))}
+                  />
+                  <ProfileInput
+                    label="Travel notes"
+                    value={eventPrefs.travel || ''}
+                    onChange={(v) => setEventPrefs((p) => ({ ...p, travel: v }))}
+                  />
+                  <ProfileInput
                     label="Additional notes"
                     value={eventPrefs.notes || ''}
                     onChange={(v) => setEventPrefs((p) => ({ ...p, notes: v }))}
@@ -668,66 +632,14 @@ export default function CapitalProfilePage() {
                     className="sm:col-span-2"
                   />
                   <ProfileField label="Dietary / hospitality notes" value={eventPrefs.dietary} className="sm:col-span-2" />
-                  <ProfileField
-                    label="Calendar"
-                    value={calendarConnected ? 'Google Calendar connected' : 'Not connected'}
-                  />
-                </div>
-              )}
-            </ProfileSectionCard>
-
-            <ProfileSectionCard
-              icon={ConciergeBell}
-              title="Concierge Preferences"
-              editing={editingSection === 'concierge'}
-              onEdit={() => startEdit('concierge')}
-              onCancel={cancelEdit}
-              onSave={saveConciergePrefs}
-              saving={savingSection === 'concierge'}
-              saveLabel="Save concierge preferences"
-            >
-              {editingSection === 'concierge' ? (
-                <div className="grid gap-4">
-                  <ProfileInput
-                    label="Dining preferences"
-                    value={conciergePrefs.dining || ''}
-                    onChange={(v) => setConciergePrefs((p) => ({ ...p, dining: v }))}
-                  />
-                  <ProfileInput
-                    label="Travel preferences"
-                    value={conciergePrefs.travel || ''}
-                    onChange={(v) => setConciergePrefs((p) => ({ ...p, travel: v }))}
-                  />
-                  <ProfileInput
-                    label="Partner interests"
-                    value={conciergePrefs.partners || ''}
-                    onChange={(v) => setConciergePrefs((p) => ({ ...p, partners: v }))}
-                  />
-                  <ProfileInput
-                    label="Communication"
-                    value={conciergePrefs.communication || ''}
-                    onChange={(v) => setConciergePrefs((p) => ({ ...p, communication: v }))}
-                  />
-                  <ProfileInput
-                    label="Notes for Pier team"
-                    value={conciergePrefs.notes || ''}
-                    onChange={(v) => setConciergePrefs((p) => ({ ...p, notes: v }))}
-                    multiline
-                  />
-                </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <ProfileField label="Dining preferences" value={conciergePrefs.dining} />
-                  <ProfileField label="Travel preferences" value={conciergePrefs.travel} />
-                  <ProfileField label="Partner interests" value={conciergePrefs.partners} className="sm:col-span-2" />
-                  <ProfileField label="Communication" value={conciergePrefs.communication} />
-                  <ProfileField label="Notes for Pier team" value={conciergePrefs.notes} className="sm:col-span-2" />
+                  <ProfileField label="Dining notes" value={eventPrefs.dining} />
+                  <ProfileField label="Travel notes" value={eventPrefs.travel} />
                 </div>
               )}
             </ProfileSectionCard>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-6 lg:grid-cols-2">
             <ProfileSectionCard
               icon={Shield}
               title="Member Preferences"
@@ -750,7 +662,7 @@ export default function CapitalProfilePage() {
                           allow_intro_requests: e.target.value === 'yes',
                         }))
                       }
-                      className="w-full rounded-[4px] border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
+                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
                     >
                       <option value="no">No (default)</option>
                       <option value="yes">Yes</option>
@@ -766,7 +678,7 @@ export default function CapitalProfilePage() {
                           share_event_attendance: e.target.value === 'yes',
                         }))
                       }
-                      className="w-full rounded-[4px] border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
+                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
                     >
                       <option value="no">No (default)</option>
                       <option value="yes">Yes</option>
@@ -799,98 +711,51 @@ export default function CapitalProfilePage() {
             >
               {editingSection === 'notifications' ? (
                 <div className="grid gap-4">
-                  <ProfileInput
-                    label="Deal flow alerts"
-                    value={notificationPrefs.deal_flow || ''}
-                    onChange={(v) => setNotificationPrefs((p) => ({ ...p, deal_flow: v }))}
-                    placeholder="Email, SMS"
-                  />
-                  <ProfileInput
-                    label="Event invitations"
-                    value={notificationPrefs.events || ''}
-                    onChange={(v) => setNotificationPrefs((p) => ({ ...p, events: v }))}
-                  />
-                  <ProfileInput
-                    label="Concierge updates"
-                    value={notificationPrefs.concierge || ''}
-                    onChange={(v) => setNotificationPrefs((p) => ({ ...p, concierge: v }))}
-                  />
-                  <ProfileInput
-                    label="Partner benefits"
-                    value={notificationPrefs.partners || ''}
-                    onChange={(v) => setNotificationPrefs((p) => ({ ...p, partners: v }))}
-                  />
+                  <label className="block">
+                    <span className="eyebrow mb-1 block">Deal flow alerts</span>
+                    <select
+                      value={channelValue(notificationPrefs.deal_flow)}
+                      onChange={(e) => setNotificationPrefs((p) => ({ ...p, deal_flow: e.target.value }))}
+                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
+                    >
+                      <option value="Email">Email</option>
+                      <option value="Off">Off</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="eyebrow mb-1 block">Event invitations</span>
+                    <select
+                      value={channelValue(notificationPrefs.events)}
+                      onChange={(e) => setNotificationPrefs((p) => ({ ...p, events: e.target.value }))}
+                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
+                    >
+                      <option value="Email">Email</option>
+                      <option value="Off">Off</option>
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="eyebrow mb-1 block">Partner updates</span>
+                    <select
+                      value={channelValue(notificationPrefs.partners)}
+                      onChange={(e) => setNotificationPrefs((p) => ({ ...p, partners: e.target.value }))}
+                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
+                    >
+                      <option value="Email">Email</option>
+                      <option value="Off">Off</option>
+                    </select>
+                  </label>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <ProfileField label="Deal flow alerts" value={notificationPrefs.deal_flow} />
-                  <ProfileField label="Event invitations" value={notificationPrefs.events} />
-                  <ProfileField label="Concierge updates" value={notificationPrefs.concierge} />
-                  <ProfileField label="Partner benefits" value={notificationPrefs.partners} />
+                  <ProfileField label="Deal flow alerts" value={channelValue(notificationPrefs.deal_flow)} />
+                  <ProfileField label="Event invitations" value={channelValue(notificationPrefs.events)} />
+                  <ProfileField label="Partner updates" value={channelValue(notificationPrefs.partners)} />
                 </div>
               )}
             </ProfileSectionCard>
-
-            <section className="flex flex-col rounded-[4px] border border-border bg-surface p-6">
-              <div className="mb-5 flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-[4px] bg-parchment text-ledger">
-                  <Link2 className="h-4 w-4" strokeWidth={1.75} />
-                </span>
-                <h2 className="font-display text-[20px] leading-tight tracking-[-0.01em] text-ink">
-                  Connected Accounts
-                </h2>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-3">
-                  <div>
-                    <p className="text-[14px] text-ink">Google Calendar</p>
-                    <p className="text-[12px] text-slate">
-                      {calendarConnected ? 'Connected' : 'Not connected'}
-                    </p>
-                  </div>
-                  <span
-                    className={
-                      calendarConnected
-                        ? 'text-[12px] text-ledger'
-                        : 'text-[12px] text-slate'
-                    }
-                  >
-                    {calendarConnected ? '✓' : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3 border-b border-border/50 pb-3">
-                  <div>
-                    <p className="text-[14px] text-ink">Gmail</p>
-                    <p className="text-[12px] text-slate">{gmailConnected ? 'Connected' : 'Not connected'}</p>
-                  </div>
-                  <span className={gmailConnected ? 'text-[12px] text-ledger' : 'text-[12px] text-slate'}>
-                    {gmailConnected ? '✓' : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[14px] text-ink">LinkedIn</p>
-                    <p className="text-[12px] text-slate">Not connected</p>
-                  </div>
-                  <Button variant="secondary" size="sm" disabled>
-                    Connect
-                  </Button>
-                </div>
-              </div>
-            </section>
           </div>
-
-          <section className="flex items-center justify-between rounded-[4px] border border-border bg-surface p-6">
-            <div>
-              <p className="eyebrow mb-1">Appearance</p>
-              <p className="text-[13px] text-slate">Theme: {theme === 'dark' ? 'Dark' : 'Light'}</p>
-            </div>
-            <Button variant="secondary" onClick={toggleTheme}>
-              Toggle theme
-            </Button>
-          </section>
         </div>
       ) : null}
-    </div>
+    </PageFrame>
   );
 }

@@ -3,17 +3,13 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   Building2,
   Calendar,
-  ChevronRight,
   LayoutDashboard,
-  Lock,
   LogOut,
   Menu,
-  MessageSquare,
   TrendingUp,
   User,
   X,
 } from 'lucide-react';
-import { UpgradePrompt } from '../capital-markets/UpgradePrompt';
 import { useAuth } from '../../context/AuthContext';
 import { isPierPlus, membershipBadgeLabel } from '../../lib/membership';
 import { cn } from '../../lib/utils';
@@ -24,7 +20,6 @@ const navItems = [
   { label: 'Deal Flow', path: '/deals', icon: TrendingUp, pierPlusOnly: true },
   { label: 'Events', path: '/events', icon: Calendar, pierPlusOnly: false },
   { label: 'Partners', path: '/partners', icon: Building2, pierPlusOnly: false },
-  { label: 'Concierge', path: '/concierge', icon: MessageSquare, pierPlusOnly: true },
   { label: 'Profile', path: '/profile', icon: User, pierPlusOnly: false },
 ];
 
@@ -46,7 +41,6 @@ function getInitials(name: string, email?: string) {
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { user, signOut } = useAuth();
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const pierPlus = isPierPlus(user);
   const tierLabel = membershipBadgeLabel(user);
   const displayName = getDisplayName(user);
@@ -71,54 +65,38 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        <p className="eyebrow mb-3 px-3">Navigation</p>
         <ul className="space-y-0.5">
           {navItems.map(({ label, path, icon: Icon, pierPlusOnly }) => {
             const locked = pierPlusOnly && !pierPlus;
-            if (locked) {
-              return (
-                <li key={path}>
-                  <button
-                    type="button"
-                    onClick={() => setUpgradeOpen(true)}
-                    className="group flex h-9 w-full items-center gap-3 rounded-[6px] px-3 text-left text-[14px] text-ink/70 transition-colors duration-150 hover:bg-ink/[0.05] hover:text-ink"
-                  >
-                    <Icon className="h-4 w-4 flex-shrink-0 stroke-[1.25] text-slate group-hover:text-ink" />
-                    <span className="flex-1">{label}</span>
-                    <Lock className="h-3.5 w-3.5 text-gilt" />
-                  </button>
-                </li>
-              );
-            }
-
             return (
-            <li key={path}>
-              <NavLink
-                to={path}
-                onClick={onNavigate}
-                className={({ isActive }) =>
-                  cn(
-                    'group flex h-9 items-center gap-3 rounded-[6px] px-3 text-[14px] transition-colors duration-150',
-                    isActive
-                      ? 'bg-ink text-parchment'
-                      : 'text-ink/70 hover:bg-ink/[0.05] hover:text-ink'
-                  )
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <Icon
-                      className={cn(
-                        'h-4 w-4 flex-shrink-0 stroke-[1.25]',
-                        isActive ? 'text-gilt' : 'text-slate group-hover:text-ink'
-                      )}
-                    />
-                    <span className="flex-1">{label}</span>
-                    {isActive ? <ChevronRight className="h-3.5 w-3.5 text-gilt" /> : null}
-                  </>
-                )}
-              </NavLink>
-            </li>
+              <li key={path}>
+                <NavLink
+                  to={path}
+                  onClick={onNavigate}
+                  className={({ isActive }) =>
+                    cn(
+                      'group flex h-9 items-center gap-3 rounded-[6px] px-3 text-[14px] transition-colors duration-150',
+                      isActive
+                        ? 'bg-ink text-parchment'
+                        : locked
+                          ? 'text-ink/55 hover:bg-ink/[0.05] hover:text-ink'
+                          : 'text-ink/70 hover:bg-ink/[0.05] hover:text-ink'
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        className={cn(
+                          'h-4 w-4 flex-shrink-0 stroke-[1.25]',
+                          isActive ? 'text-parchment' : 'text-slate group-hover:text-ink'
+                        )}
+                      />
+                      <span className="flex-1">{label}</span>
+                    </>
+                  )}
+                </NavLink>
+              </li>
             );
           })}
         </ul>
@@ -147,7 +125,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           Sign out
         </button>
       </div>
-      <UpgradePrompt open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
     </div>
   );
 }
@@ -179,7 +156,7 @@ export function CapitalMarketsSidebar() {
           <button
             type="button"
             onClick={() => setMobileOpen((open) => !open)}
-            className="flex h-9 w-9 items-center justify-center rounded-[6px] border border-border text-ink"
+            className="flex h-9 w-9 items-center justify-center rounded-pier-md border border-border text-ink"
             aria-label="Open navigation"
           >
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}

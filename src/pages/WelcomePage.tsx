@@ -1,10 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { coerceToAuthUserFacingError, isAuthUserFacingError } from '../lib/authErrors';
 import { postAuthPath } from '../lib/capitalOnboarding';
 import { supabase } from '../lib/supabase';
+import { Button } from '../components/ui/Button';
+import {
+  AuthCard,
+  AuthLoading,
+  AuthShell,
+  authOtpClass,
+  authSecondaryClass,
+} from './auth/AuthShell';
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SEC = 60;
@@ -13,25 +20,6 @@ type InviteState =
   | { status: 'loading' }
   | { status: 'invalid' }
   | { status: 'valid'; email: string; firstName: string | null };
-
-function expiredCopy() {
-  return (
-    <div className="text-center">
-      <h1 className="font-display text-4xl font-normal tracking-tight text-foreground">PIER</h1>
-      <p className="mt-8 text-xl font-semibold text-foreground">Link expired</p>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-        This welcome link is no longer valid. Sign in if you already have access, or contact the Pier
-        team for a new invite.
-      </p>
-      <Link
-        to="/login"
-        className="mt-8 inline-flex h-11 items-center rounded-full bg-foreground px-6 text-sm font-medium text-background hover:opacity-90"
-      >
-        Go to sign in
-      </Link>
-    </div>
-  );
-}
 
 export default function WelcomePage() {
   const [searchParams] = useSearchParams();
@@ -162,60 +150,43 @@ export default function WelcomePage() {
     }
   };
 
-  const primaryButtonClass =
-    'w-full rounded-full bg-foreground py-3.5 text-center text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50';
-
-  if (authLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-accent" />
-      </div>
-    );
-  }
-
-  if (user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-accent" />
-      </div>
-    );
-  }
-
-  if (invite.status === 'loading') {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-accent" />
-      </div>
-    );
+  if (authLoading || user || invite.status === 'loading') {
+    return <AuthLoading />;
   }
 
   if (invite.status === 'invalid') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-6">
-        <div className="w-full max-w-md">{expiredCopy()}</div>
-      </div>
+      <AuthShell>
+        <AuthCard>
+          <h2 className="text-xl font-medium text-ink">Link expired</h2>
+          <p className="mt-3 text-sm leading-relaxed text-slate">
+            This welcome link is no longer valid. Sign in if you already have access, or contact the Pier
+            team for a new invite.
+          </p>
+          <Link to="/login" className="mt-8 inline-block w-full">
+            <Button className="w-full">Go to sign in</Button>
+          </Link>
+        </AuthCard>
+      </AuthShell>
     );
   }
 
   const firstName = invite.firstName || 'there';
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
-      <motion.div
-        className="w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-card md:p-10"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <p className="text-[11px] tracking-[0.3em] uppercase text-muted-foreground">Welcome</p>
-        <h1 className="mt-3 font-display text-3xl tracking-tight text-foreground">Hello, {firstName}.</h1>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+    <AuthShell>
+      <AuthCard>
+        <p className="eyebrow">Welcome</p>
+        <h1 className="mt-3 font-display text-3xl leading-[1.05] tracking-tight text-ink">
+          Hello, {firstName}.
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-slate">
           Your Pier membership is ready. Continue to receive a one-time sign-in code at{' '}
-          <span className="font-medium text-foreground">{invite.email}</span>.
+          <span className="font-medium text-ink">{invite.email}</span>.
         </p>
 
         {authError ? (
-          <div className="mt-6 rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground" role="alert">
+          <div className="mt-6 rounded-pier border border-border bg-muted/40 px-4 py-3 text-sm text-slate" role="alert">
             {isAuthUserFacingError(authError) && authError.display.kind === 'plain'
               ? authError.display.text
               : authError.message}
@@ -223,9 +194,9 @@ export default function WelcomePage() {
         ) : null}
 
         {step === 'landing' ? (
-          <button type="button" className={`${primaryButtonClass} mt-8`} disabled={isWorking} onClick={requestOtp}>
-            {isWorking ? 'Sending…' : 'Continue'}
-          </button>
+          <Button type="button" className="mt-8 w-full" disabled={isWorking} loading={isWorking} onClick={requestOtp}>
+            Continue
+          </Button>
         ) : (
           <form
             className="mt-8"
@@ -234,7 +205,7 @@ export default function WelcomePage() {
               submitOtpToken(otpCode.join(''));
             }}
           >
-            <p className="mb-6 text-sm text-muted-foreground">Enter the 6-digit code from your email.</p>
+            <p className="mb-6 text-sm text-slate">Enter the 6-digit code from your email.</p>
             <div className="mb-8 flex justify-center gap-2">
               {otpCode.map((digit, i) => (
                 <input
@@ -247,26 +218,26 @@ export default function WelcomePage() {
                   maxLength={6}
                   value={digit}
                   onChange={(e) => handleOtpChange(i, e.target.value)}
-                  className="h-12 w-11 rounded-xl border border-border bg-background text-center text-lg text-foreground outline-none focus:border-foreground/20 focus:ring-2 focus:ring-foreground/10"
+                  className={authOtpClass}
                   aria-label={`Digit ${i + 1}`}
                 />
               ))}
             </div>
-            <button type="submit" className={primaryButtonClass} disabled={isWorking}>
-              {isWorking ? 'Verifying…' : 'Verify and sign in'}
-            </button>
+            <Button type="submit" className="w-full" loading={isWorking}>
+              Verify and sign in
+            </Button>
             <div className="mt-6 text-sm">
               {resendCooldown > 0 ? (
-                <span className="text-muted-foreground">Resend code ({resendCooldown}s)</span>
+                <span className="text-slate">Resend code ({resendCooldown}s)</span>
               ) : (
-                <button type="button" onClick={requestOtp} className="text-accent hover:underline">
+                <button type="button" onClick={requestOtp} className={authSecondaryClass}>
                   Resend code
                 </button>
               )}
             </div>
           </form>
         )}
-      </motion.div>
-    </div>
+      </AuthCard>
+    </AuthShell>
   );
 }

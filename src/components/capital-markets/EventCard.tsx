@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom';
 import { Calendar, Clock, ExternalLink, MapPin } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import type { CapitalEvent, CapitalEventRsvp } from '../../lib/api/capitalMarkets';
+import { conciergeMailto } from '../../lib/conciergeMailto';
 import { formatEventDate, formatEventLocation, formatEventTime } from '../../lib/utils';
 import { eventTypeLabels } from '../../pages/capital-markets/mockData';
 
@@ -18,18 +18,16 @@ function isMultiDayExperience(event: CapitalEvent): boolean {
   return end - start > 24 * 60 * 60 * 1000;
 }
 
-function getConciergeInviteHref(event: CapitalEvent): string {
-  const message = `Hi there, I'd like to attend ${event.title} on ${formatEventDate(
-    event.date,
-    'long',
-    event.city
-  )}, please let me know if there's a spot remaining, thanks!`;
-
-  return `/concierge?message=${encodeURIComponent(message)}`;
+function getEventInviteHref(event: CapitalEvent): string {
+  const date = formatEventDate(event.date, 'long', event.city);
+  return conciergeMailto(
+    `RSVP: ${event.title}`,
+    `I'd like to attend ${event.title} on ${date}. Please let me know if a spot remains.`
+  );
 }
 
 const actionLinkClass =
-  'flex h-8 w-full items-center justify-center gap-2 rounded-[6px] border border-ink bg-ink px-3 text-[13px] font-medium text-parchment transition-colors hover:bg-ink/90';
+  'flex h-8 w-full items-center justify-center gap-2 rounded-pier-md border border-ink bg-ink px-3 text-[13px] font-medium text-parchment transition-colors hover:bg-ink/90';
 
 export function EventCard({ event, rsvp, compact }: EventCardProps) {
   const hasExternalRegister = Boolean(event.registrationUrl?.trim());
@@ -118,9 +116,9 @@ export function EventCard({ event, rsvp, compact }: EventCardProps) {
               <ExternalLink className="h-3.5 w-3.5 opacity-80" />
             </a>
           ) : (
-            <Link to={getConciergeInviteHref(event)} className={actionLinkClass}>
+            <a href={getEventInviteHref(event)} className={actionLinkClass}>
               {requestLabel}
-            </Link>
+            </a>
           )}
         </div>
       </aside>

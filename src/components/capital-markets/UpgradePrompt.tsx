@@ -1,10 +1,12 @@
-import type { ReactNode } from 'react';
 import { Lock, X } from 'lucide-react';
 import { useIntercom } from '../../hooks/useIntercom';
+import { conciergeMailto } from '../../lib/conciergeMailto';
 import { cn } from '../../lib/utils';
 
-export const PIER_PLUS_UPGRADE_MAILTO =
-  'mailto:concierge@joinpier.com?subject=Pier%2B%20upgrade%20request&body=I%20would%20like%20to%20request%20a%20Pier%2B%20upgrade.';
+export const PIER_PLUS_UPGRADE_MAILTO = conciergeMailto(
+  'Pier+ upgrade request',
+  'I would like to request a Pier+ upgrade.'
+);
 
 type UpgradePromptProps = {
   open?: boolean;
@@ -20,7 +22,7 @@ export function UpgradePrompt({
   onClose,
   variant = 'modal',
   title = 'Pier+ members only',
-  description = 'Deal Flow, the member directory, and Concierge are included with Pier+. Request an upgrade and the Pier team will follow up.',
+  description = 'Deal Flow and the member directory are included with Pier+. Request an upgrade and the Pier team will follow up.',
   className,
 }: UpgradePromptProps) {
   const { show, showNewMessage, trackEvent } = useIntercom();
@@ -70,7 +72,7 @@ export function UpgradePrompt({
               <Lock className="h-4 w-4 text-gilt" />
             </div>
             <div>
-              <p className="eyebrow mb-2 text-gilt">Pier+</p>
+              <p className="eyebrow mb-2">Pier+</p>
               <h2 id="upgrade-prompt-title" className="font-display text-[28px] leading-none tracking-[-0.02em] text-ink">
                 {title}
               </h2>
@@ -99,7 +101,7 @@ export function UpgradePrompt({
 
   if (variant === 'page') {
     return (
-      <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
+      <div className="page-frame">
         <div className="mx-auto max-w-xl">{body}</div>
       </div>
     );
@@ -124,26 +126,12 @@ export function UpgradePrompt({
   );
 }
 
-export function BlurredUpgradeTeaser({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+export function BlurredUpgradeTeaser({ label }: { label: string }) {
   return (
-    <div className="relative overflow-hidden rounded-[4px] border border-border bg-surface">
-      <div className="pointer-events-none max-h-[70vh] select-none overflow-hidden blur-[8px]" aria-hidden="true">
-        {children}
-      </div>
-      <div className="absolute inset-0 flex items-start justify-center bg-parchment/60 px-4 pt-10 sm:pt-16">
-        <UpgradePrompt
-          variant="inline"
-          className="max-w-md shadow-lg"
-          title={label}
-          description="Names, terms, contacts, and documents stay with Pier+. Events and Partners remain available on Standard."
-        />
-      </div>
-    </div>
+    <UpgradePrompt
+      variant="inline"
+      title={label}
+      description="Names, terms, contacts, and documents stay with Pier+. Events and Partners remain available on Standard."
+    />
   );
 }

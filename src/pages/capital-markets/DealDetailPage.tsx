@@ -17,7 +17,6 @@ import {
 } from '../../lib/api/capitalMarkets';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, describeCapitalLoadFailure, withTimeout } from '../../lib/async';
 import { formatCurrency, formatDate, formatDealReturn } from '../../lib/utils';
-import { typeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
 export default function DealDetailPage() {
@@ -86,7 +85,7 @@ export default function DealDetailPage() {
 
   if (loading) {
     return (
-      <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
+      <div className="page-frame">
         <Link to="/deals" className="mb-8 flex items-center gap-1.5 text-[13px] text-slate hover:text-ink">
           <ArrowLeft className="h-3.5 w-3.5" />
           Deal Flow
@@ -98,7 +97,7 @@ export default function DealDetailPage() {
 
   if (error) {
     return (
-      <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
+      <div className="page-frame">
         <Link to="/deals" className="mb-8 flex items-center gap-1.5 text-[13px] text-slate hover:text-ink">
           <ArrowLeft className="h-3.5 w-3.5" />
           Deal Flow
@@ -110,7 +109,7 @@ export default function DealDetailPage() {
 
   if (!deal) {
     return (
-      <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
+      <div className="page-frame">
         <Link to="/deals" className="mb-8 flex items-center gap-1.5 text-[13px] text-slate hover:text-ink">
           <ArrowLeft className="h-3.5 w-3.5" />
           Deal Flow
@@ -197,7 +196,7 @@ export default function DealDetailPage() {
   ];
 
   return (
-    <div className="px-6 py-8 sm:px-10 lg:px-14 lg:py-12">
+    <div className="page-frame">
       <Link to="/deals" className="mb-8 flex items-center gap-1.5 text-[13px] text-slate hover:text-ink">
         <ArrowLeft className="h-3.5 w-3.5" />
         Deal Flow
@@ -212,8 +211,6 @@ export default function DealDetailPage() {
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Badge variant={deal.status}>{deal.status}</Badge>
-          <span className="eyebrow">{deal.assetClass}</span>
-          <span className="eyebrow">{typeLabels[deal.type]}</span>
         </div>
       </div>
 

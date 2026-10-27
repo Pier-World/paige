@@ -31,7 +31,7 @@ export function IdentityStep({ data, updateData, onContinue, continueDisabled }:
       }}
     >
       <div>
-        <h1 className="font-display text-[36px] leading-[0.95] tracking-[-0.02em] text-ink sm:text-[40px]">
+        <h1 className="font-display text-[36px] leading-[1.05] tracking-[-0.02em] text-ink sm:text-[40px]">
           Who you are
         </h1>
         <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-slate">
@@ -80,7 +80,7 @@ export function IdentityStep({ data, updateData, onContinue, continueDisabled }:
             onChange={(e) => updateData({ firm: e.target.value })}
             placeholder="Optional"
             autoComplete="organization"
-            className="h-11 w-full rounded-[4px] border border-border bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink/30"
+            className="h-11 w-full rounded-pier-md border border-border bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink/30"
           />
         </label>
         <label className="block">
@@ -90,7 +90,7 @@ export function IdentityStep({ data, updateData, onContinue, continueDisabled }:
             onChange={(e) => updateData({ title: e.target.value })}
             placeholder="Optional"
             autoComplete="organization-title"
-            className="h-11 w-full rounded-[4px] border border-border bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink/30"
+            className="h-11 w-full rounded-pier-md border border-border bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink/30"
           />
         </label>
         <label className="block">
@@ -100,7 +100,7 @@ export function IdentityStep({ data, updateData, onContinue, continueDisabled }:
             onChange={(e) => updateData({ city: e.target.value })}
             placeholder="Optional"
             autoComplete="address-level2"
-            className="h-11 w-full rounded-[4px] border border-border bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink/30"
+            className="h-11 w-full rounded-pier-md border border-border bg-surface px-3 text-[14px] text-ink outline-none focus:border-ink/30"
           />
         </label>
       </div>

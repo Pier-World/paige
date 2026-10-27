@@ -35,7 +35,7 @@ function ToggleRow({
       >
         <span
           className={`mt-0.5 block h-5 w-5 rounded-full bg-parchment transition-transform ${
-            checked ? 'translate-x-5 bg-gilt' : 'translate-x-0.5 bg-slate/40'
+            checked ? 'translate-x-5 bg-gilt' : 'translate-x-0.5 bg-slate'
           }`}
         />
       </span>
@@ -49,7 +49,7 @@ export function PrivacyStep({ data, updateData }: PrivacyStepProps) {
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="font-display text-[36px] leading-[0.95] tracking-[-0.02em] text-ink sm:text-[40px]">
+        <h1 className="font-display text-[36px] leading-[1.05] tracking-[-0.02em] text-ink sm:text-[40px]">
           Privacy
         </h1>
         <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-slate">
