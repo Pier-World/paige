@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { DealReturnCell } from '../../components/capital-markets/DealReturnCell';
 import { AnonymizedDealPreview } from '../../components/capital-markets/AnonymizedDealPreview';
-import { GetOrientedCard, type OrientedStep } from '../../components/capital-markets/GetOrientedCard';
+import { GetOrientedCard } from '../../components/capital-markets/GetOrientedCard';
 import { MembershipReveal } from '../../components/capital-markets/MembershipReveal';
 import { PageFrame } from '../../components/layout/PageFrame';
 import { Badge } from '../../components/ui/Badge';
@@ -21,6 +21,7 @@ import {
   dashboardIntroKey,
   eventMatchesCapitalRole,
 } from '../../lib/capitalOnboarding';
+import { buildDashboardOrientedSteps } from '../../lib/orientationSteps';
 import { isPierPlus } from '../../lib/membership';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
 import { useCapitalLoad } from '../../lib/useCapitalLoad';
@@ -30,7 +31,6 @@ import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
 const THREE_WEEKS_MS = 21 * 24 * 60 * 60 * 1000;
 const ACTIVE_RSVP = new Set(['confirmed', 'requested', 'waitlisted', 'attended']);
-const PROFILE_PERSONAL_HREF = '/profile?edit=personal#personal';
 
 function readIntroDismissed(userId?: string) {
   if (!userId) return false;
@@ -127,12 +127,9 @@ export default function DashboardPage() {
       })
       .slice(0, 5);
   }, [events, capitalRole]);
-  const nextEvent = upcomingEvents[0] ?? events.find((event) => event.upcoming);
   const showIntro = Boolean(user?.id) && !introDismissed;
-  const roleDone = capitalRole === 'gp' || capitalRole === 'lp';
   const firm = user?.preferences?.firm?.trim() || '';
   const city = user?.preferences?.primary_city?.trim() || '';
-  const placeDone = Boolean(firm && city);
   const futureEvents = events.filter((event) => event.upcoming);
   const joinedUpcoming = rsvps.some(
     (rsvp) =>
@@ -141,72 +138,16 @@ export default function DashboardPage() {
   const joinedEvent = futureEvents.find((event) =>
     rsvps.some((rsvp) => rsvp.eventId === event.databaseId && ACTIVE_RSVP.has(rsvp.status))
   );
-
-  let gathering: OrientedStep;
-  if (loading) {
-    gathering = {
-      id: 'gathering',
-      title: 'Join a gathering',
-      detail: 'Checking the calendar.',
-      href: '/events',
-      state: 'pending',
-    };
-  } else if (error) {
-    gathering = {
-      id: 'gathering',
-      title: 'Join a gathering',
-      detail: 'The calendar didn’t load. Open events to try again.',
-      href: '/events',
-      state: 'open',
-    };
-  } else if (joinedUpcoming && joinedEvent) {
-    gathering = {
-      id: 'gathering',
-      title: 'Join a gathering',
-      detail: `You're down for ${joinedEvent.title}.`,
-      href: `/events#event-${joinedEvent.id}`,
-      state: 'done',
-    };
-  } else if (futureEvents.length === 0) {
-    gathering = {
-      id: 'gathering',
-      title: 'Join a gathering',
-      detail: 'Nothing in the next few weeks. We’ll invite you.',
-      href: '/events',
-      state: 'done',
-    };
-  } else {
-    const target = nextEvent ?? futureEvents[0];
-    gathering = {
-      id: 'gathering',
-      title: 'Join a gathering',
-      detail: target ? `${target.title}${target.city ? ` · ${target.city}` : ''}` : 'See what’s coming up.',
-      href: target?.registrationUrl || (target ? `/events#event-${target.id}` : '/events'),
-      state: 'open',
-    };
-  }
-
-  const orientedSteps: OrientedStep[] = [
-    {
-      id: 'role',
-      title: 'Confirm your role',
-      detail: roleDone
-        ? capitalRole === 'gp'
-          ? 'You’re set as a general partner.'
-          : 'You’re set as an allocator.'
-        : 'Tell Pier whether you allocate or manage capital.',
-        href: PROFILE_PERSONAL_HREF,
-        state: roleDone ? 'done' : 'open',
-      },
-      {
-        id: 'place',
-        title: 'Add firm and city',
-        detail: placeDone ? `${firm} · ${city}` : 'Where you work, and the city you want to be invited in.',
-        href: PROFILE_PERSONAL_HREF,
-      state: placeDone ? 'done' : 'open',
-    },
-    gathering,
-  ];
+  const orientedSteps = buildDashboardOrientedSteps({
+    loading,
+    calendarError: Boolean(error),
+    capitalRole,
+    firm,
+    city,
+    joinedEvent: joinedUpcoming && joinedEvent ? { id: joinedEvent.id, title: joinedEvent.title } : null,
+    hasUpcoming: futureEvents.length > 0,
+    preferences: user?.preferences,
+  });
 
   function dismissIntro() {
     if (!user?.id) return;

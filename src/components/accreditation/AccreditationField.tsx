@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -117,10 +118,31 @@ function AccreditationDialog({
 
 export function AccreditationField({ className }: { className?: string }) {
   const { user, updateProfile } = useAuth();
-  const [open, setOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const openedFromOrientation = useRef(false);
+  const [open, setOpen] = useState(() => searchParams.get('focus') === 'accreditation');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const record = readAccreditation(user?.preferences);
+
+  useEffect(() => {
+    if (openedFromOrientation.current) return;
+    if (searchParams.get('focus') !== 'accreditation') return;
+    openedFromOrientation.current = true;
+    setOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('focus');
+    navigate(
+      {
+        pathname: location.pathname,
+        search: next.toString(),
+        hash: location.hash || '#accreditation',
+      },
+      { replace: true }
+    );
+  }, [location.hash, location.pathname, navigate, searchParams]);
 
   async function confirm(draft: AccreditationDraft) {
     if (!user) return;
@@ -146,7 +168,7 @@ export function AccreditationField({ className }: { className?: string }) {
   }
 
   return (
-    <div className={cn(className)}>
+    <div id="accreditation" className={cn('scroll-mt-6', className)}>
       <p className="eyebrow mb-1">Accredited investor</p>
       {record?.accredited ? (
         <>

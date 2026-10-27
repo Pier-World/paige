@@ -46,7 +46,7 @@ export function GetOrientedCard({
   const done = steps.filter((step) => step.state === 'done').length;
   const percent = steps.length === 0 ? 0 : Math.round((done / steps.length) * 100);
   const complete = steps.length > 0 && done === steps.length;
-  const nextId = steps.find((step) => step.state === 'open')?.id;
+  const nextId = steps.find((step) => step.state !== 'done')?.id;
 
   return (
     <section className="mb-10 overflow-hidden rounded-pier-lg border border-border bg-surface shadow-card">
@@ -110,7 +110,7 @@ export function GetOrientedCard({
                   </span>
                   <span className="mt-0.5 block truncate text-[13px] text-slate">{step.detail}</span>
                 </span>
-                {isNext ? (
+                {isNext && step.state === 'open' ? (
                   <span className="inline-flex h-8 shrink-0 items-center rounded-full bg-ink px-3.5 text-[12px] font-medium text-parchment">
                     Continue
                   </span>
