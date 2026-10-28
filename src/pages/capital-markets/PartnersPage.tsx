@@ -10,6 +10,7 @@ import {
 import { ANALYTICS_EVENTS, captureAnalytics } from '../../lib/analytics';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
 import { useCapitalLoad } from '../../lib/useCapitalLoad';
+import { partnerAccessLabel } from '../../lib/partnerAccess';
 import { partnerCategoryLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
@@ -70,6 +71,7 @@ export default function PartnersPage() {
         partner.benefits.join(' '),
         partner.location,
         partner.minimumLevel,
+        partnerAccessLabel(partner.minimumLevel) ?? '',
         partner.redemptionInstructions,
       ].join(' ').toLowerCase();
       return haystack.includes(query);
@@ -130,7 +132,7 @@ export default function PartnersPage() {
             {featured.length === 0 ? (
               <EmptyState title="No featured partners match." description="Adjust filters or search." />
             ) : (
-              <div className="grid gap-4 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
                 {featured.map((partner) => (
                   <FeaturedPartnerCard key={partner.id} partner={partner} onSelect={setSelectedPartner} />
                 ))}
@@ -143,7 +145,7 @@ export default function PartnersPage() {
             {regular.length === 0 ? (
               <EmptyState title="No additional partners." description="Try a different filter or search term." />
             ) : (
-              <div className="grid gap-3">
+              <div className="grid grid-cols-1 gap-2">
                 {regular.map((partner) => (
                   <PartnerListRow
                     key={partner.id}
