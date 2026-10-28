@@ -25,8 +25,9 @@ import { buildDashboardOrientedSteps } from '../../lib/orientationSteps';
 import { isPierPlus } from '../../lib/membership';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
 import { useCapitalLoad } from '../../lib/useCapitalLoad';
+import { sortCapitalDealsForDealFlow } from '../../lib/capitalDeals';
 import { formatCurrency, formatEventDate, hasPublicDealAmount } from '../../lib/utils';
-import { typeLabels } from './mockData';
+import { dealStatusLabels, typeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
 const THREE_WEEKS_MS = 21 * 24 * 60 * 60 * 1000;
@@ -115,7 +116,9 @@ export default function DashboardPage() {
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const subtitle = roleCopy(capitalRole);
 
-  const openDeals = deals.filter((deal) => deal.status === 'open' || deal.status === 'closing');
+  const openDeals = sortCapitalDealsForDealFlow(
+    deals.filter((deal) => deal.status === 'open' || deal.status === 'closing')
+  );
   const upcomingEvents = useMemo(() => {
     const now = Date.now();
     return events
@@ -272,7 +275,7 @@ export default function DashboardPage() {
                           )}
                           <DealReturnCell deal={deal} />
                         </div>
-                        <Badge variant={deal.status}>{deal.status}</Badge>
+                        <Badge variant={deal.status}>{dealStatusLabels[deal.status]}</Badge>
                       </Link>
                     ))}
                   </div>

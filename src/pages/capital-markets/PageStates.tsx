@@ -21,7 +21,7 @@ export function LoadingState({
   variant = 'list',
 }: {
   label?: string;
-  variant?: 'list' | 'cards' | 'dashboard' | 'detail' | 'profile';
+  variant?: 'list' | 'cards' | 'rows' | 'dashboard' | 'detail' | 'profile';
 }) {
   return (
     <div role="status" aria-live="polite" aria-busy="true">
@@ -34,6 +34,29 @@ export function LoadingState({
               <Skeleton className="h-3.5 w-2/3" />
               <Skeleton className="h-3 w-full" />
               <Skeleton className="h-3 w-4/5" />
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {variant === 'rows' ? (
+        <div className="grid gap-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div
+              key={index}
+              className="grid gap-6 rounded-[4px] border border-border bg-surface p-6 lg:grid-cols-[minmax(0,1fr)_240px]"
+            >
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-7 w-2/3 max-w-md" />
+                <Skeleton className="h-3.5 w-1/3 max-w-xs" />
+                <Skeleton className="h-3 w-full max-w-xl" />
+                <Skeleton className="h-3 w-4/5 max-w-lg" />
+              </div>
+              <div className="space-y-3 lg:border-l lg:border-border lg:pl-8">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-4/5" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
             </div>
           ))}
         </div>

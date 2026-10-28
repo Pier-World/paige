@@ -9,6 +9,7 @@ import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
 import { dataRoomMailto } from '../../lib/conciergeMailto';
 import { useCapitalLoad } from '../../lib/useCapitalLoad';
 import { formatCurrency, formatDate, formatDealReturn, hasPublicDealAmount, hasPublicDealReturn } from '../../lib/utils';
+import { dealStatusLabels } from './mockData';
 import { ErrorState, LoadingState } from './PageStates';
 
 export default function DealDetailPage() {
@@ -144,7 +145,7 @@ export default function DealDetailPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Badge variant={deal.status}>{deal.status}</Badge>
+          <Badge variant={deal.status}>{dealStatusLabels[deal.status]}</Badge>
         </div>
       </div>
 

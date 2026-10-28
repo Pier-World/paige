@@ -483,6 +483,13 @@ export const typeLabels: Record<DealType, string> = {
   spv: 'SPV',
 };
 
+export const dealStatusLabels: Record<DealStatus, string> = {
+  closing: 'Closing soon',
+  open: 'Open',
+  closed: 'Closed',
+  pending: 'Pending',
+};
+
 export const eventTypeLabels: Record<EventType, string> = {
   dinner: 'Dinner',
   summit: 'Summit',
