@@ -250,7 +250,23 @@ test('help-first options are role-aware modules with the same keys', () => {
   assert.equal(lp.length, 5);
   assert.ok(lp.every((option) => option.title && option.description));
   assert.notEqual(lp[0].title, gp[0].title);
+  assert.equal(lp[0].title, 'Exclusive Fund Deals');
+  assert.match(lp[0].description, /Vestera Capital Partners/);
+  assert.equal(lp[1].description, 'Co-invest or primary opportunities alongside other Pier+ members.');
+  assert.equal(lp[2].description, 'Meet managers and fellow allocators around the globe.');
+  assert.equal(lp[3].description, 'Invitations to member-only gatherings across city chapters.');
+  assert.equal(lp[4].description, 'Access to the best new funds and first-time managers.');
+  assert.equal(gp[2].description, 'Meet allocators and other fellow managers around the globe.');
+  assert.equal(gp[3].description, 'Invitations to member-only gatherings across city chapters.');
+  assert.equal(gp[4].title, 'Fund showcase');
+  assert.equal(
+    gp[4].description,
+    'Be included in Pier’s research briefs and highlights to allocators.'
+  );
   const step = readFileSync(join(root, 'src/pages/onboarding/steps/IntentStep.tsx'), 'utf8');
+  assert.match(step, /What's most important to you\?/);
+  assert.doesNotMatch(step, /What would help first\?/);
+  assert.match(step, /what's most valuable to you and your firm/);
   assert.match(step, /option\.description/);
   assert.doesNotMatch(step, /flex-wrap/);
 });

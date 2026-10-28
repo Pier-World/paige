@@ -5,6 +5,7 @@ import {
   DATA_ROOM_EMAIL,
   conciergeMailto,
   dataRoomMailto,
+  upgradeRequestMailto,
 } from './conciergeMailto.ts';
 
 test('data room requests go to Vestera, not concierge', () => {
@@ -22,4 +23,13 @@ test('concierge mail still uses the general inbox', () => {
   const url = new URL(href);
   assert.equal(CONCIERGE_EMAIL, 'hello@joinpier.com');
   assert.equal(url.pathname, CONCIERGE_EMAIL);
+});
+
+test('Pier+ upgrade requests email Vestera', () => {
+  const href = upgradeRequestMailto();
+  const url = new URL(href);
+  assert.equal(url.protocol, 'mailto:');
+  assert.equal(url.pathname, DATA_ROOM_EMAIL);
+  assert.equal(url.searchParams.get('subject'), 'Pier+ upgrade request');
+  assert.equal(href.includes(CONCIERGE_EMAIL), false);
 });

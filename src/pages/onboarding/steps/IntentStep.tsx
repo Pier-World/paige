@@ -21,11 +21,12 @@ export function IntentStep({ data, updateData }: IntentStepProps) {
     <div className="space-y-8">
       <div>
         <h1 className="font-display text-[36px] leading-[1.05] tracking-[-0.02em] text-ink sm:text-[40px]">
-          What would help first?
+          What's most important to you?
         </h1>
         <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-slate">
-          Optional. Continue without selecting any — this only helps Pier prioritize what to show
-          first.
+          {data.capitalRole === 'gp'
+            ? "Optional. Continue without selecting any — this only helps Pier understand what's most valuable to you and your firm."
+            : 'Optional. Continue without selecting any — this only helps Pier prioritize what to show first.'}
         </p>
       </div>
 

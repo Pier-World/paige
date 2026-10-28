@@ -265,11 +265,12 @@ test('TypeScript isPierPlus uses membership_level only; admin is staff, not Pier
   assert.doesNotMatch(src, /unknown → Premium|unknown -> Premium/);
 });
 
-test('UpgradePrompt uses Pier+ copy and a request CTA, not Stripe checkout', () => {
+test('UpgradePrompt Message the team emails Vestera instead of Intercom', () => {
   const src = readFileSync(join(root, 'src/components/capital-markets/UpgradePrompt.tsx'), 'utf8');
   assert.match(src, /Pier\+/);
-  assert.match(src, /Request upgrade/);
-  assert.doesNotMatch(src, /checkout|Stripe/);
+  assert.match(src, /Message the team/);
+  assert.match(src, /upgradeRequestMailto/);
+  assert.doesNotMatch(src, /showNewMessage/);
 });
 
 test('client cannot self-promote: updateMembershipLevel is gone', () => {

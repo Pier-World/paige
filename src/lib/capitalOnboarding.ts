@@ -19,28 +19,29 @@ export type IntentOption = {
 export const LP_INTENT_OPTIONS: IntentOption[] = [
   {
     id: 'exclusive-funds',
-    title: 'Exclusive funds',
-    description: 'Funds Pier brings to members — managers you will not find on a public listing.',
+    title: 'Exclusive Fund Deals',
+    description:
+      'Exclusive allocations into managers across different ranges of alternatives — brought to you by Vestera Capital Partners.',
   },
   {
     id: 'co-invests',
     title: 'Directs and co-investments',
-    description: 'Co-invests and directs alongside other members, when the fit is right.',
+    description: 'Co-invest or primary opportunities alongside other Pier+ members.',
   },
   {
     id: 'network',
     title: 'Other LPs and GPs',
-    description: 'Meet managers and fellow allocators. Introductions stay Pier-mediated.',
+    description: 'Meet managers and fellow allocators around the globe.',
   },
   {
     id: 'gatherings',
     title: 'Gatherings worldwide',
-    description: 'Invitations to select dinners and gatherings in cities that matter.',
+    description: 'Invitations to member-only gatherings across city chapters.',
   },
   {
     id: 'emerging-managers',
     title: 'Emerging managers',
-    description: 'Newer funds and first-time managers, with context before you take a call.',
+    description: 'Access to the best new funds and first-time managers.',
   },
 ];
 
@@ -58,22 +59,22 @@ export const GP_INTENT_OPTIONS: IntentOption[] = [
   {
     id: 'network',
     title: 'Allocators in the room',
-    description: 'Meet allocators and other managers. Introductions stay Pier-mediated.',
+    description: 'Meet allocators and other fellow managers around the globe.',
   },
   {
     id: 'gatherings',
     title: 'Gatherings worldwide',
-    description: 'Invitations to select dinners and gatherings in cities that matter.',
+    description: 'Invitations to member-only gatherings across city chapters.',
   },
   {
     id: 'emerging-managers',
-    title: 'Being considered',
-    description: 'Be included when Pier briefs allocators on managers worth a look.',
+    title: 'Fund showcase',
+    description: 'Be included in Pier’s research briefs and highlights to allocators.',
   },
 ];
 
 export const INTENT_LABELS: Record<string, string> = {
-  'exclusive-funds': 'Exclusive funds',
+  'exclusive-funds': 'Exclusive Fund Deals',
   'co-invests': 'Directs and co-investments',
   network: 'The membership',
   gatherings: 'Gatherings worldwide',
@@ -81,8 +82,8 @@ export const INTENT_LABELS: Record<string, string> = {
   dinners: 'Gatherings worldwide',
   'meet-allocators': 'The membership',
   coverage: 'Emerging managers',
-  'list-opportunity': 'Exclusive funds',
-  'credit-real-assets': 'Exclusive funds',
+  'list-opportunity': 'Exclusive Fund Deals',
+  'credit-real-assets': 'Exclusive Fund Deals',
 };
 
 const INTENT_ALIASES: Record<string, string> = {

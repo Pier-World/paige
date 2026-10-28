@@ -32,7 +32,7 @@ export default function DealsPage() {
       <div className="mb-10">
         <p className="eyebrow mb-2">Deal Flow</p>
         <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.02em] text-ink">
-          Curated opportunities.
+          Exclusive access to Vestera Capital Partners deals.
         </h1>
         <p className="mt-3 max-w-2xl text-[15px] text-slate">
           Selected fund access, co-investments, secondaries, and SPVs reviewed for Pier members.

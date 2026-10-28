@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Lock, X } from 'lucide-react';
 import { useIntercom } from '../../hooks/useIntercom';
 import { ANALYTICS_EVENTS, captureAnalytics } from '../../lib/analytics';
+import { upgradeRequestMailto } from '../../lib/conciergeMailto';
 import { cn } from '../../lib/utils';
 
 export const PIER_PLUS_CHECKOUT_URL = 'https://buy.stripe.com/7sY14p6Ep0vFdShfvZ1wY05';
@@ -23,7 +24,7 @@ export function UpgradePrompt({
   description = 'Deal Flow and the member directory are included with Pier+.',
   className,
 }: UpgradePromptProps) {
-  const { show, showNewMessage, trackEvent } = useIntercom();
+  const { trackEvent } = useIntercom();
 
   useEffect(() => {
     if (!open) return;
@@ -32,20 +33,13 @@ export function UpgradePrompt({
 
   if (!open) return null;
 
-  function logCta(channel: 'stripe' | 'intercom') {
+  function logCta(channel: 'stripe' | 'email') {
     captureAnalytics(ANALYTICS_EVENTS.upgradeRequestClick, { channel, copy: 'Join Pier+' });
     try {
       trackEvent('upgrade_request_click', { channel, copy: 'Join Pier+' });
     } catch {
       // Intercom may not be booted (logged-out welcome, etc.)
     }
-  }
-
-  function requestViaIntercom() {
-    logCta('intercom');
-    show();
-    showNewMessage('I would like to request a Pier+ upgrade.');
-    onClose?.();
   }
 
   const actions = (
@@ -59,13 +53,16 @@ export function UpgradePrompt({
       >
         Join Pier+
       </a>
-      <button
-        type="button"
-        onClick={requestViaIntercom}
+      <a
+        href={upgradeRequestMailto()}
+        onClick={() => {
+          logCta('email');
+          onClose?.();
+        }}
         className="flex h-9 flex-1 items-center justify-center rounded-[6px] border border-border bg-parchment text-[12px] text-ink hover:border-ink/30"
       >
         Message the team
-      </button>
+      </a>
     </div>
   );
 

@@ -18,3 +18,7 @@ export function conciergeMailto(subject: string, body?: string): string {
 export function dataRoomMailto(opportunityTitle: string): string {
   return mailtoHref(DATA_ROOM_EMAIL, `Requesting Data Room: ${opportunityTitle}`);
 }
+
+export function upgradeRequestMailto(): string {
+  return mailtoHref(DATA_ROOM_EMAIL, 'Pier+ upgrade request');
+}
