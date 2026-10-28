@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Calendar, Clock, ExternalLink, MapPin } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { ANALYTICS_EVENTS, captureAnalytics } from '../../lib/analytics';
@@ -160,5 +162,116 @@ export function EventCard({ event, rsvp, compact }: EventCardProps) {
         </div>
       </aside>
     </div>
+  );
+}
+
+function eventMonthDay(event: CapitalEvent) {
+  const [month, day] = formatEventDate(event.date, 'month-day', event.city).split(' ');
+  return { month, day };
+}
+
+function isGoing(event: CapitalEvent, rsvp?: CapitalEventRsvp) {
+  return rsvp?.status === 'confirmed' || rsvp?.status === 'attended' || event.registered;
+}
+
+export function DashboardEventCard({
+  event,
+  rsvp,
+}: {
+  event: CapitalEvent;
+  rsvp?: CapitalEventRsvp;
+}) {
+  const coverImageUrl = event.coverImageUrl?.trim() ?? '';
+  const [coverFailed, setCoverFailed] = useState(false);
+  const showCover = Boolean(coverImageUrl) && !coverFailed;
+  const { month, day } = eventMonthDay(event);
+  const going = isGoing(event, rsvp);
+  const hasExternalRegister = Boolean(event.registrationUrl?.trim());
+  const registerLabel = getRegisterLabel(event);
+  const meta = showCover
+    ? [event.city, event.audience].filter(Boolean).join(' · ')
+    : event.audience;
+
+  return (
+    <article className="overflow-hidden rounded-[4px] border border-border bg-surface">
+      {showCover ? (
+        <Link to={`/events#event-${event.id}`} className="relative block">
+          <div className="aspect-[16/10] w-full overflow-hidden bg-border/40">
+            <img
+              src={coverImageUrl}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover"
+              onError={() => setCoverFailed(true)}
+            />
+          </div>
+          <div className="absolute left-3 top-3 rounded-[4px] bg-parchment/95 px-2 py-1.5 text-center shadow-sm">
+            <p className="font-mono-data text-[10px] font-medium uppercase tracking-[0.08em] text-slate">
+              {month}
+            </p>
+            <p className="font-mono-data text-[16px] font-medium leading-none text-ink">{day}</p>
+          </div>
+        </Link>
+      ) : null}
+
+      <div className="p-4">
+        {showCover ? null : (
+          <div className="mb-3 flex items-center gap-3">
+            <div className="text-center">
+              <p className="font-mono-data text-[11px] font-medium uppercase tracking-[0.08em] text-slate">
+                {month}
+              </p>
+              <p className="font-mono-data text-[18px] font-medium leading-none text-ink">{day}</p>
+            </div>
+            <div className="h-8 w-px bg-border" />
+            <p className="text-[12px] text-slate">{event.city}</p>
+          </div>
+        )}
+
+        <Link to={`/events#event-${event.id}`} className="block">
+          <p className="font-medium leading-snug text-ink hover:underline hover:underline-offset-4">
+            {event.title}
+          </p>
+        </Link>
+        {meta ? <p className="mt-1 text-[12px] leading-snug text-slate">{meta}</p> : null}
+
+        <div className="mt-3">
+          {going ? (
+            <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ledger">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-ledger" />
+              Going
+            </span>
+          ) : rsvp ? (
+            <span className="text-[13px] font-medium text-ink">
+              {rsvp.status === 'waitlisted' ? 'Waitlist requested' : 'RSVP requested'}
+            </span>
+          ) : hasExternalRegister ? (
+            <a
+              href={event.registrationUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[13px] font-medium text-ink underline-offset-4 hover:underline"
+              onClick={() =>
+                captureAnalytics(ANALYTICS_EVENTS.eventRsvpClicked, {
+                  event_id: event.databaseId,
+                  event_type: event.type,
+                  channel: 'external',
+                })
+              }
+            >
+              {event.registrationLabel || 'Register'}
+              <ExternalLink className="h-3 w-3 opacity-70" />
+            </a>
+          ) : (
+            <Link
+              to={`/events#event-${event.id}`}
+              className="text-[13px] font-medium text-ink underline-offset-4 hover:underline"
+            >
+              {registerLabel} →
+            </Link>
+          )}
+        </div>
+      </div>
+    </article>
   );
 }

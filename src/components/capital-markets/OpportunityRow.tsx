@@ -16,7 +16,7 @@ function Metric({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function OpportunityRow({ deal }: { deal: CapitalDeal }) {
+export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; compact?: boolean }) {
   const isClosing = deal.status === 'closing';
   const isClosed = deal.status === 'closed';
   const meta = [typeLabels[deal.type], deal.assetClass, deal.geography].filter(Boolean).join(' · ');
@@ -54,7 +54,8 @@ export function OpportunityRow({ deal }: { deal: CapitalDeal }) {
     <Link
       to={`/deals/${deal.id}`}
       className={cn(
-        'group flex flex-col rounded-[4px] border bg-surface px-5 py-5 transition-colors sm:px-6 sm:py-5',
+        'group flex flex-col rounded-[4px] border bg-surface transition-colors',
+        compact ? 'px-4 py-4 sm:px-5' : 'px-5 py-5 sm:px-6 sm:py-5',
         isClosing
           ? 'border-gilt/40 border-l-[3px] border-l-gilt hover:border-gilt/70 hover:border-l-gilt'
           : 'border-border hover:border-ink/40',
@@ -62,19 +63,24 @@ export function OpportunityRow({ deal }: { deal: CapitalDeal }) {
         'hover:shadow-card focus-visible:outline-none focus-visible:border-ink/50'
       )}
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
         <div className="min-w-0 flex-1">
-          <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1.5', compact ? 'mb-2' : 'mb-2.5')}>
             <Badge variant={deal.status}>{dealStatusLabels[deal.status]}</Badge>
             {meta ? <span className="text-[12px] text-slate">{meta}</span> : null}
           </div>
-          <h2 className="font-display text-[24px] leading-[1.1] tracking-[-0.01em] text-ink sm:text-[26px]">
+          <h2
+            className={cn(
+              'font-display leading-[1.1] tracking-[-0.01em] text-ink',
+              compact ? 'text-[20px] sm:text-[22px]' : 'text-[24px] sm:text-[26px]'
+            )}
+          >
             {deal.name}
           </h2>
           <p className="mt-1 text-[13px] text-slate">{deal.manager}</p>
         </div>
         <span className="hidden shrink-0 items-center gap-1 pt-1 text-[13px] font-medium text-ink sm:flex">
-          Review opportunity
+          {compact ? 'Review' : 'Review opportunity'}
           <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </span>
       </div>
@@ -103,8 +109,8 @@ export function OpportunityRow({ deal }: { deal: CapitalDeal }) {
       ) : null}
 
       {deal.sectors.length > 0 ? (
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {deal.sectors.slice(0, 4).map((sector) => (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {deal.sectors.slice(0, compact ? 3 : 4).map((sector) => (
             <span key={sector} className="rounded-[2px] bg-border/60 px-2 py-0.5 text-[11px] text-slate">
               {sector}
             </span>
@@ -113,7 +119,7 @@ export function OpportunityRow({ deal }: { deal: CapitalDeal }) {
       ) : null}
 
       <span className="mt-4 flex items-center gap-1 text-[13px] font-medium text-ink sm:hidden">
-        Review opportunity
+        {compact ? 'Review' : 'Review opportunity'}
         <ArrowUpRight className="h-3.5 w-3.5" />
       </span>
     </Link>

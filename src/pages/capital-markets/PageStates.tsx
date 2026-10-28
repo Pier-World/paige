@@ -63,13 +63,32 @@ export function LoadingState({
       ) : null}
       {variant === 'list' ? <RowGhosts count={4} /> : null}
       {variant === 'dashboard' ? (
-        <div className="grid gap-10 xl:grid-cols-[1fr_280px]">
-          <RowGhosts count={3} />
-          <div className="space-y-3">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-3.5 w-3/4" />
-            <Skeleton className="h-3 w-1/2" />
-            <Skeleton className="h-3 w-2/3" />
+        <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid gap-3">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="rounded-[4px] border border-border bg-surface px-5 py-5">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="mt-3 h-6 w-2/3 max-w-md" />
+                <Skeleton className="mt-2 h-3 w-1/3" />
+                <Skeleton className="mt-4 h-3 w-full max-w-xl" />
+                <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border pt-4">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="overflow-hidden rounded-[4px] border border-border bg-surface">
+                <Skeleton shape="block" className="aspect-[16/10] w-full rounded-none" />
+                <div className="space-y-2 p-4">
+                  <Skeleton className="h-3.5 w-4/5" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       ) : null}
@@ -90,15 +109,22 @@ export function LoadingState({
         </div>
       ) : null}
       {variant === 'profile' ? (
-        <div className="grid gap-10 lg:grid-cols-2">
-          {Array.from({ length: 4 }, (_, index) => (
-            <div key={index} className="space-y-3">
-              <Skeleton className="h-4 w-1/3" />
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-4/5" />
-              <Skeleton className="h-3 w-2/3" />
+        <div className="grid gap-10 lg:grid-cols-[200px_minmax(0,1fr)]">
+          <div className="hidden space-y-2 lg:block">
+            {Array.from({ length: 5 }, (_, index) => (
+              <Skeleton key={index} className="h-8 w-full" />
+            ))}
+          </div>
+          <div className="rounded-[4px] border border-border bg-surface p-6 sm:p-8">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} className="space-y-2">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-9 w-full" />
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       ) : null}
     </div>

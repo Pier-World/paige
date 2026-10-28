@@ -201,6 +201,7 @@ function App() {
               <Route path="/events" element={<CapitalMarketsEventsPage />} />
               <Route path="/partners" element={<CapitalMarketsPartnersPage />} />
               <Route path="/profile" element={<CapitalProfilePage />} />
+              <Route path="/profile/:section" element={<CapitalProfilePage />} />
             </Route>
             <Route path="/concierge" element={<Navigate to="/dashboard" replace />} />
             <Route path="/members" element={<Navigate to="/dashboard" replace />} />
@@ -233,7 +234,7 @@ function App() {
             />
             <Route path="/memberships" element={<Navigate to="/dashboard" replace />} />
             <Route path="/experiences" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/preferences/all" element={<Navigate to="/profile" replace />} />
+            <Route path="/preferences/all" element={<Navigate to="/profile/personal" replace />} />
             <Route path="/conversation/:taskId?" element={<Navigate to="/dashboard" replace />} />
 
             {/* Admin: manual member creation (protected; page enforces admin role) */}

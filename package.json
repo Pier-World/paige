@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "import:capital-deals": "node scripts/import-capital-deals.mjs",
     "import:accepted-members": "node scripts/import-accepted-members.mjs",
-    "test": "node --test scripts/lib/accepted-members-import.test.mjs && node --experimental-strip-types --test src/lib/capitalOnboarding.test.ts src/lib/membership.test.ts src/lib/accreditation.test.ts src/lib/authEmailLink.test.ts src/lib/memberName.test.ts src/lib/orientationSteps.test.ts src/lib/capitalDeals.test.ts src/lib/conciergeMailto.test.ts",
+    "test": "node --test scripts/lib/accepted-members-import.test.mjs && node --experimental-strip-types --test src/lib/capitalOnboarding.test.ts src/lib/membership.test.ts src/lib/accreditation.test.ts src/lib/authEmailLink.test.ts src/lib/memberName.test.ts src/lib/orientationSteps.test.ts src/lib/capitalDeals.test.ts src/lib/conciergeMailto.test.ts src/lib/profileSections.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

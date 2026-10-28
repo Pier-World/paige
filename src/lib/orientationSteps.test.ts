@@ -42,7 +42,7 @@ test('accreditation is a later step and stays open until it is confirmed', () =>
   );
   const accreditation = oriented[3];
   assert.equal(accreditation.state, 'open');
-  assert.equal(accreditation.href, '/profile?focus=accreditation#accreditation');
+  assert.equal(accreditation.href, '/profile/personal#accreditation');
   assert.equal(accreditation.detail, 'Confirm whether you are an accredited investor.');
 });
 

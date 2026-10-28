@@ -4,23 +4,21 @@ import {
   Building2,
   Calendar,
   LayoutDashboard,
-  LogOut,
   Menu,
   TrendingUp,
-  User,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { isPierPlus, membershipBadgeLabel } from '../../lib/membership';
 import { cn } from '../../lib/utils';
 import type { User as PierUser } from '../../types';
+import { AccountMenu } from './AccountMenu';
 
 const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, pierPlusOnly: false },
   { label: 'Deal Flow', path: '/deals', icon: TrendingUp, pierPlusOnly: true },
   { label: 'Events', path: '/events', icon: Calendar, pierPlusOnly: false },
   { label: 'Partners', path: '/partners', icon: Building2, pierPlusOnly: false },
-  { label: 'Profile', path: '/profile', icon: User, pierPlusOnly: false },
 ];
 
 function getDisplayName(user: PierUser | null) {
@@ -103,27 +101,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </nav>
 
       <div className="border-t border-border p-3">
-        <Link
-          to="/profile"
-          onClick={onNavigate}
-          className="flex items-center gap-3 rounded-[6px] px-3 py-2 transition-colors hover:bg-ink/[0.05]"
-        >
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-midnight text-[12px] font-medium text-parchment">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium text-ink">{displayName}</p>
-            <p className="truncate text-[10px] uppercase tracking-[0.12em] text-slate">{tierLabel}</p>
-          </div>
-        </Link>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="mt-1 flex h-9 w-full items-center gap-3 rounded-[6px] px-3 text-left text-[14px] text-slate transition-colors hover:bg-ink/[0.05] hover:text-ink"
-        >
-          <LogOut className="h-4 w-4 stroke-[1.25]" />
-          Sign out
-        </button>
+        <AccountMenu
+          displayName={displayName}
+          email={user?.email}
+          tierLabel={tierLabel}
+          initials={initials}
+          onSignOut={handleSignOut}
+          onNavigate={onNavigate}
+        />
       </div>
     </div>
   );

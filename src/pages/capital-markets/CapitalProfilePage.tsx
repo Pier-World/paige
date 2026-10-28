@@ -1,24 +1,21 @@
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import {
-  Bell,
-  Building2,
-  Calendar,
-  Shield,
-  User,
-} from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { AccreditationField } from '../../components/accreditation/AccreditationField';
+import { ProfileSettingsNav } from '../../components/capital-markets/ProfileSettingsNav';
 import { UpgradePrompt } from '../../components/capital-markets/UpgradePrompt';
 import { PageFrame } from '../../components/layout/PageFrame';
 import { Chip } from '../../components/ui/Chip';
+import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import { isPierPlus } from '../../lib/membership';
 import { resolveFullName } from '../../lib/memberName';
+import { ProfileInput } from '../../components/capital-markets/ProfileSectionCard';
 import {
-  ProfileField,
-  ProfileInput,
-  ProfileSectionCard,
-} from '../../components/capital-markets/ProfileSectionCard';
+  canonicalProfileHref,
+  profileSectionById,
+  type ProfileSectionId,
+  isProfileSection,
+} from '../../lib/profileSections';
 import {
   getMyCapitalMemberProfile,
   updateMyCapitalMemberProfile,
@@ -27,13 +24,6 @@ import {
 } from '../../lib/api/capitalMarkets';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
 import { ErrorState, LoadingState } from './PageStates';
-
-type SectionId =
-  | 'personal'
-  | 'capital'
-  | 'events'
-  | 'member'
-  | 'notifications';
 
 type EventPrefs = {
   preferred_cities?: string;
@@ -71,12 +61,6 @@ function parsePrefs<T>(raw: unknown): T {
   return {} as T;
 }
 
-function displayBool(value: boolean | undefined) {
-  if (value === true) return 'Yes';
-  if (value === false) return 'No';
-  return 'Not provided';
-}
-
 const PREFERRED_CITIES = ['New York', 'San Francisco', 'Miami', 'London', 'Hamptons'] as const;
 
 const EVENT_INTERESTS = ['Dinner', 'Summit', 'Roundtable', 'Experience', 'Webinar'] as const;
@@ -106,16 +90,12 @@ function PreferenceChips({
   label,
   options,
   value,
-  editing,
   onChange,
-  className,
 }: {
   label: string;
   options: readonly string[];
   value?: string;
-  editing: boolean;
-  onChange?: (value: string) => void;
-  className?: string;
+  onChange: (value: string) => void;
 }) {
   const selected = selectedPreferences(value, options);
 
@@ -123,50 +103,91 @@ function PreferenceChips({
     const next = selected.includes(option)
       ? selected.filter((item) => item !== option)
       : [...selected, option];
-    onChange?.(next.join(', '));
+    onChange(next.join(', '));
   }
 
   return (
-    <div className={className}>
+    <div>
       <p className="eyebrow mb-2">{label}</p>
-      {editing ? (
-        <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
-          {options.map((option) => (
-            <Chip
-              key={option}
-              active={selected.includes(option)}
-              aria-pressed={selected.includes(option)}
-              onClick={() => toggle(option)}
-            >
-              {option}
+      <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
+        {options.map((option) => (
+          <Chip
+            key={option}
+            active={selected.includes(option)}
+            aria-pressed={selected.includes(option)}
+            onClick={() => toggle(option)}
+          >
+            {option}
+          </Chip>
+        ))}
+        {selected
+          .filter((item) => !options.includes(item))
+          .map((item) => (
+            <Chip key={item} active aria-pressed onClick={() => toggle(item)}>
+              {item}
             </Chip>
           ))}
-          {selected
-            .filter((item) => !options.includes(item))
-            .map((item) => (
-              <Chip key={item} active aria-pressed onClick={() => toggle(item)}>
-                {item}
-              </Chip>
-            ))}
-        </div>
-      ) : selected.length === 0 ? (
-        <p className="text-[14px] leading-snug text-slate">Not provided</p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {selected.map((item) => (
-            <span key={item} className="chip chip-active">
-              {item}
-            </span>
-          ))}
-        </div>
-      )}
+      </div>
     </div>
+  );
+}
+
+function FormActions({
+  saving,
+  saveLabel,
+  onSave,
+  onDiscard,
+}: {
+  saving: boolean;
+  saveLabel: string;
+  onSave: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <div className="mt-8 flex flex-wrap gap-3 border-t border-border/60 pt-6">
+      <Button loading={saving} onClick={onSave}>
+        {saveLabel}
+      </Button>
+      <Button variant="secondary" disabled={saving} onClick={onDiscard}>
+        Discard
+      </Button>
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="eyebrow mb-1 block">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
+      >
+        {children}
+      </select>
+    </label>
   );
 }
 
 export default function CapitalProfilePage() {
   const { user, updateProfile } = useAuth();
+  const { section: sectionParam } = useParams();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
+  const redirectTo = canonicalProfileHref(sectionParam, searchParams, location.hash);
+  const section: ProfileSectionId = isProfileSection(sectionParam) ? sectionParam : 'personal';
+  const sectionMeta = profileSectionById(section);
   const pierPlus = isPierPlus(user);
   const [capitalProfile, setCapitalProfile] = useState<CapitalMemberProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -174,8 +195,7 @@ export default function CapitalProfilePage() {
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(
     null
   );
-  const [editingSection, setEditingSection] = useState<SectionId | null>(null);
-  const [savingSection, setSavingSection] = useState<SectionId | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -281,57 +301,44 @@ export default function CapitalProfilePage() {
   }, [user?.id, pierPlus]);
 
   useEffect(() => {
-    if (!user?.id || loading || editingSection) return;
+    if (loading) return;
     hydrateFromUser(capitalProfile);
-  }, [user, capitalProfile, loading, editingSection]);
+    setSaveMessage(null);
+  }, [section]);
 
   useEffect(() => {
-    if (loading) return;
-    const edit = searchParams.get('edit');
-    if (
-      edit === 'personal' ||
-      edit === 'events' ||
-      edit === 'member' ||
-      edit === 'notifications' ||
-      (edit === 'capital' && pierPlus)
-    ) {
-      setEditingSection(edit);
-    }
+    if (loading || redirectTo) return;
     const id = window.location.hash.replace(/^#/, '');
     if (!id) return;
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [loading, searchParams, pierPlus]);
+  }, [loading, redirectTo, location.hash]);
 
+  if (redirectTo) {
+    return <Navigate to={redirectTo} replace />;
+  }
 
   function showSuccess(text: string) {
     setSaveMessage({ type: 'success', text });
-    setEditingSection(null);
   }
 
   function showError(text: string) {
     setSaveMessage({ type: 'error', text });
   }
 
-  function startEdit(section: SectionId) {
+  function discard() {
     hydrateFromUser(capitalProfile);
-    setEditingSection(section);
     setSaveMessage(null);
-  }
-
-  function cancelEdit() {
-    hydrateFromUser(capitalProfile);
-    setEditingSection(null);
   }
 
   async function savePersonal() {
     if (!user) return;
-    setSavingSection('personal');
+    setSaving(true);
     setSaveMessage(null);
 
     const trimmedName = fullName.trim();
     if (!trimmedName) {
       showError('Full name is required.');
-      setSavingSection(null);
+      setSaving(false);
       return;
     }
 
@@ -355,13 +362,13 @@ export default function CapitalProfilePage() {
 
     if (profileError) {
       showError(profileError.message);
-      setSavingSection(null);
+      setSaving(false);
       return;
     }
 
     if (!pierPlus) {
       showSuccess('Profile saved.');
-      setSavingSection(null);
+      setSaving(false);
       return;
     }
 
@@ -378,13 +385,13 @@ export default function CapitalProfilePage() {
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Unable to save profile.');
     } finally {
-      setSavingSection(null);
+      setSaving(false);
     }
   }
 
   async function saveCapital() {
     if (!user) return;
-    setSavingSection('capital');
+    setSaving(true);
     setSaveMessage(null);
 
     try {
@@ -398,7 +405,7 @@ export default function CapitalProfilePage() {
 
       if (profileError) {
         showError(profileError.message);
-        setSavingSection(null);
+        setSaving(false);
         return;
       }
 
@@ -422,13 +429,13 @@ export default function CapitalProfilePage() {
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Unable to save capital profile.');
     } finally {
-      setSavingSection(null);
+      setSaving(false);
     }
   }
 
   async function saveEventPrefs() {
     if (!user) return;
-    setSavingSection('events');
+    setSaving(true);
     setSaveMessage(null);
 
     const { error: profileError } = await updateProfile({
@@ -443,12 +450,12 @@ export default function CapitalProfilePage() {
     } else {
       showSuccess('Event preferences saved.');
     }
-    setSavingSection(null);
+    setSaving(false);
   }
 
   async function saveMemberPrefs() {
     if (!user) return;
-    setSavingSection('member');
+    setSaving(true);
     setSaveMessage(null);
 
     const { error: profileError } = await updateProfile({
@@ -461,14 +468,14 @@ export default function CapitalProfilePage() {
     if (profileError) {
       showError(profileError.message);
     } else {
-      showSuccess('Member preferences saved.');
+      showSuccess('Privacy preferences saved.');
     }
-    setSavingSection(null);
+    setSaving(false);
   }
 
   async function saveNotificationPrefs() {
     if (!user) return;
-    setSavingSection('notifications');
+    setSaving(true);
     setSaveMessage(null);
 
     const { error: profileError } = await updateProfile({
@@ -483,53 +490,44 @@ export default function CapitalProfilePage() {
     } else {
       showSuccess('Notification preferences saved.');
     }
-    setSavingSection(null);
+    setSaving(false);
   }
 
-  const capitalRoleLabel =
-    capitalRole === 'gp' ? 'General Partner' : capitalRole === 'lp' ? 'Limited Partner' : '';
+  const formClass = 'rounded-[4px] border border-border bg-surface p-6 sm:p-8';
 
   return (
     <PageFrame>
-      <div className="mb-10">
-        <p className="eyebrow mb-2">Profile</p>
-        <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.02em] text-ink">Your profile.</h1>
-        <p className="mt-3 max-w-2xl text-[15px] text-slate">
-          Manage your identity, preferences, and access across Pier.
-        </p>
+      <div className="mb-8 lg:mb-10">
+        <p className="eyebrow mb-2">Settings</p>
+        <h1 className="font-display text-[40px] leading-[1.05] tracking-[-0.02em] text-ink">
+          {sectionMeta.title}
+        </h1>
+        <p className="mt-3 max-w-2xl text-[15px] text-slate">{sectionMeta.description}</p>
         <div className="gilt-rule mt-6 w-12" />
       </div>
 
       {loading ? <LoadingState label="Loading profile" variant="profile" /> : null}
       {error ? <ErrorState message={error} /> : null}
 
-      {saveMessage ? (
-        <div
-          className={
-            saveMessage.type === 'success'
-              ? 'mb-6 rounded-[4px] border border-ledger/20 bg-ledger/[0.06] p-4 text-[13px] text-ledger'
-              : 'mb-6 rounded-[4px] border border-danger/30 bg-danger/[0.06] p-4 text-[13px] text-danger'
-          }
-        >
-          {saveMessage.text}
-        </div>
-      ) : null}
-
       {!loading && !error && user ? (
-        <div className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div id="personal" className="scroll-mt-6">
-            <ProfileSectionCard
-              icon={User}
-              title="Personal Information"
-              editing={editingSection === 'personal'}
-              onEdit={() => startEdit('personal')}
-              onCancel={cancelEdit}
-              onSave={savePersonal}
-              saving={savingSection === 'personal'}
-              saveLabel="Save Profile"
-            >
-              {editingSection === 'personal' ? (
+        <div className="grid items-start gap-8 lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-12">
+          <ProfileSettingsNav />
+
+          <div>
+            {saveMessage ? (
+              <div
+                className={
+                  saveMessage.type === 'success'
+                    ? 'mb-6 rounded-[4px] border border-ledger/20 bg-ledger/[0.06] p-4 text-[13px] text-ledger'
+                    : 'mb-6 rounded-[4px] border border-danger/30 bg-danger/[0.06] p-4 text-[13px] text-danger'
+                }
+              >
+                {saveMessage.text}
+              </div>
+            ) : null}
+
+            {section === 'personal' ? (
+              <div id="personal" className={formClass}>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <ProfileInput
                     label="Full name"
@@ -541,340 +539,237 @@ export default function CapitalProfilePage() {
                   <ProfileInput label="Phone number" value={phone} onChange={setPhone} type="tel" />
                   <ProfileInput label="Firm" value={firm} onChange={setFirm} />
                   <ProfileInput label="Title / role" value={roleLabel} onChange={setRoleLabel} />
-                  <label className="block">
-                    <span className="eyebrow mb-1 block">Capital role</span>
-                    <select
-                      value={capitalRole}
-                      onChange={(e) => setCapitalRole(e.target.value as CapitalMemberRole | '')}
-                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
-                    >
-                      <option value="">Select</option>
-                      <option value="lp">Allocator (LP)</option>
-                      <option value="gp">General Partner (GP)</option>
-                    </select>
-                  </label>
-                  <ProfileInput
-                    label="Primary city"
-                    value={primaryCity}
-                    onChange={setPrimaryCity}
-                  />
-                  {pierPlus ? null : <AccreditationField className="sm:col-span-2" />}
-                </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <ProfileField label="Full name" value={fullName} className="sm:col-span-2" />
-                  <ProfileField label="Email address" value={user.email} />
-                  <ProfileField label="Phone number" value={phone} />
-                  <ProfileField label="Firm" value={firm} />
-                  <ProfileField label="Title / role" value={roleLabel} />
-                  <ProfileField label="Capital role" value={capitalRoleLabel} />
-                  <ProfileField label="Primary city" value={primaryCity} />
-                  {pierPlus ? null : <AccreditationField className="sm:col-span-2" />}
-                </div>
-              )}
-            </ProfileSectionCard>
-            </div>
-
-            {pierPlus ? (
-            <ProfileSectionCard
-              icon={Building2}
-              title="Capital Profile"
-              editing={editingSection === 'capital'}
-              onEdit={() => startEdit('capital')}
-              onCancel={cancelEdit}
-              onSave={saveCapital}
-              saving={savingSection === 'capital'}
-              saveLabel="Save capital profile"
-            >
-              {editingSection === 'capital' ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {capitalRole === 'gp' ? (
-                    <>
-                      <AccreditationField className="sm:col-span-2" />
-                      <ProfileInput
-                        label="Strategy / asset class"
-                        value={focusSectors}
-                        onChange={setFocusSectors}
-                        placeholder="Venture, private credit, real assets..."
-                        className="sm:col-span-2"
-                      />
-                      <ProfileInput
-                        label="Fund size (display)"
-                        value={aumDisplay}
-                        onChange={setAumDisplay}
-                        className="sm:col-span-2"
-                      />
-                      <ProfileInput
-                        label="Bio"
-                        value={bio}
-                        onChange={setBio}
-                        multiline
-                        className="sm:col-span-2"
-                      />
-                      <ProfileInput
-                        label="Investment thesis"
-                        value={thesis}
-                        onChange={setThesis}
-                        multiline
-                        className="sm:col-span-2"
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <ProfileInput
-                        label="Investor type"
-                        value={investorType}
-                        onChange={setInvestorType}
-                        placeholder="Family office, endowment, fund of funds..."
-                      />
-                      <AccreditationField />
-                      <ProfileInput
-                        label="Allocation / check size"
-                        value={checkSizeDisplay}
-                        onChange={setCheckSizeDisplay}
-                        className="sm:col-span-2"
-                      />
-                      <ProfileInput
-                        label="Investment interests"
-                        value={focusSectors}
-                        onChange={setFocusSectors}
-                        placeholder="Venture, private credit, real estate..."
-                        className="sm:col-span-2"
-                      />
-                      <ProfileInput
-                        label="Bio"
-                        value={bio}
-                        onChange={setBio}
-                        multiline
-                        className="sm:col-span-2"
-                      />
-                    </>
-                  )}
-                </div>
-              ) : capitalRole === 'gp' ? (
-                <div className="grid gap-4 sm:grid-cols-2">
+                  <SelectField
+                    label="Capital role"
+                    value={capitalRole}
+                    onChange={(value) => setCapitalRole(value as CapitalMemberRole | '')}
+                  >
+                    <option value="">Select</option>
+                    <option value="lp">Allocator (LP)</option>
+                    <option value="gp">General Partner (GP)</option>
+                  </SelectField>
+                  <ProfileInput label="Primary city" value={primaryCity} onChange={setPrimaryCity} />
                   <AccreditationField className="sm:col-span-2" />
-                  <ProfileField
-                    label="Strategy / asset class"
-                    value={focusSectors || capitalProfile?.focusSectors.join(', ')}
-                    className="sm:col-span-2"
+                </div>
+                <FormActions
+                  saving={saving}
+                  saveLabel="Save profile"
+                  onSave={() => void savePersonal()}
+                  onDiscard={discard}
+                />
+              </div>
+            ) : null}
+
+            {section === 'capital' ? (
+              pierPlus ? (
+                <div className={formClass}>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {capitalRole === 'gp' ? (
+                      <>
+                        <ProfileInput
+                          label="Strategy / asset class"
+                          value={focusSectors}
+                          onChange={setFocusSectors}
+                          placeholder="Venture, private credit, real assets..."
+                          className="sm:col-span-2"
+                        />
+                        <ProfileInput
+                          label="Fund size (display)"
+                          value={aumDisplay}
+                          onChange={setAumDisplay}
+                          className="sm:col-span-2"
+                        />
+                        <ProfileInput
+                          label="Bio"
+                          value={bio}
+                          onChange={setBio}
+                          multiline
+                          className="sm:col-span-2"
+                        />
+                        <ProfileInput
+                          label="Investment thesis"
+                          value={thesis}
+                          onChange={setThesis}
+                          multiline
+                          className="sm:col-span-2"
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <ProfileInput
+                          label="Investor type"
+                          value={investorType}
+                          onChange={setInvestorType}
+                          placeholder="Family office, endowment, fund of funds..."
+                          className="sm:col-span-2"
+                        />
+                        <ProfileInput
+                          label="Allocation / check size"
+                          value={checkSizeDisplay}
+                          onChange={setCheckSizeDisplay}
+                          className="sm:col-span-2"
+                        />
+                        <ProfileInput
+                          label="Investment interests"
+                          value={focusSectors}
+                          onChange={setFocusSectors}
+                          placeholder="Venture, private credit, real estate..."
+                          className="sm:col-span-2"
+                        />
+                        <ProfileInput
+                          label="Bio"
+                          value={bio}
+                          onChange={setBio}
+                          multiline
+                          className="sm:col-span-2"
+                        />
+                      </>
+                    )}
+                  </div>
+                  <FormActions
+                    saving={saving}
+                    saveLabel="Save capital profile"
+                    onSave={() => void saveCapital()}
+                    onDiscard={discard}
                   />
-                  <ProfileField label="Fund size" value={aumDisplay || capitalProfile?.aum} />
-                  <ProfileField label="Bio" value={bio} className="sm:col-span-2" />
-                  <ProfileField label="Thesis" value={thesis} className="sm:col-span-2" />
                 </div>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <ProfileField label="Investor type" value={investorType} />
-                  <AccreditationField />
-                  <ProfileField
-                    label="Investment interests"
-                    value={focusSectors || capitalProfile?.focusSectors.join(', ')}
-                    className="sm:col-span-2"
-                  />
-                  <ProfileField label="Allocation range" value={checkSizeDisplay || capitalProfile?.checkSize} />
-                  <ProfileField label="Bio" value={bio} className="sm:col-span-2" />
-                </div>
-              )}
-            </ProfileSectionCard>
-            ) : (
-              <div>
-                <p className="eyebrow mb-3">Capital Profile</p>
                 <UpgradePrompt
                   variant="inline"
                   title="Capital directory is included with Pier+"
-                  description="Your role, firm, and city stay on your personal profile. Directory, AUM, and thesis are Pier+."
+                  description="Your role, firm, and city stay on Personal information. Directory, AUM, and thesis are Pier+."
                 />
-              </div>
-            )}
+              )
+            ) : null}
 
-            <ProfileSectionCard
-              icon={Calendar}
-              title="Event & Preferences"
-              editing={editingSection === 'events'}
-              onEdit={() => startEdit('events')}
-              onCancel={cancelEdit}
-              onSave={saveEventPrefs}
-              saving={savingSection === 'events'}
-              saveLabel="Save event preferences"
-            >
-              {editingSection === 'events' ? (
-                <div className="grid gap-4">
+            {section === 'events' ? (
+              <div className={formClass}>
+                <div className="grid gap-5">
                   <PreferenceChips
                     label="Preferred cities"
                     options={PREFERRED_CITIES}
                     value={eventPrefs.preferred_cities}
-                    editing
-                    onChange={(v) => setEventPrefs((p) => ({ ...p, preferred_cities: v }))}
+                    onChange={(value) => setEventPrefs((prefs) => ({ ...prefs, preferred_cities: value }))}
                   />
                   <PreferenceChips
                     label="Event interests"
                     options={EVENT_INTERESTS}
                     value={eventPrefs.interests || eventPrefs.formats}
-                    editing
-                    onChange={(v) => setEventPrefs((p) => ({ ...p, interests: v, formats: v }))}
+                    onChange={(value) =>
+                      setEventPrefs((prefs) => ({ ...prefs, interests: value, formats: value }))
+                    }
                   />
                   <ProfileInput
                     label="Dietary / hospitality notes"
                     value={eventPrefs.dietary || ''}
-                    onChange={(v) => setEventPrefs((p) => ({ ...p, dietary: v }))}
+                    onChange={(value) => setEventPrefs((prefs) => ({ ...prefs, dietary: value }))}
                     multiline
                   />
                   <ProfileInput
                     label="Dining notes"
                     value={eventPrefs.dining || ''}
-                    onChange={(v) => setEventPrefs((p) => ({ ...p, dining: v }))}
+                    onChange={(value) => setEventPrefs((prefs) => ({ ...prefs, dining: value }))}
                   />
                   <ProfileInput
                     label="Travel notes"
                     value={eventPrefs.travel || ''}
-                    onChange={(v) => setEventPrefs((p) => ({ ...p, travel: v }))}
+                    onChange={(value) => setEventPrefs((prefs) => ({ ...prefs, travel: value }))}
                   />
                   <ProfileInput
                     label="Additional notes"
                     value={eventPrefs.notes || ''}
-                    onChange={(v) => setEventPrefs((p) => ({ ...p, notes: v }))}
+                    onChange={(value) => setEventPrefs((prefs) => ({ ...prefs, notes: value }))}
                     multiline
                   />
                 </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <PreferenceChips
-                    label="Preferred cities"
-                    options={PREFERRED_CITIES}
-                    value={eventPrefs.preferred_cities}
-                    editing={false}
-                    className="sm:col-span-2"
-                  />
-                  <PreferenceChips
-                    label="Event interests"
-                    options={EVENT_INTERESTS}
-                    value={eventPrefs.interests || eventPrefs.formats}
-                    editing={false}
-                    className="sm:col-span-2"
-                  />
-                  <ProfileField label="Dietary / hospitality notes" value={eventPrefs.dietary} className="sm:col-span-2" />
-                  <ProfileField label="Dining notes" value={eventPrefs.dining} />
-                  <ProfileField label="Travel notes" value={eventPrefs.travel} />
-                </div>
-              )}
-            </ProfileSectionCard>
-          </div>
+                <FormActions
+                  saving={saving}
+                  saveLabel="Save event preferences"
+                  onSave={() => void saveEventPrefs()}
+                  onDiscard={discard}
+                />
+              </div>
+            ) : null}
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <ProfileSectionCard
-              icon={Shield}
-              title="Member Preferences"
-              editing={editingSection === 'member'}
-              onEdit={() => startEdit('member')}
-              onCancel={cancelEdit}
-              onSave={saveMemberPrefs}
-              saving={savingSection === 'member'}
-              saveLabel="Save member preferences"
-            >
-              {editingSection === 'member' ? (
+            {section === 'privacy' ? (
+              <div className={formClass}>
                 <div className="grid gap-4">
-                  <label className="block">
-                    <span className="eyebrow mb-1 block">Allow intro requests</span>
-                    <select
-                      value={memberPrefs.allow_intro_requests ? 'yes' : 'no'}
-                      onChange={(e) =>
-                        setMemberPrefs((p) => ({
-                          ...p,
-                          allow_intro_requests: e.target.value === 'yes',
-                        }))
-                      }
-                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
-                    >
-                      <option value="no">No (default)</option>
-                      <option value="yes">Yes</option>
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="eyebrow mb-1 block">Share event attendance</span>
-                    <select
-                      value={memberPrefs.share_event_attendance ? 'yes' : 'no'}
-                      onChange={(e) =>
-                        setMemberPrefs((p) => ({
-                          ...p,
-                          share_event_attendance: e.target.value === 'yes',
-                        }))
-                      }
-                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
-                    >
-                      <option value="no">No (default)</option>
-                      <option value="yes">Yes</option>
-                    </select>
-                  </label>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <ProfileField
+                  <SelectField
                     label="Allow intro requests"
-                    value={displayBool(memberPrefs.allow_intro_requests)}
-                  />
-                  <ProfileField
+                    value={memberPrefs.allow_intro_requests ? 'yes' : 'no'}
+                    onChange={(value) =>
+                      setMemberPrefs((prefs) => ({
+                        ...prefs,
+                        allow_intro_requests: value === 'yes',
+                      }))
+                    }
+                  >
+                    <option value="no">No (default)</option>
+                    <option value="yes">Yes</option>
+                  </SelectField>
+                  <SelectField
                     label="Share event attendance"
-                    value={displayBool(memberPrefs.share_event_attendance)}
-                  />
+                    value={memberPrefs.share_event_attendance ? 'yes' : 'no'}
+                    onChange={(value) =>
+                      setMemberPrefs((prefs) => ({
+                        ...prefs,
+                        share_event_attendance: value === 'yes',
+                      }))
+                    }
+                  >
+                    <option value="no">No (default)</option>
+                    <option value="yes">Yes</option>
+                  </SelectField>
                 </div>
-              )}
-            </ProfileSectionCard>
+                <FormActions
+                  saving={saving}
+                  saveLabel="Save privacy preferences"
+                  onSave={() => void saveMemberPrefs()}
+                  onDiscard={discard}
+                />
+              </div>
+            ) : null}
 
-            <ProfileSectionCard
-              icon={Bell}
-              title="Notification Preferences"
-              editing={editingSection === 'notifications'}
-              onEdit={() => startEdit('notifications')}
-              onCancel={cancelEdit}
-              onSave={saveNotificationPrefs}
-              saving={savingSection === 'notifications'}
-              saveLabel="Save notifications"
-            >
-              {editingSection === 'notifications' ? (
+            {section === 'notifications' ? (
+              <div className={formClass}>
                 <div className="grid gap-4">
-                  <label className="block">
-                    <span className="eyebrow mb-1 block">Deal flow alerts</span>
-                    <select
-                      value={channelValue(notificationPrefs.deal_flow)}
-                      onChange={(e) => setNotificationPrefs((p) => ({ ...p, deal_flow: e.target.value }))}
-                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
-                    >
-                      <option value="Email">Email</option>
-                      <option value="Off">Off</option>
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="eyebrow mb-1 block">Event invitations</span>
-                    <select
-                      value={channelValue(notificationPrefs.events)}
-                      onChange={(e) => setNotificationPrefs((p) => ({ ...p, events: e.target.value }))}
-                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
-                    >
-                      <option value="Email">Email</option>
-                      <option value="Off">Off</option>
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="eyebrow mb-1 block">Partner updates</span>
-                    <select
-                      value={channelValue(notificationPrefs.partners)}
-                      onChange={(e) => setNotificationPrefs((p) => ({ ...p, partners: e.target.value }))}
-                      className="w-full rounded-pier-md border border-border bg-parchment px-3 py-2 text-[14px] text-ink"
-                    >
-                      <option value="Email">Email</option>
-                      <option value="Off">Off</option>
-                    </select>
-                  </label>
+                  <SelectField
+                    label="Deal flow alerts"
+                    value={channelValue(notificationPrefs.deal_flow)}
+                    onChange={(value) =>
+                      setNotificationPrefs((prefs) => ({ ...prefs, deal_flow: value }))
+                    }
+                  >
+                    <option value="Email">Email</option>
+                    <option value="Off">Off</option>
+                  </SelectField>
+                  <SelectField
+                    label="Event invitations"
+                    value={channelValue(notificationPrefs.events)}
+                    onChange={(value) => setNotificationPrefs((prefs) => ({ ...prefs, events: value }))}
+                  >
+                    <option value="Email">Email</option>
+                    <option value="Off">Off</option>
+                  </SelectField>
+                  <SelectField
+                    label="Partner updates"
+                    value={channelValue(notificationPrefs.partners)}
+                    onChange={(value) =>
+                      setNotificationPrefs((prefs) => ({ ...prefs, partners: value }))
+                    }
+                  >
+                    <option value="Email">Email</option>
+                    <option value="Off">Off</option>
+                  </SelectField>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <ProfileField label="Deal flow alerts" value={channelValue(notificationPrefs.deal_flow)} />
-                  <ProfileField label="Event invitations" value={channelValue(notificationPrefs.events)} />
-                  <ProfileField label="Partner updates" value={channelValue(notificationPrefs.partners)} />
-                </div>
-              )}
-            </ProfileSectionCard>
+                <FormActions
+                  saving={saving}
+                  saveLabel="Save notifications"
+                  onSave={() => void saveNotificationPrefs()}
+                  onDiscard={discard}
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

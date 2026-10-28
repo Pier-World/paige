@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
-import { DealReturnCell } from '../../components/capital-markets/DealReturnCell';
-import { AnonymizedDealPreview } from '../../components/capital-markets/AnonymizedDealPreview';
+import { DashboardEventCard } from '../../components/capital-markets/EventCard';
 import { GetOrientedCard } from '../../components/capital-markets/GetOrientedCard';
 import { MembershipReveal } from '../../components/capital-markets/MembershipReveal';
+import { OpportunityRow } from '../../components/capital-markets/OpportunityRow';
+import { UpgradePrompt } from '../../components/capital-markets/UpgradePrompt';
 import { PageFrame } from '../../components/layout/PageFrame';
-import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 import {
   getCapitalDeals,
@@ -26,8 +26,6 @@ import { isPierPlus } from '../../lib/membership';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
 import { useCapitalLoad } from '../../lib/useCapitalLoad';
 import { sortCapitalDealsForDealFlow } from '../../lib/capitalDeals';
-import { formatCurrency, formatEventDate, hasPublicDealAmount } from '../../lib/utils';
-import { dealStatusLabels, typeLabels } from './mockData';
 import { EmptyState, ErrorState, LoadingState } from './PageStates';
 
 const THREE_WEEKS_MS = 21 * 24 * 60 * 60 * 1000;
@@ -72,11 +70,6 @@ function roleCopy(role?: string) {
     return 'Private gatherings, curated managers, and capital in context. You stay unlisted by default.';
   }
   return 'A private community of managers and allocators.';
-}
-
-function eventMonthDay(event: CapitalEvent) {
-  const [month, day] = formatEventDate(event.date, 'month-day', event.city).split(' ');
-  return { month, day };
 }
 
 export default function DashboardPage() {
@@ -128,7 +121,7 @@ export default function DashboardPage() {
         const t = new Date(event.date).getTime();
         return t >= now && t - now <= THREE_WEEKS_MS;
       })
-      .slice(0, 5);
+      .slice(0, 4);
   }, [events, capitalRole]);
   const showIntro = Boolean(user?.id) && !introDismissed;
   const firm = user?.preferences?.firm?.trim() || '';
@@ -178,10 +171,44 @@ export default function DashboardPage() {
       ) : null}
 
       {!loading && !error ? (
-        <div className="grid gap-8 xl:grid-cols-[1fr_320px]">
+        <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_340px]">
           <section>
             <div className="mb-4 flex items-center justify-between">
-              <p className="eyebrow">Upcoming Events</p>
+              <p className="eyebrow">Deal Flow</p>
+              {pierPlus ? (
+                <Link
+                  to="/deals"
+                  className="flex items-center gap-1 text-[12px] text-slate transition-colors hover:text-ink"
+                >
+                  View all <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              ) : null}
+            </div>
+            {pierPlus ? (
+              openDeals.length === 0 ? (
+                <EmptyState
+                  title="No open opportunities right now."
+                  description="When Pier publishes a fund, co-invest, or SPV, it will appear here."
+                />
+              ) : (
+                <div className="grid gap-4">
+                  {openDeals.slice(0, 3).map((deal) => (
+                    <OpportunityRow key={deal.id} deal={deal} compact />
+                  ))}
+                </div>
+              )
+            ) : (
+              <UpgradePrompt
+                variant="inline"
+                title="Opportunities are included with Pier+"
+                description="Names, terms, contacts, and documents stay with Pier+. Events and Partners remain available on Standard."
+              />
+            )}
+          </section>
+
+          <aside className="lg:sticky lg:top-8">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="eyebrow">Upcoming events</p>
               <Link to="/events" className="flex items-center gap-1 text-[12px] text-slate hover:text-ink">
                 All events <ChevronRight className="h-3.5 w-3.5" />
               </Link>
@@ -192,97 +219,15 @@ export default function DashboardPage() {
                 description="Nothing is on the calendar in the next three weeks. Add your city in Profile so invitations can meet you there."
               />
             ) : (
-              <div className="grid gap-3">
-                {upcomingEvents.map((event) => {
-                  const { month, day } = eventMonthDay(event);
-                  return (
-                    <div
-                      key={event.id}
-                      className="flex flex-col gap-4 rounded-pier border border-border bg-surface px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="text-center">
-                          <p className="font-mono-data text-[13px] font-medium text-ink">{month}</p>
-                          <p className="font-mono-data text-[20px] font-medium leading-none text-ink">{day}</p>
-                        </div>
-                        <div className="w-px self-stretch bg-border" />
-                        <div>
-                          <p className="font-medium text-ink">{event.title}</p>
-                          <p className="mt-0.5 text-[13px] text-slate">
-                            {event.city}
-                            {event.audience ? ` · ${event.audience}` : ''}
-                          </p>
-                        </div>
-                      </div>
-                      {event.registrationUrl ? (
-                        <a
-                          href={event.registrationUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[13px] font-medium text-ink underline-offset-4 hover:underline"
-                        >
-                          {event.registrationLabel || 'Register'} →
-                        </a>
-                      ) : (
-                        <Link
-                          to={`/events#event-${event.id}`}
-                          className="text-[13px] font-medium text-ink underline-offset-4 hover:underline"
-                        >
-                          View event →
-                        </Link>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          <aside className="space-y-8">
-            {pierPlus ? (
-              <section>
-                <div className="mb-4 flex items-center justify-between">
-                  <p className="eyebrow">Deal Flow</p>
-                  <Link
-                    to="/deals"
-                    className="flex items-center gap-1 text-[12px] text-slate transition-colors hover:text-ink"
-                  >
-                    View all <ChevronRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-                {openDeals.length === 0 ? (
-                  <EmptyState
-                    title="No open opportunities right now."
-                    description="When Pier publishes a fund, co-invest, or SPV, it will appear here."
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                {upcomingEvents.map((event) => (
+                  <DashboardEventCard
+                    key={event.id}
+                    event={event}
+                    rsvp={rsvps.find((item) => item.eventId === event.databaseId)}
                   />
-                ) : (
-                  <div className="overflow-hidden rounded-pier border border-border bg-surface">
-                    {openDeals.slice(0, 4).map((deal) => (
-                      <Link
-                        key={deal.id}
-                        to={`/deals/${deal.id}`}
-                        className="block border-b border-border px-4 py-3.5 last:border-0 hover:bg-parchment/60"
-                      >
-                        <p className="font-medium text-ink">{deal.name}</p>
-                        <p className="mt-0.5 text-[12px] text-slate">
-                          {deal.manager} · {typeLabels[deal.type]}
-                        </p>
-                        <div className="mt-2 flex items-center justify-between text-[12px] text-slate">
-                          {hasPublicDealAmount(deal.targetSize) ? (
-                            <span>{formatCurrency(deal.targetSize, deal.currencyCode, true)}</span>
-                          ) : (
-                            <span />
-                          )}
-                          <DealReturnCell deal={deal} />
-                        </div>
-                        <Badge variant={deal.status}>{dealStatusLabels[deal.status]}</Badge>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </section>
-            ) : (
-              <AnonymizedDealPreview variant="aside" />
+                ))}
+              </div>
             )}
           </aside>
         </div>

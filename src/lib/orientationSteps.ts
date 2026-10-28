@@ -2,8 +2,8 @@ import type { OrientedStep } from '../components/capital-markets/GetOrientedCard
 import { accreditationBasisLabel, readAccreditation } from './accreditation.ts';
 import type { UserPreferences } from '../types';
 
-const PROFILE_PERSONAL_HREF = '/profile?edit=personal#personal';
-const PROFILE_ACCREDITATION_HREF = '/profile?focus=accreditation#accreditation';
+const PROFILE_PERSONAL_HREF = '/profile/personal';
+const PROFILE_ACCREDITATION_HREF = '/profile/personal#accreditation';
 
 export type JoinedGathering = {
   id: string;
