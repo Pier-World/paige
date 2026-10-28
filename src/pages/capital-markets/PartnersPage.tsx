@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FeaturedPartnerCard, PartnerDetailModal, PartnerListRow } from '../../components/capital-markets/PartnerCards';
 import { PageFrame } from '../../components/layout/PageFrame';
 import { Chip } from '../../components/ui/Chip';
@@ -7,6 +7,7 @@ import {
   type CapitalPartner,
   type PartnerCategory,
 } from '../../lib/api/capitalMarkets';
+import { ANALYTICS_EVENTS, captureAnalytics } from '../../lib/analytics';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
 import { useCapitalLoad } from '../../lib/useCapitalLoad';
 import { partnerCategoryLabels } from './mockData';
@@ -77,6 +78,14 @@ export default function PartnersPage() {
 
   const featured = filtered.filter((partner) => partner.featured);
   const regular = filtered.filter((partner) => !partner.featured);
+
+  useEffect(() => {
+    if (!selectedPartner) return;
+    captureAnalytics(ANALYTICS_EVENTS.partnerViewed, {
+      partner_id: selectedPartner.id,
+      category: selectedPartner.category,
+    });
+  }, [selectedPartner]);
 
   return (
     <PageFrame>

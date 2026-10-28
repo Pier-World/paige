@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react';
 import { ExternalLink, X } from 'lucide-react';
 import { Badge } from '../ui/Badge';
+import { ANALYTICS_EVENTS, captureAnalytics } from '../../lib/analytics';
 import type { CapitalPartner } from '../../lib/api/capitalMarkets';
 import { partnerCategoryLabels } from '../../pages/capital-markets/mockData';
 
@@ -26,6 +27,14 @@ function handleCardKeyDown(event: KeyboardEvent, partner: CapitalPartner, onSele
     event.preventDefault();
     onSelect(partner);
   }
+}
+
+function trackPartnerCta(event: { stopPropagation(): void }, partner: CapitalPartner) {
+  event.stopPropagation();
+  captureAnalytics(ANALYTICS_EVENTS.partnerCtaClicked, {
+    partner_id: partner.id,
+    category: partner.category,
+  });
 }
 
 export function FeaturedPartnerCard({ partner, onSelect }: FeaturedPartnerCardProps) {
@@ -76,7 +85,7 @@ export function FeaturedPartnerCard({ partner, onSelect }: FeaturedPartnerCardPr
           href={partner.ctaHref}
           target={partner.ctaExternal ? '_blank' : undefined}
           rel={partner.ctaExternal ? 'noreferrer' : undefined}
-          onClick={(event) => event.stopPropagation()}
+          onClick={(event) => trackPartnerCta(event, partner)}
           className="flex h-8 items-center justify-center gap-1 rounded-[6px] border border-ink bg-ink text-[12px] text-parchment hover:bg-ink/90"
         >
           {partner.ctaLabel}
@@ -134,7 +143,7 @@ export function PartnerListRow({ partner, onSelect }: PartnerListRowProps) {
           href={partner.ctaHref}
           target={partner.ctaExternal ? '_blank' : undefined}
           rel={partner.ctaExternal ? 'noreferrer' : undefined}
-          onClick={(event) => event.stopPropagation()}
+          onClick={(event) => trackPartnerCta(event, partner)}
           className="flex h-8 items-center justify-center gap-1 rounded-[6px] border border-ink bg-ink text-[12px] text-parchment hover:bg-ink/90"
         >
           {partner.ctaLabel}
@@ -229,6 +238,7 @@ export function PartnerDetailModal({ partner, onClose }: PartnerDetailModalProps
                   href={partner.ctaHref}
                   target={partner.ctaExternal ? '_blank' : undefined}
                   rel={partner.ctaExternal ? 'noreferrer' : undefined}
+                  onClick={(event) => trackPartnerCta(event, partner)}
                   className="flex h-9 items-center justify-center gap-1 rounded-[6px] border border-ink bg-ink text-[12px] text-parchment hover:bg-ink/90"
                 >
                   {partner.ctaLabel}

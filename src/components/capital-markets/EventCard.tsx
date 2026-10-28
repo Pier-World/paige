@@ -1,5 +1,6 @@
 import { Calendar, Clock, ExternalLink, MapPin } from 'lucide-react';
 import { Badge } from '../ui/Badge';
+import { ANALYTICS_EVENTS, captureAnalytics } from '../../lib/analytics';
 import type { CapitalEvent, CapitalEventRsvp } from '../../lib/api/capitalMarkets';
 import { conciergeMailto } from '../../lib/conciergeMailto';
 import { cn, formatEventDate, formatEventLocation, formatEventTime } from '../../lib/utils';
@@ -125,12 +126,34 @@ export function EventCard({ event, rsvp, compact }: EventCardProps) {
               {rsvpLabel}
             </div>
           ) : hasExternalRegister ? (
-            <a href={event.registrationUrl} target="_blank" rel="noopener noreferrer" className={actionLinkClass}>
+            <a
+              href={event.registrationUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={actionLinkClass}
+              onClick={() =>
+                captureAnalytics(ANALYTICS_EVENTS.eventRsvpClicked, {
+                  event_id: event.databaseId,
+                  event_type: event.type,
+                  channel: 'external',
+                })
+              }
+            >
               {registerLabel}
               <ExternalLink className="h-3.5 w-3.5 opacity-80" />
             </a>
           ) : (
-            <a href={getEventInviteHref(event)} className={actionLinkClass}>
+            <a
+              href={getEventInviteHref(event)}
+              className={actionLinkClass}
+              onClick={() =>
+                captureAnalytics(ANALYTICS_EVENTS.eventRsvpClicked, {
+                  event_id: event.databaseId,
+                  event_type: event.type,
+                  channel: 'mailto',
+                })
+              }
+            >
               {registerLabel}
             </a>
           )}

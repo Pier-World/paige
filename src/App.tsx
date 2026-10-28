@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { IntercomProvider } from './providers/IntercomProvider';
+import { PostHogIdentify } from './providers/PostHogIdentify';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationGuard } from './components/NavigationGuard';
@@ -124,6 +125,7 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
+        <PostHogIdentify />
         <IntercomProvider>
           <ThemeProvider>
             <Router>

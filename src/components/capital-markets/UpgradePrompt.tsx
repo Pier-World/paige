@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { Lock, X } from 'lucide-react';
 import { useIntercom } from '../../hooks/useIntercom';
+import { ANALYTICS_EVENTS, captureAnalytics } from '../../lib/analytics';
 import { cn } from '../../lib/utils';
 
 export const PIER_PLUS_CHECKOUT_URL = 'https://buy.stripe.com/7sY14p6Ep0vFdShfvZ1wY05';
@@ -23,9 +25,15 @@ export function UpgradePrompt({
 }: UpgradePromptProps) {
   const { show, showNewMessage, trackEvent } = useIntercom();
 
+  useEffect(() => {
+    if (!open) return;
+    captureAnalytics(ANALYTICS_EVENTS.upgradePromptShown, { variant, title });
+  }, [open, variant, title]);
+
   if (!open) return null;
 
   function logCta(channel: 'stripe' | 'intercom') {
+    captureAnalytics(ANALYTICS_EVENTS.upgradeRequestClick, { channel, copy: 'Join Pier+' });
     try {
       trackEvent('upgrade_request_click', { channel, copy: 'Join Pier+' });
     } catch {

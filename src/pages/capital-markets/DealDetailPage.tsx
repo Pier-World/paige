@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, ExternalLink, MapPin } from 'lucide-react';
 import { DealProgressAside } from '../../components/capital-markets/DealProgressAside';
 import { Badge } from '../../components/ui/Badge';
+import { ANALYTICS_EVENTS, captureAnalytics } from '../../lib/analytics';
 import { getCapitalDealDocumentUrl, getCapitalDealBySlugOrId, type CapitalDeal, type CapitalDealDocument } from '../../lib/api/capitalMarkets';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
 import { dataRoomMailto } from '../../lib/conciergeMailto';
@@ -30,6 +31,15 @@ export default function DealDetailPage() {
   const deal = loaded.data?.deal ?? null;
   const loading = loaded.loading;
   const error = loaded.error;
+
+  useEffect(() => {
+    if (!deal) return;
+    captureAnalytics(ANALYTICS_EVENTS.dealViewed, {
+      deal_id: deal.databaseId,
+      deal_type: deal.type,
+      status: deal.status,
+    });
+  }, [deal]);
 
   if (loading) {
     return (
@@ -68,11 +78,12 @@ export default function DealDetailPage() {
     );
   }
 
+  const loadedDeal = deal;
   const returnValue = formatDealReturn(
-    deal.returnMetricType,
-    deal.targetIrr,
-    deal.moicTarget,
-    deal.returnDisplay
+    loadedDeal.returnMetricType,
+    loadedDeal.targetIrr,
+    loadedDeal.moicTarget,
+    loadedDeal.returnDisplay
   );
 
   async function handleOpenDocument(document: CapitalDealDocument) {
@@ -81,6 +92,12 @@ export default function DealDetailPage() {
 
     try {
       const url = await getCapitalDealDocumentUrl(document);
+      captureAnalytics(ANALYTICS_EVENTS.dealDocumentOpened, {
+        deal_id: loadedDeal.databaseId,
+        document_id: document.id,
+        document_type: document.type,
+        access_level: document.accessLevel,
+      });
       window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       setRequestError(err instanceof Error ? err.message : 'Unable to open this document.');
@@ -154,6 +171,12 @@ export default function DealDetailPage() {
           {showProgress || metricRows.length > 0 ? <div className="divider my-5" /> : null}
           <a
             href={dataRoomMailto(deal.name)}
+            onClick={() =>
+              captureAnalytics(ANALYTICS_EVENTS.dealDataRoomRequested, {
+                deal_id: deal.databaseId,
+                deal_type: deal.type,
+              })
+            }
             className="inline-flex h-11 w-full select-none items-center justify-center gap-2 rounded-pier-md border border-ink bg-ink px-5 text-[14px] font-medium text-parchment transition-colors duration-150 hover:bg-ink/90"
           >
             Request data room

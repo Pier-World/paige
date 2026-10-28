@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { emptyAccreditationDraft, isAccreditationDraftComplete } from '../../lib/accreditation';
+import { ANALYTICS_EVENTS, captureAnalytics, ONBOARDING_STEP_NAMES } from '../../lib/analytics';
 import {
   buildOnboardingMemberPreferences,
   buildPersonalContext,
@@ -50,6 +51,14 @@ export default function OnboardingPage() {
     sessionStorage.setItem(onboardingDraftKey(user.id), serializeOnboardingDraft(data, currentStep));
   }, [data, currentStep, user?.id, hydrated]);
 
+  useEffect(() => {
+    if (!hydrated) return;
+    captureAnalytics(ANALYTICS_EVENTS.onboardingStepViewed, {
+      step: currentStep,
+      step_name: ONBOARDING_STEP_NAMES[currentStep],
+    });
+  }, [currentStep, hydrated]);
+
   const firstName = useMemo(() => {
     return user?.first_name || user?.full_name?.split(' ')[0] || '';
   }, [user]);
@@ -83,6 +92,10 @@ export default function OnboardingPage() {
       }
       sessionStorage.removeItem(onboardingDraftKey(user.id));
       markMembershipRevealPending(user.id);
+      captureAnalytics(ANALYTICS_EVENTS.onboardingCompleted, {
+        skipped,
+        capital_role: payload.capitalRole,
+      });
       navigate('/dashboard', { replace: true, state: { fromOnboarding: true } });
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Unable to finish onboarding.');
