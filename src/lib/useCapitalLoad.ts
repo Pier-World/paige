@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { describeCapitalLoadFailure } from './async';
+import { describeCapitalLoadFailure, withTransientRetry } from './async';
 
 const cache = new Map<string, unknown>();
 
@@ -46,8 +46,7 @@ export function useCapitalLoad<T>(key: string, load: () => Promise<T>, fallback:
 
     let ignore = false;
 
-    loadRef
-      .current()
+    withTransientRetry(() => loadRef.current())
       .then((value) => {
         cache.set(key, value);
         if (ignore) return;
