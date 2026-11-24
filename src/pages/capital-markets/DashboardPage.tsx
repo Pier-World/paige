@@ -18,6 +18,7 @@ import {
   consumeMembershipReveal,
   dashboardIntroKey,
   eventMatchesCapitalRole,
+  readOpportunityShared,
 } from '../../lib/capitalOnboarding';
 import { buildDashboardOrientedSteps } from '../../lib/orientationSteps';
 import { isPierPlus } from '../../lib/membership';
@@ -74,6 +75,9 @@ export default function DashboardPage() {
   const pierPlus = isPierPlus(user);
   const capitalRole = user?.preferences?.capital_role;
   const [introDismissed, setIntroDismissed] = useState(() => readIntroDismissed(user?.id));
+  const [opportunityShared, setOpportunityShared] = useState(() =>
+    readOpportunityShared(user?.id)
+  );
   const [showReveal, setShowReveal] = useState(() =>
     consumeMembershipReveal(user?.id, fromOnboarding)
   );
@@ -91,6 +95,11 @@ export default function DashboardPage() {
   useEffect(() => {
     setIntroDismissed(readIntroDismissed(user?.id));
   }, [user?.id]);
+
+  // Re-read when returning from /deals after composing a submission.
+  useEffect(() => {
+    setOpportunityShared(readOpportunityShared(user?.id));
+  }, [location.key, user?.id]);
 
   useEffect(() => {
     if (!fromOnboarding) return;
@@ -137,6 +146,7 @@ export default function DashboardPage() {
     joinedEvent: joinedUpcoming && joinedEvent ? { id: joinedEvent.id, title: joinedEvent.title } : null,
     hasUpcoming: futureEvents.length > 0,
     preferences: user?.preferences,
+    opportunityShared,
   });
 
   function dismissIntro() {

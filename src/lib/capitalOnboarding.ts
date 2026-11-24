@@ -294,6 +294,28 @@ export function dashboardIntroKey(userId: string): string {
   return `pier_get_oriented_dismissed_${userId}`;
 }
 
+export function opportunitySharedKey(userId: string): string {
+  return `pier_opportunity_shared_${userId}`;
+}
+
+export function readOpportunityShared(userId?: string): boolean {
+  if (!userId) return false;
+  try {
+    return window.localStorage.getItem(opportunitySharedKey(userId)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function markOpportunityShared(userId?: string): void {
+  if (!userId) return;
+  try {
+    window.localStorage.setItem(opportunitySharedKey(userId), '1');
+  } catch {
+    /* private mode */
+  }
+}
+
 export function membershipRevealKey(userId: string): string {
   return `pier_membership_reveal_${userId}`;
 }

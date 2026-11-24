@@ -19,6 +19,7 @@ export function buildDashboardOrientedSteps({
   joinedEvent,
   hasUpcoming,
   preferences,
+  opportunityShared = false,
 }: {
   loading: boolean;
   calendarError: boolean;
@@ -28,6 +29,7 @@ export function buildDashboardOrientedSteps({
   joinedEvent: JoinedGathering | null;
   hasUpcoming: boolean;
   preferences?: UserPreferences | null;
+  opportunityShared?: boolean;
 }): OrientedStep[] {
   const roleDone = capitalRole === 'gp' || capitalRole === 'lp';
   const placeDone = Boolean(firm && city);
@@ -59,6 +61,15 @@ export function buildDashboardOrientedSteps({
       detail: accreditationDetail(accreditation),
       href: PROFILE_ACCREDITATION_HREF,
       state: accreditation ? 'done' : 'open',
+    },
+    {
+      id: 'share-opportunity',
+      title: 'Share an opportunity',
+      detail: opportunityShared
+        ? 'Submitted for Pier review.'
+        : 'Submit your first co-invest or fund opportunity with the community.',
+      href: '/deals',
+      state: opportunityShared ? 'done' : 'open',
     },
   ];
 }

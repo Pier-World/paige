@@ -38,12 +38,26 @@ test('accreditation is a later step and stays open until it is confirmed', () =>
   const oriented = steps();
   assert.deepEqual(
     oriented.map((step) => step.id),
-    ['role', 'place', 'gathering', 'accreditation']
+    ['role', 'place', 'gathering', 'accreditation', 'share-opportunity']
   );
   const accreditation = oriented[3];
   assert.equal(accreditation.state, 'open');
   assert.equal(accreditation.href, '/profile/personal#accreditation');
   assert.equal(accreditation.detail, 'Confirm whether you are an accredited investor.');
+});
+
+test('share an opportunity opens deals and completes after compose', () => {
+  const open = steps().find((step) => step.id === 'share-opportunity');
+  assert.equal(open?.state, 'open');
+  assert.equal(open?.href, '/deals');
+  assert.equal(
+    open?.detail,
+    'Submit your first co-invest or fund opportunity with the community.'
+  );
+
+  const done = steps({ opportunityShared: true }).find((step) => step.id === 'share-opportunity');
+  assert.equal(done?.state, 'done');
+  assert.equal(done?.detail, 'Submitted for Pier review.');
 });
 
 test('accreditation confirmed in onboarding or profile completes the step', () => {

@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { ANALYTICS_EVENTS, captureAnalytics } from '../../lib/analytics';
+import { markOpportunityShared } from '../../lib/capitalOnboarding';
 import { submitOpportunityMailto } from '../../lib/conciergeMailto';
 import { Button } from '../ui/Button';
 
@@ -35,6 +37,7 @@ export function SubmitOpportunityDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -116,6 +119,7 @@ export function SubmitOpportunityDialog({
               href={submitOpportunityMailto()}
               onClick={() => {
                 captureAnalytics(ANALYTICS_EVENTS.dealOpportunitySubmitComposed);
+                markOpportunityShared(user?.id);
                 onClose();
               }}
               className="inline-flex h-11 items-center justify-center rounded-pier-md border border-ink bg-ink px-5 text-[14px] text-parchment transition-colors hover:bg-ink/90"
