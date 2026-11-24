@@ -3,9 +3,11 @@ import test from 'node:test';
 import {
   CONCIERGE_EMAIL,
   DATA_ROOM_EMAIL,
+  SUBMIT_OPPORTUNITY_EMAIL,
   conciergeMailto,
   dataRoomMailto,
   opportunityInquiryMailto,
+  submitOpportunityMailto,
   upgradeRequestMailto,
 } from './conciergeMailto.ts';
 
@@ -43,4 +45,16 @@ test('Pier+ upgrade requests email Vestera', () => {
   assert.equal(url.pathname, DATA_ROOM_EMAIL);
   assert.equal(url.searchParams.get('subject'), 'Pier+ upgrade request');
   assert.equal(href.includes(CONCIERGE_EMAIL), false);
+});
+
+test('dealflow submissions email sc@vesteracap.com with a body template', () => {
+  const href = submitOpportunityMailto();
+  const url = new URL(href);
+  assert.equal(SUBMIT_OPPORTUNITY_EMAIL, 'sc@vesteracap.com');
+  assert.equal(url.protocol, 'mailto:');
+  assert.equal(url.pathname, SUBMIT_OPPORTUNITY_EMAIL);
+  assert.equal(url.searchParams.get('subject'), 'Pier dealflow submission');
+  assert.match(url.searchParams.get('body') ?? '', /Type \(fund \/ co-invest/);
+  assert.equal(href.includes(CONCIERGE_EMAIL), false);
+  assert.equal(href.includes('bpucci@vesteracap.com'), false);
 });

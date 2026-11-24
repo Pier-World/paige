@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { OpportunityRow } from '../../components/capital-markets/OpportunityRow';
+import { SubmitOpportunityModule } from '../../components/capital-markets/SubmitOpportunityModule';
 import { PageFrame } from '../../components/layout/PageFrame';
 import { Chip } from '../../components/ui/Chip';
 import { getCapitalDeals, type DealType } from '../../lib/api/capitalMarkets';
@@ -39,6 +40,8 @@ export default function DealsPage() {
         </p>
         <div className="gilt-rule mt-6 w-12" />
       </div>
+
+      <SubmitOpportunityModule />
 
       {loading ? <LoadingState label="Loading deal flow" variant="rows" /> : null}
       {error ? <ErrorState message={error} onRetry={loaded.reload} /> : null}

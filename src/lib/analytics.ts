@@ -9,6 +9,8 @@ export const ANALYTICS_EVENTS = {
   dealViewed: 'deal_viewed',
   dealDocumentOpened: 'deal_document_opened',
   dealDataRoomRequested: 'deal_data_room_requested',
+  dealOpportunitySubmitStarted: 'deal_opportunity_submit_started',
+  dealOpportunitySubmitComposed: 'deal_opportunity_submit_composed',
   eventRsvpClicked: 'event_rsvp_clicked',
   partnerViewed: 'partner_viewed',
   partnerCtaClicked: 'partner_cta_clicked',
