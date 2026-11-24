@@ -1,11 +1,26 @@
 import type { CapitalDeal } from '../../lib/api/capitalMarkets';
 import { formatCurrency, hasPublicDealAmount } from '../../lib/utils';
+import { BlurredTerm } from './BlurredTerm';
 
 type DealProgressAsideProps = {
   deal: Pick<CapitalDeal, 'allocationSubscribedPercent' | 'currencyCode' | 'raisedSize' | 'targetSize'>;
+  locked?: boolean;
+  onUnlock?: () => void;
 };
 
-export function DealProgressAside({ deal }: DealProgressAsideProps) {
+export function DealProgressAside({ deal, locked = false, onUnlock }: DealProgressAsideProps) {
+  if (locked) {
+    return (
+      <button type="button" onClick={onUnlock} className="w-full text-left" aria-label="Allocation progress is included with Pier+">
+        <p className="eyebrow mb-4">Allocation progress</p>
+        <BlurredTerm />
+        <div aria-hidden className="mt-4 h-0.5 w-full rounded-full bg-border">
+          <div className="h-full w-1/2 rounded-full bg-ink/30 blur-[3px]" />
+        </div>
+      </button>
+    );
+  }
+
   const hasTarget = hasPublicDealAmount(deal.targetSize);
   const hasRaised = hasPublicDealAmount(deal.raisedSize);
   const hasProgress = deal.allocationSubscribedPercent > 0;

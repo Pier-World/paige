@@ -3166,6 +3166,33 @@ export type Database = {
         }[]
       }
       is_pier_plus: { Args: { p_user_id?: string }; Returns: boolean }
+      published_capital_deal_previews: {
+        Args: { p_id?: string; p_slug?: string }
+        Returns: {
+          asset_class: string
+          deal_type: string
+          description: string
+          geography: string | null
+          has_close_date: boolean
+          has_holding_period: boolean
+          has_liquidity: boolean
+          has_min_commitment: boolean
+          has_moic: boolean
+          has_progress: boolean
+          has_return: boolean
+          has_target: boolean
+          has_vintage: boolean
+          id: string
+          manager_name: string
+          name: string
+          published_at: string | null
+          sectors: string[]
+          slug: string
+          sort_order: number
+          status: string
+          why_pier_selected: string | null
+        }[]
+      }
       membership_is_pier_plus: {
         Args: { p_level: string; p_role: string }
         Returns: boolean

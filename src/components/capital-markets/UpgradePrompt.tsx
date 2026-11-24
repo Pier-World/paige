@@ -14,6 +14,8 @@ type UpgradePromptProps = {
   title?: string;
   description?: string;
   className?: string;
+  secondaryLabel?: string;
+  secondaryHref?: string;
 };
 
 export function UpgradePrompt({
@@ -23,6 +25,8 @@ export function UpgradePrompt({
   title = 'Pier+ members only',
   description = 'Deal Flow and the member directory are included with Pier+.',
   className,
+  secondaryLabel = 'Message the team',
+  secondaryHref,
 }: UpgradePromptProps) {
   const { trackEvent } = useIntercom();
 
@@ -33,10 +37,10 @@ export function UpgradePrompt({
 
   if (!open) return null;
 
-  function logCta(channel: 'stripe' | 'email') {
-    captureAnalytics(ANALYTICS_EVENTS.upgradeRequestClick, { channel, copy: 'Join Pier+' });
+  function logCta(channel: 'stripe' | 'email', copy: string) {
+    captureAnalytics(ANALYTICS_EVENTS.upgradeRequestClick, { channel, copy });
     try {
-      trackEvent('upgrade_request_click', { channel, copy: 'Join Pier+' });
+      trackEvent('upgrade_request_click', { channel, copy });
     } catch {
       // Intercom may not be booted (logged-out welcome, etc.)
     }
@@ -48,20 +52,20 @@ export function UpgradePrompt({
         href={PIER_PLUS_CHECKOUT_URL}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => logCta('stripe')}
+        onClick={() => logCta('stripe', 'Join Pier+')}
         className="flex h-9 flex-1 items-center justify-center rounded-[6px] border border-ink bg-ink text-[12px] text-parchment hover:bg-ink/90"
       >
         Join Pier+
       </a>
       <a
-        href={upgradeRequestMailto()}
+        href={secondaryHref ?? upgradeRequestMailto()}
         onClick={() => {
-          logCta('email');
+          logCta('email', secondaryLabel);
           onClose?.();
         }}
         className="flex h-9 flex-1 items-center justify-center rounded-[6px] border border-border bg-parchment text-[12px] text-ink hover:border-ink/30"
       >
-        Message the team
+        {secondaryLabel}
       </a>
     </div>
   );

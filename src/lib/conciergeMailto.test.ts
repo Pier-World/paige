@@ -5,6 +5,7 @@ import {
   DATA_ROOM_EMAIL,
   conciergeMailto,
   dataRoomMailto,
+  opportunityInquiryMailto,
   upgradeRequestMailto,
 } from './conciergeMailto.ts';
 
@@ -23,6 +24,16 @@ test('concierge mail still uses the general inbox', () => {
   const url = new URL(href);
   assert.equal(CONCIERGE_EMAIL, 'hello@joinpier.com');
   assert.equal(url.pathname, CONCIERGE_EMAIL);
+});
+
+test('opportunity inquiries name the fund and email Vestera', () => {
+  const href = opportunityInquiryMailto('Northline Fund IV');
+  const url = new URL(href);
+  assert.equal(url.protocol, 'mailto:');
+  assert.equal(url.pathname, DATA_ROOM_EMAIL);
+  assert.equal(url.searchParams.get('subject'), 'Opportunity inquiry: Northline Fund IV');
+  assert.match(url.searchParams.get('body') ?? '', /Northline Fund IV/);
+  assert.equal(href.includes(CONCIERGE_EMAIL), false);
 });
 
 test('Pier+ upgrade requests email Vestera', () => {

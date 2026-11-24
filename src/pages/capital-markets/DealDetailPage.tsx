@@ -1,27 +1,41 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, ExternalLink, MapPin } from 'lucide-react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { ArrowLeft, Download, ExternalLink, Lock, MapPin } from 'lucide-react';
+import { BlurredTerm } from '../../components/capital-markets/BlurredTerm';
 import { DealProgressAside } from '../../components/capital-markets/DealProgressAside';
+import { UpgradePrompt } from '../../components/capital-markets/UpgradePrompt';
 import { Badge } from '../../components/ui/Badge';
+import { useAuth } from '../../context/AuthContext';
 import { ANALYTICS_EVENTS, captureAnalytics } from '../../lib/analytics';
-import { getCapitalDealDocumentUrl, getCapitalDealBySlugOrId, type CapitalDeal, type CapitalDealDocument } from '../../lib/api/capitalMarkets';
+import { getCapitalDealDocumentUrl, getCapitalDealBySlugOrId, getCapitalDealPreview, type CapitalDeal, type CapitalDealDocument } from '../../lib/api/capitalMarkets';
 import { CAPITAL_SUPABASE_TIMEOUT_MS, withTimeout } from '../../lib/async';
-import { dataRoomMailto } from '../../lib/conciergeMailto';
+import { dataRoomMailto, opportunityInquiryMailto } from '../../lib/conciergeMailto';
+import { isPierPlus } from '../../lib/membership';
 import { useCapitalLoad } from '../../lib/useCapitalLoad';
 import { formatCurrency, formatDate, formatDealReturn, hasPublicDealAmount, hasPublicDealReturn } from '../../lib/utils';
 import { dealStatusLabels } from './mockData';
 import { ErrorState, LoadingState } from './PageStates';
 
+type MetricRow = { label: string; value?: string; locked?: boolean };
+
+function lockedMetric(show: boolean | undefined, label: string): MetricRow | null {
+  return show ? { label, locked: true } : null;
+}
+
 export default function DealDetailPage() {
   const { id } = useParams();
+  const location = useLocation();
+  const { user } = useAuth();
+  const pierPlus = isPierPlus(user);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
+  const [fundGateOpen, setFundGateOpen] = useState(false);
   const loaded = useCapitalLoad(
-    id ? `deal:${id}` : 'deal:missing',
+    id ? `deal:${id}:${pierPlus ? 'plus' : 'preview'}` : 'deal:missing',
     async () => {
       if (!id) return { deal: null as CapitalDeal | null };
       const deal = await withTimeout(
-        getCapitalDealBySlugOrId(id),
+        pierPlus ? getCapitalDealBySlugOrId(id) : getCapitalDealPreview(id),
         CAPITAL_SUPABASE_TIMEOUT_MS,
         'capital deal'
       );
@@ -39,8 +53,17 @@ export default function DealDetailPage() {
       deal_id: deal.databaseId,
       deal_type: deal.type,
       status: deal.status,
+      preview: deal.termsLocked === true,
     });
   }, [deal]);
+
+  const requestedFundGate =
+    (location.state as { openFundGate?: boolean } | null)?.openFundGate === true;
+
+  useEffect(() => {
+    if (deal?.termsLocked !== true || !requestedFundGate) return;
+    setFundGateOpen(true);
+  }, [deal?.databaseId, deal?.termsLocked, requestedFundGate]);
 
   if (loading) {
     return (
@@ -107,28 +130,46 @@ export default function DealDetailPage() {
     }
   }
 
-  const showProgress =
-    hasPublicDealAmount(deal.targetSize) ||
-    hasPublicDealAmount(deal.raisedSize) ||
-    deal.allocationSubscribedPercent > 0;
-  const metricRows = [
-    ...(hasPublicDealAmount(deal.minCommitment)
-      ? [{ label: 'Min. commitment', value: formatCurrency(deal.minCommitment, deal.currencyCode, true) }]
-      : []),
-    ...(hasPublicDealReturn(deal.returnMetricType, deal.targetIrr, deal.moicTarget, deal.returnDisplay)
-      ? [{ label: 'Return', value: returnValue }]
-      : []),
-    ...(deal.returnMetricType === 'irr' && deal.moicTarget > 0
-      ? [{ label: 'Target MOIC', value: `${deal.moicTarget}x` }]
-      : []),
-    ...(deal.closeDate ? [{ label: 'Close date', value: formatDate(deal.closeDate, 'long') }] : []),
-    ...(deal.vintage > 0 ? [{ label: 'Vintage', value: deal.vintage.toString() }] : []),
-    ...(deal.geography ? [{ label: 'Geography', value: deal.geography }] : []),
-    ...(deal.holdingPeriodYears
-      ? [{ label: 'Holding period', value: `~${deal.holdingPeriodYears} years` }]
-      : []),
-    ...(deal.liquidityNote ? [{ label: 'Liquidity', value: deal.liquidityNote }] : []),
-  ];
+  const preview = deal.termsLocked === true;
+  const hints = deal.termHints;
+  function openFundGate() {
+    setFundGateOpen(true);
+  }
+  const showProgress = preview
+    ? Boolean(hints?.progress)
+    : hasPublicDealAmount(deal.targetSize) ||
+      hasPublicDealAmount(deal.raisedSize) ||
+      deal.allocationSubscribedPercent > 0;
+  const metricRows: MetricRow[] = preview
+    ? [
+        lockedMetric(hints?.target, 'Target'),
+        lockedMetric(hints?.minCommitment, 'Min. commitment'),
+        lockedMetric(hints?.return, 'Return'),
+        lockedMetric(hints?.moic, 'Target MOIC'),
+        lockedMetric(hints?.closeDate, 'Close date'),
+        lockedMetric(hints?.vintage, 'Vintage'),
+        deal.geography ? { label: 'Geography', value: deal.geography } : null,
+        lockedMetric(hints?.holdingPeriod, 'Holding period'),
+        lockedMetric(hints?.liquidity, 'Liquidity'),
+      ].filter((row): row is MetricRow => row !== null)
+    : [
+        ...(hasPublicDealAmount(deal.minCommitment)
+          ? [{ label: 'Min. commitment', value: formatCurrency(deal.minCommitment, deal.currencyCode, true) }]
+          : []),
+        ...(hasPublicDealReturn(deal.returnMetricType, deal.targetIrr, deal.moicTarget, deal.returnDisplay)
+          ? [{ label: 'Return', value: returnValue }]
+          : []),
+        ...(deal.returnMetricType === 'irr' && deal.moicTarget > 0
+          ? [{ label: 'Target MOIC', value: `${deal.moicTarget}x` }]
+          : []),
+        ...(deal.closeDate ? [{ label: 'Close date', value: formatDate(deal.closeDate, 'long') }] : []),
+        ...(deal.vintage > 0 ? [{ label: 'Vintage', value: deal.vintage.toString() }] : []),
+        ...(deal.geography ? [{ label: 'Geography', value: deal.geography }] : []),
+        ...(deal.holdingPeriodYears
+          ? [{ label: 'Holding period', value: `~${deal.holdingPeriodYears} years` }]
+          : []),
+        ...(deal.liquidityNote ? [{ label: 'Liquidity', value: deal.liquidityNote }] : []),
+      ];
 
   return (
     <div className="page-frame">
@@ -157,31 +198,54 @@ export default function DealDetailPage() {
         </div>
 
         <aside className="rounded-[4px] border border-border bg-surface p-6">
-          {showProgress ? <DealProgressAside deal={deal} /> : null}
+          {showProgress ? (
+            <DealProgressAside deal={deal} locked={preview} onUnlock={openFundGate} />
+          ) : null}
           {showProgress && metricRows.length > 0 ? <div className="divider my-5" /> : null}
           {metricRows.length > 0 ? (
             <div className="space-y-3 text-[13px]">
-              {metricRows.map(({ label, value }) => (
-                <div key={label} className="flex items-center justify-between gap-4">
-                  <span className="text-slate">{label}</span>
-                  <span className="font-mono-data text-right font-medium text-ink">{value}</span>
+              {metricRows.map((row) => (
+                <div key={row.label} className="flex items-center justify-between gap-4">
+                  <span className="text-slate">{row.label}</span>
+                  {row.locked ? (
+                    <button
+                      type="button"
+                      onClick={openFundGate}
+                      className="rounded-[2px] hover:bg-gilt/10"
+                      aria-label={`${row.label} is included with Pier+`}
+                    >
+                      <BlurredTerm />
+                    </button>
+                  ) : (
+                    <span className="font-mono-data text-right font-medium text-ink">{row.value}</span>
+                  )}
                 </div>
               ))}
             </div>
           ) : null}
           {showProgress || metricRows.length > 0 ? <div className="divider my-5" /> : null}
-          <a
-            href={dataRoomMailto(deal.name)}
-            onClick={() =>
-              captureAnalytics(ANALYTICS_EVENTS.dealDataRoomRequested, {
-                deal_id: deal.databaseId,
-                deal_type: deal.type,
-              })
-            }
-            className="inline-flex h-11 w-full select-none items-center justify-center gap-2 rounded-pier-md border border-ink bg-ink px-5 text-[14px] font-medium text-parchment transition-colors duration-150 hover:bg-ink/90"
-          >
-            Request data room
-          </a>
+          {preview ? (
+            <button
+              type="button"
+              onClick={openFundGate}
+              className="inline-flex h-11 w-full select-none items-center justify-center gap-2 rounded-pier-md border border-ink bg-ink px-5 text-[14px] font-medium text-parchment transition-colors duration-150 hover:bg-ink/90"
+            >
+              View fund
+            </button>
+          ) : (
+            <a
+              href={dataRoomMailto(deal.name)}
+              onClick={() =>
+                captureAnalytics(ANALYTICS_EVENTS.dealDataRoomRequested, {
+                  deal_id: deal.databaseId,
+                  deal_type: deal.type,
+                })
+              }
+              className="inline-flex h-11 w-full select-none items-center justify-center gap-2 rounded-pier-md border border-ink bg-ink px-5 text-[14px] font-medium text-parchment transition-colors duration-150 hover:bg-ink/90"
+            >
+              Request data room
+            </a>
+          )}
           {requestError ? <p className="mt-3 text-center text-[11px] text-danger">{requestError}</p> : null}
         </aside>
       </div>
@@ -212,7 +276,29 @@ export default function DealDetailPage() {
         </section>
       ) : null}
 
-      {deal.eligibleInvestorRequirements || deal.disclaimer ? (
+      {preview ? (
+        <section className="mb-10">
+          <div className="mb-4 flex items-center gap-4">
+            <p className="eyebrow">Fund</p>
+            <div className="divider flex-1" />
+          </div>
+          <button
+            type="button"
+            onClick={openFundGate}
+            className="flex w-full max-w-3xl items-center justify-between gap-4 rounded-[4px] border border-border bg-surface p-4 text-left transition-colors hover:border-ink/40"
+          >
+            <div>
+              <p className="text-[14px] font-medium text-ink">Performance, terms, and materials</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-slate">
+                Included with Pier+. You can also ask the team about this opportunity.
+              </p>
+            </div>
+            <Lock className="h-4 w-4 shrink-0 text-gilt" />
+          </button>
+        </section>
+      ) : null}
+
+      {!preview && (deal.eligibleInvestorRequirements || deal.disclaimer) ? (
         <section className="mb-10">
           <div className="mb-4 flex items-center gap-4">
             <p className="eyebrow">Investor information</p>
@@ -235,7 +321,7 @@ export default function DealDetailPage() {
         </section>
       ) : null}
 
-      {deal.documents.length > 0 ? (
+      {!preview && deal.documents.length > 0 ? (
         <section className="mb-10">
           <div className="mb-4 flex items-center gap-4">
             <p className="eyebrow">Documents</p>
@@ -270,8 +356,8 @@ export default function DealDetailPage() {
         </section>
       ) : null}
 
-      <section className={deal.contacts.length > 0 ? 'grid gap-6 lg:grid-cols-[1fr_320px]' : undefined}>
-        {deal.contacts.length > 0 ? (
+      <section className={!preview && deal.contacts.length > 0 ? 'grid gap-6 lg:grid-cols-[1fr_320px]' : undefined}>
+        {!preview && deal.contacts.length > 0 ? (
           <div>
             <div className="mb-4 flex items-center gap-4">
               <p className="eyebrow">Key contacts</p>
@@ -304,6 +390,17 @@ export default function DealDetailPage() {
           </div>
         ) : null}
       </section>
+
+      {preview ? (
+        <UpgradePrompt
+          open={fundGateOpen}
+          onClose={() => setFundGateOpen(false)}
+          title="This fund is included with Pier+"
+          description={`Performance, terms, and materials for ${deal.name} stay with Pier+. Upgrade, or reach out and the team will follow up on this opportunity.`}
+          secondaryLabel="Ask the team"
+          secondaryHref={opportunityInquiryMailto(deal.name)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -68,6 +68,59 @@ BEGIN
     AND polname = 'Members can view published capital deals';
   ASSERT v_qual ILIKE '%is_pier_plus%', 'capital_deals member SELECT requires is_pier_plus';
 
+  ASSERT EXISTS (
+    SELECT 1
+    FROM pg_proc
+    WHERE pronamespace = 'public'::regnamespace
+      AND proname = 'published_capital_deal_previews'
+  ), 'standard members read deal previews through published_capital_deal_previews';
+
+  ASSERT (
+    SELECT prosecdef
+    FROM pg_proc
+    WHERE pronamespace = 'public'::regnamespace
+      AND proname = 'published_capital_deal_previews'
+  ), 'deal preview function is security definer';
+
+  ASSERT NOT (
+    'target_irr' = ANY (
+      SELECT unnest(proargnames)
+      FROM pg_proc
+      WHERE pronamespace = 'public'::regnamespace
+        AND proname = 'published_capital_deal_previews'
+    )
+  ), 'deal previews do not return target_irr';
+
+  ASSERT NOT (
+    'internal_notes' = ANY (
+      SELECT unnest(proargnames)
+      FROM pg_proc
+      WHERE pronamespace = 'public'::regnamespace
+        AND proname = 'published_capital_deal_previews'
+    )
+  ), 'deal previews do not return internal notes';
+
+  ASSERT (
+    'has_return' = ANY (
+      SELECT unnest(proargnames)
+      FROM pg_proc
+      WHERE pronamespace = 'public'::regnamespace
+        AND proname = 'published_capital_deal_previews'
+    )
+  ), 'deal previews expose a return hint';
+
+  ASSERT has_function_privilege(
+    'authenticated',
+    'public.published_capital_deal_previews(uuid, text)',
+    'EXECUTE'
+  ), 'authenticated can execute deal previews';
+
+  ASSERT NOT has_function_privilege(
+    'anon',
+    'public.published_capital_deal_previews(uuid, text)',
+    'EXECUTE'
+  ), 'anon cannot execute deal previews';
+
   SELECT pg_get_expr(polqual, polrelid)
   INTO v_qual
   FROM pg_policy

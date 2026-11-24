@@ -22,3 +22,11 @@ export function dataRoomMailto(opportunityTitle: string): string {
 export function upgradeRequestMailto(): string {
   return mailtoHref(DATA_ROOM_EMAIL, 'Pier+ upgrade request');
 }
+
+export function opportunityInquiryMailto(opportunityTitle: string): string {
+  return mailtoHref(
+    DATA_ROOM_EMAIL,
+    `Opportunity inquiry: ${opportunityTitle}`,
+    `I would like to learn more about ${opportunityTitle}.`
+  );
+}

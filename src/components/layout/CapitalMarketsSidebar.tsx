@@ -16,7 +16,7 @@ import { AccountMenu } from './AccountMenu';
 
 const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, pierPlusOnly: false },
-  { label: 'Deal Flow', path: '/deals', icon: TrendingUp, pierPlusOnly: true },
+  { label: 'Deal Flow', path: '/deals', icon: TrendingUp, pierPlusOnly: false },
   { label: 'Events', path: '/events', icon: Calendar, pierPlusOnly: false },
   { label: 'Partners', path: '/partners', icon: Building2, pierPlusOnly: false },
 ];

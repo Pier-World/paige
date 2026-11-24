@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
+import { BlurredTerm } from './BlurredTerm';
 import { DealReturnCell } from './DealReturnCell';
 import { Badge } from '../ui/Badge';
 import type { CapitalDeal } from '../../lib/api/capitalMarkets';
@@ -19,14 +20,47 @@ function Metric({ label, children }: { label: string; children: ReactNode }) {
 export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; compact?: boolean }) {
   const isClosing = deal.status === 'closing';
   const isClosed = deal.status === 'closed';
+  const termsLocked = deal.termsLocked === true;
+  const hints = deal.termHints;
   const meta = [typeLabels[deal.type], deal.assetClass, deal.geography].filter(Boolean).join(' · ');
+  const reviewLabel = termsLocked
+    ? compact
+      ? 'Preview'
+      : 'Preview opportunity'
+    : compact
+      ? 'Review'
+      : 'Review opportunity';
   const hasReturn = hasPublicDealReturn(
     deal.returnMetricType,
     deal.targetIrr,
     deal.moicTarget,
     deal.returnDisplay
   );
-  const metrics = [
+  const metrics = termsLocked
+    ? [
+        hints?.target ? (
+          <Metric key="target" label="Target">
+            <BlurredTerm />
+          </Metric>
+        ) : null,
+        hints?.minCommitment ? (
+          <Metric key="min" label="Min. commit">
+            <BlurredTerm />
+          </Metric>
+        ) : null,
+        hints?.return ? (
+          <div key="return" className="min-w-0">
+            <p className="eyebrow mb-0.5">Return</p>
+            <BlurredTerm />
+          </div>
+        ) : null,
+        hints?.closeDate ? (
+          <Metric key="close" label="Close">
+            <BlurredTerm />
+          </Metric>
+        ) : null,
+      ].filter(Boolean)
+    : [
     hasPublicDealAmount(deal.targetSize) ? (
       <Metric key="target" label="Target">
         {formatCurrency(deal.targetSize, deal.currencyCode, true)}
@@ -53,6 +87,7 @@ export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; c
   return (
     <Link
       to={`/deals/${deal.id}`}
+      state={termsLocked ? { openFundGate: true } : undefined}
       className={cn(
         'group flex flex-col rounded-[4px] border bg-surface transition-colors',
         compact ? 'px-4 py-4 sm:px-5' : 'px-5 py-5 sm:px-6 sm:py-5',
@@ -80,7 +115,7 @@ export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; c
           <p className="mt-1 text-[13px] text-slate">{deal.manager}</p>
         </div>
         <span className="hidden shrink-0 items-center gap-1 pt-1 text-[13px] font-medium text-ink sm:flex">
-          {compact ? 'Review' : 'Review opportunity'}
+          {reviewLabel}
           <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </span>
       </div>
@@ -119,7 +154,7 @@ export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; c
       ) : null}
 
       <span className="mt-4 flex items-center gap-1 text-[13px] font-medium text-ink sm:hidden">
-        {compact ? 'Review' : 'Review opportunity'}
+        {reviewLabel}
         <ArrowUpRight className="h-3.5 w-3.5" />
       </span>
     </Link>

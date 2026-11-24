@@ -9,8 +9,6 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { NavigationGuard } from './components/NavigationGuard';
 import { CapitalMarketsLayout } from './components/layout/CapitalMarketsLayout';
 import { AuthLoading } from './pages/auth/AuthShell';
-import { AnonymizedDealPreview } from './components/capital-markets/AnonymizedDealPreview';
-import { PierPlusGate } from './components/capital-markets/PierPlusGate';
 import { importWithChunkReloadOnce } from './lib/chunkLoadRetry';
 import { postAuthPath } from './lib/capitalOnboarding';
 
@@ -174,30 +172,8 @@ function App() {
             {/* Capital Markets Routes. The shell stays mounted so page changes don't flash the sidebar. */}
             <Route element={<CapitalMarketsRoute />}>
               <Route path="/dashboard" element={<CapitalMarketsDashboardPage />} />
-              <Route
-                path="/deals"
-                element={
-                  <PierPlusGate
-                    title="Deal Flow is included with Pier+"
-                    description="Curated funds, co-investments, and SPVs are available to Pier+ members. Request an upgrade and the Pier team will follow up."
-                    preview={<AnonymizedDealPreview variant="grid" />}
-                  >
-                    <CapitalMarketsDealsPage />
-                  </PierPlusGate>
-                }
-              />
-              <Route
-                path="/deals/:id"
-                element={
-                  <PierPlusGate
-                    title="Deal Flow is included with Pier+"
-                    description="Opportunity details and materials are available to Pier+ members. Request an upgrade and the Pier team will follow up."
-                    preview={<AnonymizedDealPreview variant="detail" />}
-                  >
-                    <CapitalMarketsDealDetailPage />
-                  </PierPlusGate>
-                }
-              />
+              <Route path="/deals" element={<CapitalMarketsDealsPage />} />
+              <Route path="/deals/:id" element={<CapitalMarketsDealDetailPage />} />
               <Route path="/events" element={<CapitalMarketsEventsPage />} />
               <Route path="/partners" element={<CapitalMarketsPartnersPage />} />
               <Route path="/profile" element={<CapitalProfilePage />} />

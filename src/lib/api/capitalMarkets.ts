@@ -3,6 +3,7 @@ import type { Database, Json } from '../../types/supabase';
 import { capitalAbortSignal } from '../async';
 import { displayEventAudience } from '../capitalOnboarding';
 import { conciergeMailto } from '../conciergeMailto';
+import { LOCKED_DEAL_TERMS, termHintsFromPreviewFlags, type DealTermHints } from '../dealPreview';
 
 export type DealType = 'fund' | 'co-invest' | 'secondary' | 'spv';
 export type DealStatus = 'open' | 'closing' | 'closed' | 'pending';
@@ -66,6 +67,9 @@ export interface CapitalDeal {
   eligibleInvestorRequirements: string;
   visibilityTier: 'members' | 'admin';
   internalNotes: string;
+  /** Standard members receive a preview with performance and terms omitted. */
+  termsLocked?: boolean;
+  termHints?: DealTermHints;
 }
 
 export interface CapitalEvent {
@@ -370,6 +374,51 @@ export function isRecentCapitalEvent(
 type CapitalPartnerRowExtended = CapitalPartnerRow & {
   location?: string | null;
 };
+
+function asDealType(value: string): DealType {
+  if (value === 'fund' || value === 'co-invest' || value === 'secondary' || value === 'spv') return value;
+  return 'fund';
+}
+
+function asDealStatus(value: string): DealStatus {
+  if (value === 'open' || value === 'closing' || value === 'closed' || value === 'pending') return value;
+  return 'open';
+}
+
+type CapitalDealPreviewRow =
+  Database['public']['Functions']['published_capital_deal_previews']['Returns'][number];
+
+function mapDealPreview(row: CapitalDealPreviewRow): CapitalDeal {
+  const whyPier = row.why_pier_selected ?? '';
+  return {
+    id: row.slug || row.id,
+    databaseId: row.id,
+    name: row.name,
+    manager: row.manager_name,
+    type: asDealType(row.deal_type),
+    assetClass: row.asset_class,
+    status: asDealStatus(row.status),
+    ...LOCKED_DEAL_TERMS,
+    currencyCode: 'USD',
+    publishedAt: row.published_at,
+    geography: row.geography ?? 'Global',
+    sectors: row.sectors ?? [],
+    description: row.description,
+    thesis: whyPier || row.description,
+    whyPierSelected: whyPier,
+    contacts: [],
+    documents: [],
+    reviewStatus: 'approved',
+    generatedSummary: '',
+    disclaimer: '',
+    offeringType: '',
+    jurisdiction: '',
+    eligibleInvestorRequirements: '',
+    visibilityTier: 'members',
+    internalNotes: '',
+    termHints: termHintsFromPreviewFlags(row),
+  };
+}
 
 function mapReturnMetricType(value: string | undefined): ReturnMetricType {
   if (value === 'moic' || value === 'yield' || value === 'custom' || value === 'none') return value;
@@ -923,6 +972,29 @@ export async function getCapitalDealBySlugOrId(identifier: string): Promise<Capi
   if (documentsError) throw new Error(`Unable to load deal documents: ${documentsError.message}`);
 
   return mapDeal(deal, documents ?? []);
+}
+
+export async function getCapitalDealPreviews(): Promise<CapitalDeal[]> {
+  return memoCapitalList('deal-previews', async () => {
+    const { data, error } = await supabase
+      .rpc('published_capital_deal_previews')
+      .abortSignal(capitalAbortSignal());
+
+    if (error) throw new Error(`Unable to load capital deal previews: ${error.message}`);
+    return (data ?? []).map(mapDealPreview);
+  });
+}
+
+export async function getCapitalDealPreview(identifier: string): Promise<CapitalDeal | null> {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(identifier);
+  const { data, error } = await supabase.rpc(
+    'published_capital_deal_previews',
+    isUuid ? { p_id: identifier } : { p_slug: identifier }
+  );
+
+  if (error) throw new Error(`Unable to load capital deal preview: ${error.message}`);
+  const row = data?.[0];
+  return row ? mapDealPreview(row) : null;
 }
 
 export async function getCapitalEvents(): Promise<CapitalEvent[]> {

@@ -5,15 +5,13 @@ import { DashboardEventCard } from '../../components/capital-markets/EventCard';
 import { GetOrientedCard } from '../../components/capital-markets/GetOrientedCard';
 import { MembershipReveal } from '../../components/capital-markets/MembershipReveal';
 import { OpportunityRow } from '../../components/capital-markets/OpportunityRow';
-import { UpgradePrompt } from '../../components/capital-markets/UpgradePrompt';
 import { PageFrame } from '../../components/layout/PageFrame';
 import { useAuth } from '../../context/AuthContext';
 import {
+  getCapitalDealPreviews,
   getCapitalDeals,
   getCapitalEvents,
   getMyCapitalEventRsvps,
-  type CapitalDeal,
-  type CapitalEvent,
   type CapitalEventRsvp,
 } from '../../lib/api/capitalMarkets';
 import {
@@ -45,19 +43,14 @@ async function loadDashboard(pierPlus: boolean, memberId?: string) {
     ? getMyCapitalEventRsvps(memberId).catch(() => [] as CapitalEventRsvp[])
     : Promise.resolve([] as CapitalEventRsvp[]);
 
-  if (!pierPlus) {
-    const [events, memberRsvps] = await withTimeout(
-      Promise.all([getCapitalEvents(), rsvps]),
-      CAPITAL_SUPABASE_TIMEOUT_MS,
-      'dashboard events'
-    );
-    return { deals: [] as CapitalDeal[], events, rsvps: memberRsvps };
-  }
-
   const [deals, events, memberRsvps] = await withTimeout(
-    Promise.all([getCapitalDeals(), getCapitalEvents(), rsvps]),
+    Promise.all([
+      pierPlus ? getCapitalDeals() : getCapitalDealPreviews(),
+      getCapitalEvents(),
+      rsvps,
+    ]),
     CAPITAL_SUPABASE_TIMEOUT_MS,
-    'dashboard summary'
+    pierPlus ? 'dashboard summary' : 'dashboard preview'
   );
   return { deals, events, rsvps: memberRsvps };
 }
@@ -118,6 +111,7 @@ export default function DashboardPage() {
       .filter((event) => event.upcoming)
       .filter((event) => eventMatchesCapitalRole(event.audience, capitalRole))
       .filter((event) => {
+        if (event.dateIsTbd) return true;
         const t = new Date(event.date).getTime();
         return t >= now && t - now <= THREE_WEEKS_MS;
       })
@@ -175,34 +169,24 @@ export default function DashboardPage() {
           <section>
             <div className="mb-4 flex items-center justify-between">
               <p className="eyebrow">Deal Flow</p>
-              {pierPlus ? (
-                <Link
-                  to="/deals"
-                  className="flex items-center gap-1 text-[12px] text-slate transition-colors hover:text-ink"
-                >
-                  View all <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              ) : null}
+              <Link
+                to="/deals"
+                className="flex items-center gap-1 text-[12px] text-slate transition-colors hover:text-ink"
+              >
+                View all <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-            {pierPlus ? (
-              openDeals.length === 0 ? (
-                <EmptyState
-                  title="No open opportunities right now."
-                  description="When Pier publishes a fund, co-invest, or SPV, it will appear here."
-                />
-              ) : (
-                <div className="grid gap-4">
-                  {openDeals.slice(0, 3).map((deal) => (
-                    <OpportunityRow key={deal.id} deal={deal} compact />
-                  ))}
-                </div>
-              )
-            ) : (
-              <UpgradePrompt
-                variant="inline"
-                title="Opportunities are included with Pier+"
-                description="Names, terms, contacts, and documents stay with Pier+. Events and Partners remain available on Standard."
+            {openDeals.length === 0 ? (
+              <EmptyState
+                title="No open opportunities right now."
+                description="When Pier publishes a fund, co-invest, or SPV, it will appear here."
               />
+            ) : (
+              <div className="grid gap-4">
+                {openDeals.slice(0, 3).map((deal) => (
+                  <OpportunityRow key={deal.id} deal={deal} compact />
+                ))}
+              </div>
             )}
           </section>
 
