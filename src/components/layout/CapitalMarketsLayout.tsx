@@ -25,7 +25,7 @@ export function CapitalMarketsLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-parchment">
       <CapitalMarketsSidebar />
-      <main className="flex flex-1 flex-col overflow-y-auto pt-14 lg:pt-0">
+      <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pt-14 lg:pt-0">
         <Suspense
           fallback={
             <div className="page-frame">

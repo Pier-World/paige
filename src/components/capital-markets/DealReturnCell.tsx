@@ -1,5 +1,5 @@
 import type { CapitalDeal } from '../../lib/api/capitalMarkets';
-import { formatDealReturn, hasPublicDealReturn } from '../../lib/utils';
+import { cn, formatDealReturn, hasPublicDealReturn } from '../../lib/utils';
 
 type DealReturnCellProps = {
   deal: Pick<
@@ -31,12 +31,21 @@ export function DealReturnCell({ deal, className = '', label = false }: DealRetu
 
   if (label) {
     return (
-      <div className={className}>
+      <div className={cn('min-w-0 overflow-hidden', className)}>
         <p className="eyebrow mb-0.5">Return</p>
-        <p className="font-mono-data text-ledger">{value}</p>
+        <p className="break-words font-mono-data text-ledger" title={value}>
+          {value}
+        </p>
       </div>
     );
   }
 
-  return <span className={`font-mono-data text-ledger ${className}`.trim()}>{value}</span>;
+  return (
+    <span
+      className={cn('block min-w-0 max-w-full break-words font-mono-data text-ledger', className)}
+      title={value}
+    >
+      {value}
+    </span>
+  );
 }

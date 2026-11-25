@@ -192,7 +192,7 @@ export default function DashboardPage() {
                 description="When Pier publishes a fund, co-invest, or SPV, it will appear here."
               />
             ) : (
-              <div className="grid gap-4">
+              <div className="grid min-w-0 gap-4 overflow-x-hidden">
                 {openDeals.slice(0, 3).map((deal) => (
                   <OpportunityRow key={deal.id} deal={deal} compact />
                 ))}

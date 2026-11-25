@@ -13,7 +13,7 @@ import { dataRoomMailto, opportunityInquiryMailto } from '../../lib/conciergeMai
 import { isPierPlus } from '../../lib/membership';
 import { useCapitalLoad } from '../../lib/useCapitalLoad';
 import { formatCurrency, formatDate, formatDealReturn, hasPublicDealAmount, hasPublicDealReturn } from '../../lib/utils';
-import { dealStatusLabels } from './mockData';
+import { dealStatusLabels, typeLabels } from './mockData';
 import { ErrorState, LoadingState } from './PageStates';
 
 type MetricRow = { label: string; value?: string; locked?: boolean };
@@ -103,6 +103,9 @@ export default function DealDetailPage() {
   }
 
   const loadedDeal = deal;
+  const displayTitle = loadedDeal.company?.name || loadedDeal.name;
+  const subtitle = loadedDeal.publicName || loadedDeal.manager;
+  const isFund = loadedDeal.type === 'fund';
   const returnValue = formatDealReturn(
     loadedDeal.returnMetricType,
     loadedDeal.targetIrr,
@@ -180,24 +183,27 @@ export default function DealDetailPage() {
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="font-display text-[36px] leading-[1] tracking-[-0.02em] text-ink">{deal.name}</h1>
-          <p className="mt-1.5 text-[15px] text-slate">
-            {deal.manager} / {deal.geography}
+          <h1 className="break-words font-display text-[36px] leading-[1] tracking-[-0.02em] text-ink">{displayTitle}</h1>
+          <p className="mt-1.5 break-words text-[15px] text-slate">
+            {deal.company?.roundName
+              ? `${subtitle} · ${deal.company.roundName} / ${deal.geography}`
+              : `${subtitle} / ${deal.geography}`}
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <Badge variant="default">{typeLabels[deal.type]}</Badge>
           <Badge variant={deal.status}>{dealStatusLabels[deal.status]}</Badge>
         </div>
       </div>
 
       <div className="gilt-rule mb-10 w-12" />
 
-      <div className="mb-10 grid gap-10 xl:grid-cols-[1fr_340px]">
-        <div>
-          <p className="max-w-3xl text-[15px] leading-relaxed text-ink/80">{deal.description}</p>
+      <div className="mb-10 grid min-w-0 gap-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
+        <div className="min-w-0">
+          <p className="max-w-3xl break-words text-[15px] leading-relaxed text-ink/80">{deal.description}</p>
         </div>
 
-        <aside className="rounded-[4px] border border-border bg-surface p-6">
+        <aside className="min-w-0 overflow-hidden rounded-[4px] border border-border bg-surface p-6">
           {showProgress ? (
             <DealProgressAside deal={deal} locked={preview} onUnlock={openFundGate} />
           ) : null}
@@ -205,8 +211,8 @@ export default function DealDetailPage() {
           {metricRows.length > 0 ? (
             <div className="space-y-3 text-[13px]">
               {metricRows.map((row) => (
-                <div key={row.label} className="flex items-center justify-between gap-4">
-                  <span className="text-slate">{row.label}</span>
+                <div key={row.label} className="flex items-start justify-between gap-4">
+                  <span className="shrink-0 text-slate">{row.label}</span>
                   {row.locked ? (
                     <button
                       type="button"
@@ -217,7 +223,9 @@ export default function DealDetailPage() {
                       <BlurredTerm />
                     </button>
                   ) : (
-                    <span className="font-mono-data text-right font-medium text-ink">{row.value}</span>
+                    <span className="min-w-0 break-words text-right font-mono-data font-medium text-ink">
+                      {row.value}
+                    </span>
                   )}
                 </div>
               ))}
@@ -230,11 +238,11 @@ export default function DealDetailPage() {
               onClick={openFundGate}
               className="inline-flex h-11 w-full select-none items-center justify-center gap-2 rounded-pier-md border border-ink bg-ink px-5 text-[14px] font-medium text-parchment transition-colors duration-150 hover:bg-ink/90"
             >
-              View fund
+              {isFund ? 'View fund' : 'View opportunity'}
             </button>
           ) : (
             <a
-              href={dataRoomMailto(deal.name)}
+              href={dataRoomMailto(displayTitle)}
               onClick={() =>
                 captureAnalytics(ANALYTICS_EVENTS.dealDataRoomRequested, {
                   deal_id: deal.databaseId,
@@ -279,7 +287,7 @@ export default function DealDetailPage() {
       {preview ? (
         <section className="mb-10">
           <div className="mb-4 flex items-center gap-4">
-            <p className="eyebrow">Fund</p>
+            <p className="eyebrow">{isFund ? 'Fund' : 'Opportunity'}</p>
             <div className="divider flex-1" />
           </div>
           <button
@@ -395,10 +403,10 @@ export default function DealDetailPage() {
         <UpgradePrompt
           open={fundGateOpen}
           onClose={() => setFundGateOpen(false)}
-          title="This fund is included with Pier+"
-          description={`Performance, terms, and materials for ${deal.name} stay with Pier+. Upgrade, or reach out and the team will follow up on this opportunity.`}
+          title={isFund ? 'This fund is included with Pier+' : 'This opportunity is included with Pier+'}
+          description={`Performance, terms, and materials for ${displayTitle} stay with Pier+. Upgrade, or reach out and the team will follow up on this opportunity.`}
           secondaryLabel="Ask the team"
-          secondaryHref={opportunityInquiryMailto(deal.name)}
+          secondaryHref={opportunityInquiryMailto(displayTitle)}
         />
       ) : null}
     </div>

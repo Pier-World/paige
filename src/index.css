@@ -241,7 +241,7 @@
   }
 
   .page-frame {
-    @apply mx-auto w-full max-w-[1200px] px-6 py-8 sm:px-10 lg:px-14 lg:py-12;
+    @apply mx-auto w-full max-w-[1200px] min-w-0 overflow-x-hidden px-6 py-8 sm:px-10 lg:px-14 lg:py-12;
   }
 
   .chip {

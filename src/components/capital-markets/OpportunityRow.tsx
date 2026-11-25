@@ -10,9 +10,9 @@ import { dealStatusLabels, typeLabels } from '../../pages/capital-markets/mockDa
 
 function Metric({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 overflow-hidden">
       <p className="eyebrow mb-0.5">{label}</p>
-      <p className="truncate font-mono-data text-[13px] font-medium text-ink">{children}</p>
+      <p className="break-words font-mono-data text-[13px] font-medium text-ink">{children}</p>
     </div>
   );
 }
@@ -22,7 +22,11 @@ export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; c
   const isClosed = deal.status === 'closed';
   const termsLocked = deal.termsLocked === true;
   const hints = deal.termHints;
-  const meta = [typeLabels[deal.type], deal.assetClass, deal.geography].filter(Boolean).join(' · ');
+  const displayTitle = deal.company?.name || deal.name;
+  const subtitle = deal.publicName || (deal.company?.name ? deal.name : deal.manager);
+  const meta = [typeLabels[deal.type], deal.assetClass, deal.company?.roundName, deal.geography]
+    .filter(Boolean)
+    .join(' · ');
   const reviewLabel = termsLocked
     ? compact
       ? 'Preview'
@@ -49,7 +53,7 @@ export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; c
           </Metric>
         ) : null,
         hints?.return ? (
-          <div key="return" className="min-w-0">
+          <div key="return" className="min-w-0 overflow-hidden">
             <p className="eyebrow mb-0.5">Return</p>
             <BlurredTerm />
           </div>
@@ -72,9 +76,12 @@ export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; c
       </Metric>
     ) : null,
     hasReturn ? (
-      <div key="return" className="min-w-0">
+      <div key="return" className="min-w-0 overflow-hidden">
         <p className="eyebrow mb-0.5">Return</p>
-        <DealReturnCell deal={deal} className="truncate text-[13px] font-medium" />
+        <DealReturnCell
+          deal={deal}
+          className="font-mono-data text-[13px] font-medium text-ink"
+        />
       </div>
     ) : null,
     deal.closeDate ? (
@@ -89,7 +96,7 @@ export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; c
       to={`/deals/${deal.id}`}
       state={termsLocked ? { openFundGate: true } : undefined}
       className={cn(
-        'group flex flex-col rounded-[4px] border bg-surface transition-colors',
+        'group flex w-full min-w-0 max-w-full flex-col overflow-hidden rounded-[4px] border bg-surface transition-colors',
         compact ? 'px-4 py-4 sm:px-5' : 'px-5 py-5 sm:px-6 sm:py-5',
         isClosing
           ? 'border-gilt/40 border-l-[3px] border-l-gilt hover:border-gilt/70 hover:border-l-gilt'
@@ -98,21 +105,21 @@ export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; c
         'hover:shadow-card focus-visible:outline-none focus-visible:border-ink/50'
       )}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
-        <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <div className={cn('flex flex-wrap items-center gap-x-2 gap-y-1.5', compact ? 'mb-2' : 'mb-2.5')}>
             <Badge variant={deal.status}>{dealStatusLabels[deal.status]}</Badge>
-            {meta ? <span className="text-[12px] text-slate">{meta}</span> : null}
+            {meta ? <span className="min-w-0 break-words text-[12px] text-slate">{meta}</span> : null}
           </div>
           <h2
             className={cn(
-              'font-display leading-[1.1] tracking-[-0.01em] text-ink',
+              'font-display leading-[1.1] tracking-[-0.01em] text-ink break-words',
               compact ? 'text-[20px] sm:text-[22px]' : 'text-[24px] sm:text-[26px]'
             )}
           >
-            {deal.name}
+            {displayTitle}
           </h2>
-          <p className="mt-1 text-[13px] text-slate">{deal.manager}</p>
+          <p className="mt-1 truncate text-[13px] text-slate">{subtitle}</p>
         </div>
         <span className="hidden shrink-0 items-center gap-1 pt-1 text-[13px] font-medium text-ink sm:flex">
           {reviewLabel}
@@ -121,7 +128,7 @@ export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; c
       </div>
 
       {deal.description ? (
-        <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-slate line-clamp-2">
+        <p className="mt-3 max-w-full break-words text-[14px] leading-relaxed text-slate line-clamp-2">
           {deal.description}
         </p>
       ) : null}
@@ -129,13 +136,13 @@ export function OpportunityRow({ deal, compact = false }: { deal: CapitalDeal; c
       {metrics.length > 0 ? (
         <div
           className={cn(
-            'mt-4 grid gap-3 border-t border-border pt-4',
+            'mt-4 grid min-w-0 gap-3 overflow-hidden border-t border-border pt-4',
             metrics.length === 1
               ? 'grid-cols-1'
               : metrics.length === 2
-                ? 'grid-cols-2'
+                ? 'grid-cols-1 sm:grid-cols-2'
                 : metrics.length === 3
-                  ? 'grid-cols-2 sm:grid-cols-3'
+                  ? 'grid-cols-1 sm:grid-cols-3'
                   : 'grid-cols-2 sm:grid-cols-4'
           )}
         >
